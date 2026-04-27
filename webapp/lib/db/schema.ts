@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, integer, jsonb } from "drizzle-orm/pg-core"
+import { pgTable, text, timestamp, boolean, uniqueIndex } from "drizzle-orm/pg-core"
 
 // ─── Better Auth tables ────────────────────────────────────────────────────
 
@@ -50,39 +50,47 @@ export const verification = pgTable("verification", {
 
 // ─── Notion connections ────────────────────────────────────────────────────
 
-export const notionConnection = pgTable("notion_connection", {
-  id: text("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-  accessToken: text("access_token").notNull(),
-  workspaceId: text("workspace_id").notNull(),
-  workspaceName: text("workspace_name").notNull(),
-  workspaceIcon: text("workspace_icon"),
-  databaseId: text("database_id"),
-  databaseName: text("database_name"),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-})
+export const notionConnection = pgTable(
+  "notion_connection",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    accessToken: text("access_token").notNull(),
+    workspaceId: text("workspace_id").notNull(),
+    workspaceName: text("workspace_name").notNull(),
+    workspaceIcon: text("workspace_icon"),
+    databaseId: text("database_id"),
+    databaseName: text("database_name"),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("notion_connection_user_workspace").on(t.userId, t.workspaceId)]
+)
 
 // ─── Instagram / Facebook accounts ────────────────────────────────────────
 
-export const instagramAccount = pgTable("instagram_account", {
-  id: text("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-  conta: text("conta").notNull(),
-  pageName: text("page_name").notNull(),
-  pageId: text("page_id").notNull(),
-  instagramBusinessAccountId: text("instagram_business_account_id").notNull(),
-  pageAccessToken: text("page_access_token").notNull(),
-  active: boolean("active").notNull().default(true),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
-})
+export const instagramAccount = pgTable(
+  "instagram_account",
+  {
+    id: text("id").primaryKey(),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    conta: text("conta").notNull(),
+    pageName: text("page_name").notNull(),
+    pageId: text("page_id").notNull(),
+    instagramBusinessAccountId: text("instagram_business_account_id").notNull(),
+    pageAccessToken: text("page_access_token").notNull(),
+    active: boolean("active").notNull().default(true),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+    updatedAt: timestamp("updated_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("instagram_account_user_page").on(t.userId, t.pageId)]
+)
 
 // ─── Field mapping ─────────────────────────────────────────────────────────
 
 export const fieldMapping = pgTable("field_mapping", {
   id: text("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }).unique(),
   titleField: text("title_field").notNull().default("Produção"),
   captionField: text("caption_field").notNull().default("Legenda"),
   mediaVerticalField: text("media_vertical_field").notNull().default("Mídia Vertical"),
@@ -106,7 +114,7 @@ export const publishLog = pgTable("publish_log", {
   postTitle: text("post_title"),
   conta: text("conta"),
   instagramPostId: text("instagram_post_id"),
-  status: text("status").notNull(), // "published" | "failed" | "skipped"
+  status: text("status").notNull(),
   error: text("error"),
   publishedAt: timestamp("published_at").notNull().defaultNow(),
 })

@@ -1,6 +1,5 @@
 import { db } from "@/lib/db"
 import { notionConnection } from "@/lib/db/schema"
-import { eq } from "drizzle-orm"
 import { generateId } from "@/lib/utils"
 import { NextResponse } from "next/server"
 
@@ -31,6 +30,7 @@ export async function GET(req: Request) {
     })
 
     const data = await tokenRes.json()
+    if (!data.access_token) throw new Error(data.error ?? "Token inválido")
 
     await db
       .insert(notionConnection)
@@ -42,11 +42,19 @@ export async function GET(req: Request) {
         workspaceName: data.workspace_name,
         workspaceIcon: data.workspace_icon ?? null,
       })
-      .onConflictDoNothing()
+      .onConflictDoUpdate({
+        target: [notionConnection.userId, notionConnection.workspaceId],
+        set: {
+          accessToken: data.access_token,
+          workspaceName: data.workspace_name,
+          workspaceIcon: data.workspace_icon ?? null,
+          updatedAt: new Date(),
+        },
+      })
 
     return NextResponse.redirect(`${appUrl}/settings?connected=true`)
   } catch (e) {
-    console.error(e)
+    console.error("Notion callback error:", e)
     return NextResponse.redirect(`${appUrl}/settings?error=failed`)
   }
 }
