@@ -90,7 +90,8 @@ export const instagramAccount = pgTable(
 
 export const fieldMapping = pgTable("field_mapping", {
   id: text("id").primaryKey(),
-  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }).unique(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  connectionId: text("connection_id").notNull().references(() => notionConnection.id, { onDelete: "cascade" }).unique(),
   // Campos de identificação
   titleField: text("title_field").notNull().default("Produção"),
   captionField: text("caption_field").notNull().default("Legenda"),

@@ -14,6 +14,7 @@ type ScheduledPost = {
   tipo: string
   plataformas: string[]
   scheduledDate: string | null
+  workspaceName?: string
 }
 
 const TIPO_COLORS: Record<string, string> = {
@@ -176,7 +177,12 @@ function PostRow({ post }: { post: ScheduledPost }) {
       <div className="flex items-center gap-4 min-w-0">
         <div className="min-w-0">
           <p className="font-medium truncate">{post.title || "Sem título"}</p>
-          <p className="text-sm text-muted-foreground">{post.conta}</p>
+          <p className="text-sm text-muted-foreground">
+            {post.conta}
+            {post.workspaceName && (
+              <span className="ml-2 opacity-60">· {post.workspaceName}</span>
+            )}
+          </p>
         </div>
       </div>
       <div className="flex items-center gap-3 shrink-0 ml-4">

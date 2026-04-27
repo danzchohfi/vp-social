@@ -12,7 +12,7 @@ function getDb() {
   return drizzle(sql, { schema })
 }
 
-// ─── Scheduled: roda a cada 5 minutos para todos os usuários ──────────────
+// ─── Scheduled: roda a cada 5 minutos para todos os workspaces ────────────
 
 export const publishScheduled = schedules.task({
   id: "publish-scheduled-posts",
@@ -20,42 +20,43 @@ export const publishScheduled = schedules.task({
   run: async () => {
     const db = getDb()
     const connections = await db.select().from(schema.notionConnection)
-    logger.info(`Verificando ${connections.length} workspaces Notion...`)
+    const ready = connections.filter((c) => c.databaseId)
+    logger.info(`Verificando ${ready.length} workspaces com banco configurado...`)
 
     const results = await Promise.allSettled(
-      connections
-        .filter((c) => c.databaseId)
-        .map((c) => publishForUser.triggerAndWait({ userId: c.userId }))
+      ready.map((c) => publishForConnection.triggerAndWait({ connectionId: c.id }))
     )
 
     const ok = results.filter((r) => r.status === "fulfilled").length
     const err = results.filter((r) => r.status === "rejected").length
-    logger.info(`Finalizado: ${ok} usuários OK, ${err} com erro.`)
+    logger.info(`Finalizado: ${ok} workspaces OK, ${err} com erro.`)
   },
 })
 
-// ─── Task por usuário ──────────────────────────────────────────────────────
+// ─── Task por workspace/conexão ───────────────────────────────────────────
 
-export const publishForUser = task({
-  id: "publish-for-user",
+export const publishForConnection = task({
+  id: "publish-for-connection",
   retry: { maxAttempts: 2 },
-  run: async ({ userId }: { userId: string }) => {
+  run: async ({ connectionId }: { connectionId: string }) => {
     const db = getDb()
 
     const [connection] = await db
       .select()
       .from(schema.notionConnection)
-      .where(eq(schema.notionConnection.userId, userId))
+      .where(eq(schema.notionConnection.id, connectionId))
 
     if (!connection?.databaseId) {
-      logger.info(`Usuário ${userId} sem banco Notion configurado.`)
+      logger.info(`Conexão ${connectionId} sem banco Notion configurado.`)
       return { published: 0, failed: 0, skipped: 0 }
     }
+
+    const { userId } = connection
 
     const [mappingRow] = await db
       .select()
       .from(schema.fieldMapping)
-      .where(eq(schema.fieldMapping.userId, userId))
+      .where(eq(schema.fieldMapping.connectionId, connectionId))
 
     const mapping: FieldMapping = mappingRow ?? DEFAULT_MAPPING
 
@@ -77,16 +78,16 @@ export const publishForUser = task({
     try {
       posts = await notion.getReadyPosts(connection.databaseId, mapping)
     } catch (e) {
-      logger.error(`Erro ao buscar posts no Notion para ${userId}: ${e}`)
+      logger.error(`Erro ao buscar posts no Notion (workspace ${connection.workspaceName}): ${e}`)
       return { published: 0, failed: 0, skipped: 0 }
     }
 
     if (!posts.length) {
-      logger.info(`Nenhum post agendado para usuário ${userId}.`)
+      logger.info(`Nenhum post agendado no workspace ${connection.workspaceName}.`)
       return { published: 0, failed: 0, skipped: 0 }
     }
 
-    logger.info(`${posts.length} post(s) encontrado(s) para usuário ${userId}.`)
+    logger.info(`${posts.length} post(s) encontrado(s) no workspace ${connection.workspaceName}.`)
     const results = { published: 0, failed: 0, skipped: 0 }
 
     for (const post of posts) {
@@ -120,7 +121,7 @@ export const publishForUser = task({
     }
 
     logger.info(
-      `Usuário ${userId}: ${results.published} publicados, ${results.failed} erros, ${results.skipped} ignorados.`
+      `Workspace ${connection.workspaceName}: ${results.published} publicados, ${results.failed} erros, ${results.skipped} ignorados.`
     )
     return results
   },
@@ -134,49 +135,35 @@ async function publishPost(
 ): Promise<string> {
   const tipo = post.tipo.toLowerCase()
 
-  // Story
   if (tipo === "story") {
     const videoUrl = post.verticalUrls[0]
     const imageUrl = post.feedImageUrls[0] ?? post.verticalUrls[0]
-    if (videoUrl && isVideo(videoUrl)) {
-      return publisher.publishStoryVideo(videoUrl)
-    }
-    if (imageUrl) {
-      return publisher.publishStoryImage(imageUrl)
-    }
+    if (videoUrl && isVideo(videoUrl)) return publisher.publishStoryVideo(videoUrl)
+    if (imageUrl) return publisher.publishStoryImage(imageUrl)
     throw new Error("Story requer Mídia Vertical (vídeo) ou Imagens Feed (imagem)")
   }
 
-  // Reel
   if (tipo === "reel") {
     const videoUrl = post.verticalUrls[0]
     if (!videoUrl) throw new Error("Reel requer um vídeo em Mídia Vertical")
     return publisher.publishReel(videoUrl, post.fullCaption, post.thumbnailUrl)
   }
 
-  // Carrossel
   if (tipo === "carrossel") {
     const images = post.feedImageUrls.length > 0 ? post.feedImageUrls : post.verticalUrls
     if (images.length < 2) throw new Error("Carrossel requer pelo menos 2 imagens em Imagens Feed")
     return publisher.publishCarousel(images, post.fullCaption)
   }
 
-  // Feed vídeo
   if (tipo === "feed vídeo" || tipo === "feed video") {
     const videoUrl = post.feedImageUrls[0] ?? post.verticalUrls[0]
     if (!videoUrl) throw new Error("Feed Vídeo requer mídia em Imagens Feed ou Mídia Vertical")
     return publisher.publishFeedVideo(videoUrl, post.fullCaption, post.thumbnailUrl)
   }
 
-  // Feed (imagem única — padrão)
   const images = post.feedImageUrls.length > 0 ? post.feedImageUrls : post.verticalUrls
   if (!images.length) throw new Error("Feed requer ao menos uma imagem em Imagens Feed ou Mídia Vertical")
-
-  if (images.length > 1) {
-    // múltiplas imagens → carrossel automaticamente
-    return publisher.publishCarousel(images, post.fullCaption)
-  }
-
+  if (images.length > 1) return publisher.publishCarousel(images, post.fullCaption)
   return publisher.publishFeedImage(images[0], post.fullCaption)
 }
 
