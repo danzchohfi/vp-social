@@ -1,16 +1,18 @@
 """
 Fluxo OAuth do Facebook para obter tokens de acesso às páginas e contas Instagram.
-Abre o navegador para autorização e extrai o código da URL de retorno colada pelo usuário.
+Abre o navegador, captura o callback automaticamente via servidor local.
 """
 
 import os
 import webbrowser
 import requests
+from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from dataclasses import dataclass
 
 GRAPH = "https://graph.facebook.com/v19.0"
-REDIRECT_URI = "https://www.facebook.com/connect/login_success.html"
+CALLBACK_PORT = 8000
+REDIRECT_URI = f"http://localhost:{CALLBACK_PORT}/callback"
 SCOPES = "instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement"
 
 
@@ -22,10 +24,30 @@ class InstagramAccount:
     page_access_token: str
 
 
+class _CallbackHandler(BaseHTTPRequestHandler):
+    code: str | None = None
+
+    def do_GET(self):
+        parsed = urlparse(self.path)
+        if parsed.path == "/callback":
+            params = parse_qs(parsed.query)
+            _CallbackHandler.code = params.get("code", [None])[0]
+            self.send_response(200)
+            self.send_header("Content-Type", "text/html; charset=utf-8")
+            self.end_headers()
+            if _CallbackHandler.code:
+                self.wfile.write("<h2>✓ Autorizado! Pode fechar esta aba e voltar ao terminal.</h2>".encode())
+            else:
+                self.wfile.write("<h2>Erro na autorização. Tente novamente.</h2>".encode())
+
+    def log_message(self, *args):
+        pass
+
+
 def run_oauth_flow() -> list[InstagramAccount]:
     """
     Executa o fluxo OAuth completo e retorna as contas Instagram disponíveis.
-    Não requer configuração de redirect URI — usa a URL de sucesso padrão do Facebook.
+    Abre o browser automaticamente e captura o código sem intervenção do usuário.
     """
     app_id = os.getenv("FACEBOOK_APP_ID")
     app_secret = os.getenv("FACEBOOK_APP_SECRET")
@@ -40,40 +62,22 @@ def run_oauth_flow() -> list[InstagramAccount]:
         f"&response_type=code"
     )
 
-    print("\n" + "=" * 60)
-    print("PASSO 1: Abra esta URL no navegador e faça login:")
-    print("=" * 60)
-    print(f"\n{auth_url}\n")
+    print("\nAbrindo o Facebook no navegador...")
+    print("Faça login e autorize o app. Esta janela vai continuar automaticamente.\n")
     webbrowser.open(auth_url)
 
-    print("=" * 60)
-    print("PASSO 2: Após autorizar, o navegador vai abrir uma")
-    print("página em branco. Copie a URL completa da barra de")
-    print("endereços e cole aqui:")
-    print("=" * 60)
-    callback_url = input("\nURL de retorno: ").strip()
+    _CallbackHandler.code = None
+    server = HTTPServer(("localhost", CALLBACK_PORT), _CallbackHandler)
+    server.handle_request()
 
-    code = _extract_code(callback_url)
+    code = _CallbackHandler.code
     if not code:
-        raise RuntimeError(
-            "Não foi possível extrair o código da URL. "
-            "Certifique-se de copiar a URL completa após o login."
-        )
+        raise RuntimeError("Autorização negada ou cancelada.")
 
-    print("\nAutorizando... aguarde.")
+    print("Autorizado! Buscando contas...")
     short_token = _exchange_code(code, app_id, app_secret)
     long_token = _exchange_long_lived(short_token, app_id, app_secret)
-    accounts = _list_instagram_accounts(long_token)
-
-    return accounts
-
-
-def _extract_code(url: str) -> str | None:
-    try:
-        params = parse_qs(urlparse(url).query)
-        return params.get("code", [None])[0]
-    except Exception:
-        return None
+    return _list_instagram_accounts(long_token)
 
 
 def _exchange_code(code: str, app_id: str, app_secret: str) -> str:
@@ -104,10 +108,9 @@ def _list_instagram_accounts(user_token: str) -> list[InstagramAccount]:
         "access_token": user_token,
     })
     _check(resp)
-    pages = resp.json().get("data", [])
 
     accounts = []
-    for page in pages:
+    for page in resp.json().get("data", []):
         ig = page.get("instagram_business_account")
         if ig:
             accounts.append(InstagramAccount(
