@@ -12,9 +12,13 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const { id } = await params
   const body = await req.json()
 
+  const update: Record<string, unknown> = { updatedAt: new Date() }
+  if (body.active !== undefined) update.active = body.active
+  if (body.conta !== undefined) update.conta = body.conta
+
   await db
     .update(instagramAccount)
-    .set({ active: body.active, updatedAt: new Date() })
+    .set(update)
     .where(and(eq(instagramAccount.id, id), eq(instagramAccount.userId, session.user.id)))
 
   return NextResponse.json({ ok: true })
