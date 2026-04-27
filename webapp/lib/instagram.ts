@@ -1,66 +1,154 @@
+/**
+ * Instagram Graph API publisher
+ *
+ * Limites importantes:
+ * ─ Feed imagem:   JPG/PNG, máx 8MB, proporção 1.91:1 até 4:5, mín 320px
+ * ─ Carrossel:     2–10 itens (todos imagens OU todos vídeos)
+ * ─ Reel:          MP4 H.264, máx 1GB, 3–90s, proporção 9:16 recomendada
+ * ─ Story imagem:  JPG/PNG, proporção 9:16, máx 30MB
+ * ─ Story vídeo:   MP4, máx 100MB, 3–60s, proporção 9:16
+ * ─ Feed vídeo:    MP4 H.264, máx 1GB, 3–60min, proporção 4:5 a 16:9
+ * ─ Publicações:   máx 25 posts por 24h por conta
+ */
+
 const GRAPH = "https://graph.facebook.com/v19.0"
 
 export function createInstagramPublisher(accountId: string, accessToken: string) {
   return {
-    async publishSingle(imageUrl: string, caption: string): Promise<string> {
-      const containerId = await createImageContainer(accountId, accessToken, imageUrl, caption)
-      await waitForContainer(accountId, accessToken, containerId)
-      return publishContainer(accountId, accessToken, containerId)
+    /** Imagem única no feed */
+    async publishFeedImage(imageUrl: string, caption: string): Promise<string> {
+      const id = await createContainer(accountId, accessToken, {
+        image_url: imageUrl,
+        caption,
+      })
+      await waitForContainer(accountId, accessToken, id)
+      return publishContainer(accountId, accessToken, id)
     },
 
+    /** Carrossel de imagens no feed (2–10 imagens) */
     async publishCarousel(imageUrls: string[], caption: string): Promise<string> {
       if (imageUrls.length < 2 || imageUrls.length > 10) {
         throw new Error("Carrossel requer entre 2 e 10 imagens")
       }
       const childIds: string[] = []
       for (const url of imageUrls) {
-        const id = await createCarouselItem(accountId, accessToken, url)
+        const id = await createContainer(accountId, accessToken, {
+          image_url: url,
+          is_carousel_item: "true",
+        })
         await waitForContainer(accountId, accessToken, id)
         childIds.push(id)
       }
-      const carouselId = await createCarouselContainer(accountId, accessToken, childIds, caption)
+      const carouselId = await createContainer(accountId, accessToken, {
+        media_type: "CAROUSEL",
+        children: childIds.join(","),
+        caption,
+      })
       await waitForContainer(accountId, accessToken, carouselId)
       return publishContainer(accountId, accessToken, carouselId)
+    },
+
+    /** Reel (vídeo vertical, aparece no feed e aba Reels) */
+    async publishReel(
+      videoUrl: string,
+      caption: string,
+      thumbnailUrl?: string | null,
+      shareToFeed = true
+    ): Promise<string> {
+      const id = await createContainer(accountId, accessToken, {
+        media_type: "REELS",
+        video_url: videoUrl,
+        caption,
+        share_to_feed: shareToFeed ? "true" : "false",
+        ...(thumbnailUrl ? { thumb_offset: "0" } : {}),
+      })
+      await waitForContainer(accountId, accessToken, id, 20)
+      return publishContainer(accountId, accessToken, id)
+    },
+
+    /** Story de imagem (some após 24h) */
+    async publishStoryImage(imageUrl: string): Promise<string> {
+      const id = await createContainer(accountId, accessToken, {
+        media_type: "STORIES",
+        image_url: imageUrl,
+      })
+      await waitForContainer(accountId, accessToken, id)
+      return publishContainer(accountId, accessToken, id)
+    },
+
+    /** Story de vídeo (some após 24h) */
+    async publishStoryVideo(videoUrl: string): Promise<string> {
+      const id = await createContainer(accountId, accessToken, {
+        media_type: "STORIES",
+        video_url: videoUrl,
+      })
+      await waitForContainer(accountId, accessToken, id, 20)
+      return publishContainer(accountId, accessToken, id)
+    },
+
+    /** Vídeo no feed */
+    async publishFeedVideo(videoUrl: string, caption: string, thumbnailUrl?: string | null): Promise<string> {
+      const id = await createContainer(accountId, accessToken, {
+        media_type: "VIDEO",
+        video_url: videoUrl,
+        caption,
+        ...(thumbnailUrl ? { thumb_offset: "0" } : {}),
+      })
+      await waitForContainer(accountId, accessToken, id, 20)
+      return publishContainer(accountId, accessToken, id)
     },
   }
 }
 
-async function createImageContainer(accountId: string, token: string, imageUrl: string, caption: string): Promise<string> {
-  return postGraph(`/${accountId}/media`, token, { image_url: imageUrl, caption })
-}
+// ─── Helpers ───────────────────────────────────────────────────────────────
 
-async function createCarouselItem(accountId: string, token: string, imageUrl: string): Promise<string> {
-  return postGraph(`/${accountId}/media`, token, { image_url: imageUrl, is_carousel_item: "true" })
-}
-
-async function createCarouselContainer(accountId: string, token: string, childIds: string[], caption: string): Promise<string> {
-  return postGraph(`/${accountId}/media`, token, {
-    media_type: "CAROUSEL",
-    children: childIds.join(","),
-    caption,
-  })
+async function createContainer(
+  accountId: string,
+  token: string,
+  params: Record<string, string>
+): Promise<string> {
+  return postGraph(`/${accountId}/media`, token, params)
 }
 
 async function publishContainer(accountId: string, token: string, containerId: string): Promise<string> {
   return postGraph(`/${accountId}/media_publish`, token, { creation_id: containerId })
 }
 
-async function waitForContainer(accountId: string, token: string, containerId: string, attempts = 10): Promise<void> {
-  for (let i = 0; i < attempts; i++) {
-    const res = await fetch(`${GRAPH}/${containerId}?fields=status_code&access_token=${token}`)
+async function waitForContainer(
+  accountId: string,
+  token: string,
+  containerId: string,
+  maxAttempts = 10
+): Promise<void> {
+  for (let i = 0; i < maxAttempts; i++) {
+    const res = await fetch(
+      `${GRAPH}/${containerId}?fields=status_code,status&access_token=${token}`
+    )
     const data = await res.json()
-    if (data.status_code === "FINISHED") return
-    if (data.status_code === "ERROR") throw new Error(`Erro ao processar container ${containerId}`)
-    await sleep(3000 * (i + 1))
+    const code = data.status_code as string
+
+    if (code === "FINISHED") return
+    if (code === "ERROR" || code === "EXPIRED") {
+      throw new Error(`Erro no container ${containerId}: ${data.status ?? code}`)
+    }
+
+    // IN_PROGRESS ou PUBLISHED → aguarda
+    await sleep(4000 * (i + 1))
   }
   throw new Error(`Container ${containerId} não ficou pronto a tempo`)
 }
 
-async function postGraph(path: string, token: string, body: Record<string, string>): Promise<string> {
+async function postGraph(
+  path: string,
+  token: string,
+  body: Record<string, string>
+): Promise<string> {
   const params = new URLSearchParams({ ...body, access_token: token })
   const res = await fetch(`${GRAPH}${path}`, { method: "POST", body: params })
   const data = await res.json()
-  if (!res.ok) throw new Error(`Instagram API: ${data.error?.message ?? res.statusText}`)
+  if (!res.ok || data.error) {
+    throw new Error(`Instagram API (${path}): ${data.error?.message ?? res.statusText}`)
+  }
   return data.id
 }
 

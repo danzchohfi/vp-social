@@ -91,14 +91,24 @@ export const instagramAccount = pgTable(
 export const fieldMapping = pgTable("field_mapping", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }).unique(),
+  // Campos de identificação
   titleField: text("title_field").notNull().default("Produção"),
   captionField: text("caption_field").notNull().default("Legenda"),
+  hashtagsField: text("hashtags_field").notNull().default("Hashtags"),
+  // Tipo de conteúdo e plataformas
+  tipoField: text("tipo_field").notNull().default("Tipo"),
+  plataformasField: text("plataformas_field").notNull().default("Plataformas"),
+  // Mídias
   mediaVerticalField: text("media_vertical_field").notNull().default("Mídia Vertical"),
   mediaHorizontalField: text("media_horizontal_field").notNull().default("Mídia Horizontal"),
+  mediaFeedField: text("media_feed_field").notNull().default("Imagens Feed"),
+  thumbnailField: text("thumbnail_field").notNull().default("Thumbnail"),
+  // Status
   statusField: text("status_field").notNull().default("Status"),
   statusReadyValue: text("status_ready_value").notNull().default("Agendamento"),
   statusPublishedValue: text("status_published_value").notNull().default("Publicado"),
   statusErrorValue: text("status_error_value").notNull().default("Erro"),
+  // Agendamento e conta
   dateField: text("date_field").notNull().default("Dia para fazer"),
   accountField: text("account_field").notNull().default("Conta"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

@@ -1,20 +1,45 @@
 import { Client } from "@notionhq/client"
 
+// ─── Tipos de conteúdo suportados ─────────────────────────────────────────
+
+export type ContentType =
+  | "Feed"        // imagem única no feed
+  | "Carrossel"   // múltiplas imagens no feed
+  | "Reel"        // vídeo vertical (até 90s) — aparece no feed e Reels
+  | "Story"       // vídeo ou imagem vertical (some em 24h)
+  | "YouTube"     // vídeo horizontal longo
+  | "YouTube Short" // vídeo vertical curto (até 60s)
+
+export type Platform = "Instagram" | "Facebook" | "YouTube"
+
 export interface NotionPost {
   pageId: string
   title: string
   conta: string
   caption: string
-  verticalUrls: string[]
-  horizontalUrls: string[]
+  hashtags: string
+  tipo: ContentType | string
+  plataformas: Platform[]
+  // Mídias
+  verticalUrls: string[]     // 9:16 → Reels, Stories, YouTube Shorts
+  horizontalUrls: string[]   // 16:9 → YouTube
+  feedImageUrls: string[]    // 1:1 ou 4:5 → Feed e Carrossel
+  thumbnailUrl: string | null // capa do Reel / YouTube
   scheduledDate: string | null
+  // Campo completo para caption + hashtags
+  fullCaption: string
 }
 
 export interface FieldMapping {
   titleField: string
   captionField: string
+  hashtagsField: string
+  tipoField: string
+  plataformasField: string
   mediaVerticalField: string
   mediaHorizontalField: string
+  mediaFeedField: string
+  thumbnailField: string
   statusField: string
   statusReadyValue: string
   statusPublishedValue: string
@@ -22,6 +47,26 @@ export interface FieldMapping {
   dateField: string
   accountField: string
 }
+
+export const DEFAULT_MAPPING: FieldMapping = {
+  titleField: "Produção",
+  captionField: "Legenda",
+  hashtagsField: "Hashtags",
+  tipoField: "Tipo",
+  plataformasField: "Plataformas",
+  mediaVerticalField: "Mídia Vertical",
+  mediaHorizontalField: "Mídia Horizontal",
+  mediaFeedField: "Imagens Feed",
+  thumbnailField: "Thumbnail",
+  statusField: "Status",
+  statusReadyValue: "Agendamento",
+  statusPublishedValue: "Publicado",
+  statusErrorValue: "Erro",
+  dateField: "Dia para fazer",
+  accountField: "Conta",
+}
+
+// ─── Cliente Notion ────────────────────────────────────────────────────────
 
 export function createNotionClient(accessToken: string) {
   const client = new Client({ auth: accessToken })
@@ -72,16 +117,27 @@ export function createNotionClient(accessToken: string) {
   }
 }
 
-function parsePage(page: any, mapping: FieldMapping): NotionPost {
-  const props = page.properties
+// ─── Parsing ───────────────────────────────────────────────────────────────
+
+function parsePage(page: any, m: FieldMapping): NotionPost {
+  const p = page.properties
+  const caption = getRichText(p[m.captionField], "rich_text")
+  const hashtags = getRichText(p[m.hashtagsField], "rich_text")
+
   return {
     pageId: page.id,
-    title: getRichText(props[mapping.titleField], "title"),
-    conta: getSelect(props[mapping.accountField]),
-    caption: getRichText(props[mapping.captionField], "rich_text"),
-    verticalUrls: getFiles(props[mapping.mediaVerticalField]),
-    horizontalUrls: getFiles(props[mapping.mediaHorizontalField]),
-    scheduledDate: getDate(props[mapping.dateField]),
+    title: getRichText(p[m.titleField], "title"),
+    conta: getSelect(p[m.accountField]),
+    caption,
+    hashtags,
+    tipo: getSelect(p[m.tipoField]) || "Feed",
+    plataformas: getMultiSelect(p[m.plataformasField]) as Platform[],
+    verticalUrls: getFiles(p[m.mediaVerticalField]),
+    horizontalUrls: getFiles(p[m.mediaHorizontalField]),
+    feedImageUrls: getFiles(p[m.mediaFeedField]),
+    thumbnailUrl: getFiles(p[m.thumbnailField])[0] ?? null,
+    scheduledDate: getDate(p[m.dateField]),
+    fullCaption: [caption, hashtags].filter(Boolean).join("\n\n"),
   }
 }
 
@@ -95,6 +151,11 @@ function getSelect(prop: any): string {
   return prop.select?.name ?? prop.status?.name ?? ""
 }
 
+function getMultiSelect(prop: any): string[] {
+  if (!prop?.multi_select) return []
+  return prop.multi_select.map((s: any) => s.name)
+}
+
 function getDate(prop: any): string | null {
   return prop?.date?.start ?? null
 }
@@ -102,6 +163,8 @@ function getDate(prop: any): string | null {
 function getFiles(prop: any): string[] {
   if (!prop?.files) return []
   return prop.files
-    .map((f: any) => f.type === "external" ? f.external.url : f.file?.url ?? null)
+    .map((f: any) =>
+      f.type === "external" ? f.external.url : f.file?.url ?? null
+    )
     .filter(Boolean)
 }
