@@ -1,5 +1,6 @@
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
+import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
 import { instagramAccount, notionConnection, publishLog } from "@/lib/db/schema"
 import { eq, desc, count, and, sql } from "drizzle-orm"
@@ -32,6 +33,11 @@ export default async function DashboardPage() {
   const notionHasDb = notion.some((n) => n.databaseId)
   const hasAccounts = accounts.filter((a) => a.active).length > 0
   const isReady = notionConnected && notionHasDb && hasAccounts
+
+  // Brand-new users with no connections at all go through onboarding
+  if (!notionConnected && !hasAccounts && logs.length === 0) {
+    redirect("/onboarding")
+  }
 
   const totalPublished = stats.find((s) => s.status === "published")?.total ?? 0
   const totalFailed = stats.find((s) => s.status === "failed")?.total ?? 0

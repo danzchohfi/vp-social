@@ -8,10 +8,14 @@ const GRAPH = "https://graph.facebook.com/v19.0"
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get("code")
-  const userId = searchParams.get("state")
+  const rawState = searchParams.get("state") ?? ""
+  const [userId, from] = rawState.split(":")
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
 
-  if (!code || !userId) return NextResponse.redirect(`${appUrl}/accounts?error=cancelled`)
+  const successUrl = from ? `${appUrl}/${from}?instagram_connected=true` : `${appUrl}/accounts?connected=true`
+  const errorBase = from ? `${appUrl}/${from}` : `${appUrl}/accounts`
+
+  if (!code || !userId) return NextResponse.redirect(`${errorBase}?error=cancelled`)
 
   try {
     const tokenRes = await fetch(
@@ -60,12 +64,12 @@ export async function GET(req: Request) {
     }
 
     if (connected === 0) {
-      return NextResponse.redirect(`${appUrl}/accounts?error=no_instagram`)
+      return NextResponse.redirect(`${errorBase}?error=no_instagram`)
     }
 
-    return NextResponse.redirect(`${appUrl}/accounts?connected=${connected}`)
+    return NextResponse.redirect(successUrl)
   } catch (e) {
     console.error("Facebook callback error:", e)
-    return NextResponse.redirect(`${appUrl}/accounts?error=failed`)
+    return NextResponse.redirect(`${errorBase}?error=failed`)
   }
 }

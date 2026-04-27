@@ -6,10 +6,14 @@ import { NextResponse } from "next/server"
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get("code")
-  const userId = searchParams.get("state")
+  const rawState = searchParams.get("state") ?? ""
+  const [userId, from] = rawState.split(":")
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
 
-  if (!code || !userId) return NextResponse.redirect(`${appUrl}/settings?error=cancelled`)
+  const successUrl = from ? `${appUrl}/${from}?notion_connected=true` : `${appUrl}/settings?connected=true`
+  const errorBase = from ? `${appUrl}/${from}` : `${appUrl}/settings`
+
+  if (!code || !userId) return NextResponse.redirect(`${errorBase}?error=cancelled`)
 
   try {
     const credentials = Buffer.from(
@@ -52,9 +56,9 @@ export async function GET(req: Request) {
         },
       })
 
-    return NextResponse.redirect(`${appUrl}/settings?connected=true`)
+    return NextResponse.redirect(successUrl)
   } catch (e) {
     console.error("Notion callback error:", e)
-    return NextResponse.redirect(`${appUrl}/settings?error=failed`)
+    return NextResponse.redirect(`${errorBase}?error=failed`)
   }
 }
