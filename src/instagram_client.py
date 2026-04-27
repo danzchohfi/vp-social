@@ -1,28 +1,24 @@
-import os
 import time
 import requests
+from typing import TYPE_CHECKING
 
+if TYPE_CHECKING:
+    from .client_config import ClientConfig
 
 GRAPH_API_BASE = "https://graph.facebook.com/v19.0"
 
 
 class InstagramPublisher:
-    def __init__(self):
-        self.account_id = os.getenv("INSTAGRAM_BUSINESS_ACCOUNT_ID")
-        self.access_token = os.getenv("FACEBOOK_ACCESS_TOKEN")
-        if not self.account_id or not self.access_token:
-            raise ValueError(
-                "INSTAGRAM_BUSINESS_ACCOUNT_ID e FACEBOOK_ACCESS_TOKEN são obrigatórios"
-            )
+    def __init__(self, client: "ClientConfig"):
+        self.account_id = client.instagram_business_account_id
+        self.access_token = client.facebook_access_token
 
     def publish_single(self, image_url: str, caption: str) -> str:
-        """Publica uma imagem única e retorna o ID da publicação."""
         container_id = self._create_image_container(image_url, caption)
         self._wait_for_container(container_id)
         return self._publish_container(container_id)
 
     def publish_carousel(self, image_urls: list[str], caption: str) -> str:
-        """Publica um carrossel de imagens e retorna o ID da publicação."""
         if len(image_urls) < 2 or len(image_urls) > 10:
             raise ValueError("Carrossel requer entre 2 e 10 imagens")
 
@@ -37,39 +33,22 @@ class InstagramPublisher:
         return self._publish_container(carousel_id)
 
     def _create_image_container(self, image_url: str, caption: str) -> str:
-        response = self._post(
-            f"/{self.account_id}/media",
-            {"image_url": image_url, "caption": caption},
-        )
-        return response["id"]
+        return self._post(f"/{self.account_id}/media", {"image_url": image_url, "caption": caption})["id"]
 
     def _create_carousel_item(self, image_url: str) -> str:
-        response = self._post(
-            f"/{self.account_id}/media",
-            {"image_url": image_url, "is_carousel_item": True},
-        )
-        return response["id"]
+        return self._post(f"/{self.account_id}/media", {"image_url": image_url, "is_carousel_item": True})["id"]
 
     def _create_carousel_container(self, children_ids: list[str], caption: str) -> str:
-        response = self._post(
-            f"/{self.account_id}/media",
-            {
-                "media_type": "CAROUSEL",
-                "children": ",".join(children_ids),
-                "caption": caption,
-            },
-        )
-        return response["id"]
+        return self._post(f"/{self.account_id}/media", {
+            "media_type": "CAROUSEL",
+            "children": ",".join(children_ids),
+            "caption": caption,
+        })["id"]
 
     def _publish_container(self, container_id: str) -> str:
-        response = self._post(
-            f"/{self.account_id}/media_publish",
-            {"creation_id": container_id},
-        )
-        return response["id"]
+        return self._post(f"/{self.account_id}/media_publish", {"creation_id": container_id})["id"]
 
     def _wait_for_container(self, container_id: str, max_attempts: int = 10) -> None:
-        """Aguarda o container ficar pronto para publicação."""
         for attempt in range(max_attempts):
             status = self._get_container_status(container_id)
             if status == "FINISHED":

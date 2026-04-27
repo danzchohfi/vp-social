@@ -1,7 +1,10 @@
 import os
 from notion_client import Client
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .client_config import ClientConfig
 
 
 @dataclass
@@ -23,16 +26,16 @@ class NotionReader:
     STATUS_PUBLISHED = "Publicado"
     STATUS_ERROR = "Erro"
 
-    def __init__(self):
+    def __init__(self, client: "ClientConfig"):
         api_key = os.getenv("NOTION_API_KEY")
-        self.database_id = os.getenv("NOTION_DATABASE_ID")
-        if not api_key or not self.database_id:
-            raise ValueError("NOTION_API_KEY e NOTION_DATABASE_ID são obrigatórios")
-        self.client = Client(auth=api_key)
+        if not api_key:
+            raise ValueError("NOTION_API_KEY é obrigatório no .env")
+        self.database_id = client.notion_database_id
+        self.client_name = client.name
+        self.notion = Client(auth=api_key)
 
-    def get_ready_posts(self) -> list["NotionPost"]:
-        """Busca posts com status 'Agendamento' ordenados por 'Dia para fazer'."""
-        response = self.client.databases.query(
+    def get_ready_posts(self) -> list[NotionPost]:
+        response = self.notion.databases.query(
             database_id=self.database_id,
             filter={
                 "property": "Status",
@@ -43,18 +46,18 @@ class NotionReader:
         return [self._parse_page(page) for page in response["results"]]
 
     def mark_as_published(self, page_id: str) -> None:
-        self.client.pages.update(
+        self.notion.pages.update(
             page_id=page_id,
             properties={"Status": {"status": {"name": self.STATUS_PUBLISHED}}},
         )
 
     def mark_as_failed(self, page_id: str, error: str) -> None:
-        self.client.pages.update(
+        self.notion.pages.update(
             page_id=page_id,
             properties={"Status": {"status": {"name": self.STATUS_ERROR}}},
         )
 
-    def _parse_page(self, page: dict) -> "NotionPost":
+    def _parse_page(self, page: dict) -> NotionPost:
         props = page["properties"]
         return NotionPost(
             page_id=page["id"],
@@ -74,12 +77,6 @@ class NotionReader:
         if not prop:
             return ""
         return "".join(t.get("plain_text", "") for t in prop.get("rich_text", []))
-
-    def _get_select(self, prop: Optional[dict]) -> str:
-        if not prop:
-            return ""
-        select = prop.get("select") or prop.get("status")
-        return select.get("name", "") if select else ""
 
     def _get_date(self, prop: Optional[dict]) -> Optional[str]:
         if not prop:
