@@ -1,16 +1,14 @@
 import os
 from notion_client import Client
 from dataclasses import dataclass
-from typing import Optional, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from .client_config import ClientConfig
+from typing import Optional
 
 
 @dataclass
 class NotionPost:
     page_id: str
     title: str
+    conta: str
     caption: str
     vertical_urls: list[str]
     horizontal_urls: list[str]
@@ -26,21 +24,24 @@ class NotionReader:
     STATUS_PUBLISHED = "Publicado"
     STATUS_ERROR = "Erro"
 
-    def __init__(self, client: "ClientConfig"):
+    def __init__(self):
         api_key = os.getenv("NOTION_API_KEY")
-        if not api_key:
-            raise ValueError("NOTION_API_KEY é obrigatório no .env")
-        self.database_id = client.notion_database_id
-        self.client_name = client.name
+        self.database_id = os.getenv("NOTION_DATABASE_ID")
+        if not api_key or not self.database_id:
+            raise ValueError("NOTION_API_KEY e NOTION_DATABASE_ID são obrigatórios no .env")
         self.notion = Client(auth=api_key)
 
-    def get_ready_posts(self) -> list[NotionPost]:
+    def get_ready_posts(self, conta: str | None = None) -> list[NotionPost]:
+        """Busca posts com status 'Agendamento', opcionalmente filtrados por Conta."""
+        filters: list[dict] = [
+            {"property": "Status", "status": {"equals": self.STATUS_READY}}
+        ]
+        if conta:
+            filters.append({"property": "Conta", "select": {"equals": conta}})
+
         response = self.notion.databases.query(
             database_id=self.database_id,
-            filter={
-                "property": "Status",
-                "status": {"equals": self.STATUS_READY},
-            },
+            filter={"and": filters},
             sorts=[{"property": "Dia para fazer", "direction": "ascending"}],
         )
         return [self._parse_page(page) for page in response["results"]]
@@ -62,6 +63,7 @@ class NotionReader:
         return NotionPost(
             page_id=page["id"],
             title=self._get_title(props.get("Produção")),
+            conta=self._get_select(props.get("Conta")),
             caption=self._get_rich_text(props.get("Legenda")),
             vertical_urls=self._get_files(props.get("Mídia Vertical")),
             horizontal_urls=self._get_files(props.get("Mídia Horizontal")),
@@ -77,6 +79,12 @@ class NotionReader:
         if not prop:
             return ""
         return "".join(t.get("plain_text", "") for t in prop.get("rich_text", []))
+
+    def _get_select(self, prop: Optional[dict]) -> str:
+        if not prop:
+            return ""
+        select = prop.get("select")
+        return select.get("name", "") if select else ""
 
     def _get_date(self, prop: Optional[dict]) -> Optional[str]:
         if not prop:

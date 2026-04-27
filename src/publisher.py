@@ -1,7 +1,8 @@
 import logging
+from collections import defaultdict
 from .notion_client import NotionReader, NotionPost
 from .instagram_client import InstagramPublisher
-from .client_config import ClientConfig
+from .client_config import ClientConfig, load_all_clients, find_client_by_conta
 
 logging.basicConfig(
     level=logging.INFO,
@@ -10,52 +11,64 @@ logging.basicConfig(
 logger = logging.getLogger(__name__)
 
 
-class NotionToInstagram:
-    def __init__(self, client: ClientConfig):
-        self.client = client
-        self.notion = NotionReader(client)
-        self.instagram = InstagramPublisher(client)
+class Publisher:
+    def __init__(self):
+        self.notion = NotionReader()
 
-    def run(self) -> dict:
-        logger.info(f"[{self.client.name}] Buscando posts agendados...")
-        posts = self.notion.get_ready_posts()
+    def run(self, conta: str | None = None) -> dict:
+        """Publica posts de todas as contas ativas, ou de uma conta específica."""
+        posts = self.notion.get_ready_posts(conta=conta)
 
         if not posts:
-            logger.info(f"[{self.client.name}] Nenhum post com status 'Agendamento'.")
+            logger.info("Nenhum post com status 'Agendamento'.")
             return {"published": 0, "failed": 0, "skipped": 0}
 
-        results = {"published": 0, "failed": 0, "skipped": 0}
+        # Agrupa posts por conta
+        by_conta: dict[str, list[NotionPost]] = defaultdict(list)
         for post in posts:
-            results[self._process_post(post)] += 1
+            by_conta[post.conta].append(post)
+
+        total = {"published": 0, "failed": 0, "skipped": 0}
+
+        for conta_name, conta_posts in by_conta.items():
+            client = find_client_by_conta(conta_name)
+            if not client:
+                logger.warning(f"Conta '{conta_name}' não tem configuração — posts ignorados.")
+                total["skipped"] += len(conta_posts)
+                continue
+            if not client.active:
+                logger.info(f"Conta '{conta_name}' está inativa — pulando.")
+                total["skipped"] += len(conta_posts)
+                continue
+
+            instagram = InstagramPublisher(client)
+            for post in conta_posts:
+                result = self._process_post(post, instagram, conta_name)
+                total[result] += 1
 
         logger.info(
-            f"[{self.client.name}] Concluído: {results['published']} publicados, "
-            f"{results['failed']} com erro, {results['skipped']} ignorados."
+            f"Concluído: {total['published']} publicados, "
+            f"{total['failed']} com erro, {total['skipped']} ignorados."
         )
-        return results
+        return total
 
-    def _process_post(self, post: NotionPost) -> str:
-        logger.info(f"[{self.client.name}] Processando: '{post.title}'")
+    def _process_post(self, post: NotionPost, instagram: InstagramPublisher, conta: str) -> str:
+        logger.info(f"[{conta}] Processando: '{post.title}'")
 
         if not post.vertical_urls:
-            logger.warning(f"[{self.client.name}] '{post.title}' sem Mídia Vertical — ignorado.")
+            logger.warning(f"[{conta}] '{post.title}' sem Mídia Vertical — ignorado.")
             return "skipped"
 
         try:
-            pub_id = self._publish(post)
+            if post.is_carousel:
+                pub_id = instagram.publish_carousel(post.vertical_urls, post.caption)
+            else:
+                pub_id = instagram.publish_single(post.vertical_urls[0], post.caption)
             self.notion.mark_as_published(post.page_id)
-            logger.info(f"[{self.client.name}] Publicado! ID Instagram: {pub_id}")
+            logger.info(f"[{conta}] Publicado! ID Instagram: {pub_id}")
             return "published"
         except Exception as e:
             error_msg = str(e)
-            logger.error(f"[{self.client.name}] Erro: {error_msg}")
+            logger.error(f"[{conta}] Erro: {error_msg}")
             self.notion.mark_as_failed(post.page_id, error_msg)
             return "failed"
-
-    def _publish(self, post: NotionPost) -> str:
-        if post.is_carousel:
-            logger.info(f"[{self.client.name}] Carrossel com {len(post.vertical_urls)} imagens...")
-            return self.instagram.publish_carousel(post.vertical_urls, post.caption)
-        else:
-            logger.info(f"[{self.client.name}] Imagem única...")
-            return self.instagram.publish_single(post.vertical_urls[0], post.caption)
