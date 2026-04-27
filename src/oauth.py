@@ -1,18 +1,16 @@
 """
 Fluxo OAuth do Facebook para obter tokens de acesso às páginas e contas Instagram.
-Abre o navegador, captura o callback localmente e troca por token de longa duração.
+Abre o navegador para autorização e extrai o código da URL de retorno colada pelo usuário.
 """
 
 import os
 import webbrowser
 import requests
-from http.server import HTTPServer, BaseHTTPRequestHandler
 from urllib.parse import urlparse, parse_qs
 from dataclasses import dataclass
 
 GRAPH = "https://graph.facebook.com/v19.0"
-CALLBACK_PORT = 8000
-REDIRECT_URI = f"http://localhost:{CALLBACK_PORT}/callback"
+REDIRECT_URI = "https://www.facebook.com/connect/login_success.html"
 SCOPES = "instagram_basic,instagram_content_publish,pages_show_list,pages_read_engagement"
 
 
@@ -24,29 +22,10 @@ class InstagramAccount:
     page_access_token: str
 
 
-class _CallbackHandler(BaseHTTPRequestHandler):
-    code: str | None = None
-
-    def do_GET(self):
-        parsed = urlparse(self.path)
-        if parsed.path == "/callback":
-            params = parse_qs(parsed.query)
-            _CallbackHandler.code = params.get("code", [None])[0]
-            self.send_response(200)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.end_headers()
-            if _CallbackHandler.code:
-                self.wfile.write(b"<h2>Autorizado! Pode fechar esta aba.</h2>")
-            else:
-                self.wfile.write(b"<h2>Erro na autoriza\xc3\xa7\xc3\xa3o. Tente novamente.</h2>")
-
-    def log_message(self, *args):
-        pass  # silencia logs do servidor
-
-
 def run_oauth_flow() -> list[InstagramAccount]:
     """
     Executa o fluxo OAuth completo e retorna as contas Instagram disponíveis.
+    Não requer configuração de redirect URI — usa a URL de sucesso padrão do Facebook.
     """
     app_id = os.getenv("FACEBOOK_APP_ID")
     app_secret = os.getenv("FACEBOOK_APP_SECRET")
@@ -61,29 +40,40 @@ def run_oauth_flow() -> list[InstagramAccount]:
         f"&response_type=code"
     )
 
-    print("\nAbrindo o Facebook no navegador para autorização...")
-    print("Se não abrir automaticamente, acesse:")
-    print(f"\n  {auth_url}\n")
+    print("\n" + "=" * 60)
+    print("PASSO 1: Abra esta URL no navegador e faça login:")
+    print("=" * 60)
+    print(f"\n{auth_url}\n")
     webbrowser.open(auth_url)
 
-    # Aguarda o callback
-    _CallbackHandler.code = None
-    server = HTTPServer(("localhost", CALLBACK_PORT), _CallbackHandler)
-    print("Aguardando autorização do Facebook...")
-    server.handle_request()
+    print("=" * 60)
+    print("PASSO 2: Após autorizar, o navegador vai abrir uma")
+    print("página em branco. Copie a URL completa da barra de")
+    print("endereços e cole aqui:")
+    print("=" * 60)
+    callback_url = input("\nURL de retorno: ").strip()
 
-    code = _CallbackHandler.code
+    code = _extract_code(callback_url)
     if not code:
-        raise RuntimeError("Autorização negada ou cancelada.")
+        raise RuntimeError(
+            "Não foi possível extrair o código da URL. "
+            "Certifique-se de copiar a URL completa após o login."
+        )
 
-    # Troca code por token de curta duração
+    print("\nAutorizando... aguarde.")
     short_token = _exchange_code(code, app_id, app_secret)
-
-    # Troca por token de longa duração (60 dias)
     long_token = _exchange_long_lived(short_token, app_id, app_secret)
+    accounts = _list_instagram_accounts(long_token)
 
-    # Lista páginas e contas Instagram
-    return _list_instagram_accounts(long_token)
+    return accounts
+
+
+def _extract_code(url: str) -> str | None:
+    try:
+        params = parse_qs(urlparse(url).query)
+        return params.get("code", [None])[0]
+    except Exception:
+        return None
 
 
 def _exchange_code(code: str, app_id: str, app_secret: str) -> str:
