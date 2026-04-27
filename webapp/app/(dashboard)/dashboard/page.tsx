@@ -8,6 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, ArrowRight, Zap } from "lucide-react"
 import Link from "next/link"
+import { PublishButton } from "@/components/dashboard/publish-button"
 
 export default async function DashboardPage() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -28,9 +29,12 @@ export default async function DashboardPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold">Dashboard</h1>
-        <p className="text-muted-foreground">Olá, {session!.user.name} 👋</p>
+      <div className="mb-8 flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <p className="text-muted-foreground">Olá, {session!.user.name} 👋</p>
+        </div>
+        {isReady && <PublishButton />}
       </div>
 
       {/* Setup banner */}
