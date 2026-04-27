@@ -7,7 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
   BookOpen, Loader2, CheckCircle2, ChevronRight, Database, Sliders,
-  Trash2, Plus, ChevronDown, ChevronUp
+  Trash2, Plus, ChevronDown, ChevronUp, BarChart2
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -32,6 +32,9 @@ type FieldMapping = {
   statusField: string; statusReadyValue: string
   statusPublishedValue: string; statusErrorValue: string
   dateField: string; accountField: string
+  // Analytics (optional)
+  likesField?: string; reachField?: string; commentsField?: string
+  savesField?: string; impressionsField?: string
 }
 
 const DEFAULT_MAPPING: FieldMapping = {
@@ -42,6 +45,7 @@ const DEFAULT_MAPPING: FieldMapping = {
   statusField: "Status", statusReadyValue: "Agendamento",
   statusPublishedValue: "Publicado", statusErrorValue: "Erro",
   dateField: "Dia para fazer", accountField: "Conta",
+  likesField: "", reachField: "", commentsField: "", savesField: "", impressionsField: "",
 }
 
 // ─── SelectField ─────────────────────────────────────────────────────────────
@@ -59,6 +63,30 @@ function SelectField({
           <SelectValue placeholder="Selecione…" />
         </SelectTrigger>
         <SelectContent>
+          {options.map((o) => (
+            <SelectItem key={o} value={o}>{o}</SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+    </div>
+  )
+}
+
+function SelectFieldOptional({
+  label, value, options, onChange, hint,
+}: {
+  label: string; value?: string; options: string[]; onChange: (v: string) => void; hint?: string
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <Select value={value ?? "__none__"} onValueChange={(v) => onChange(v === "__none__" ? "" : v)}>
+        <SelectTrigger>
+          <SelectValue placeholder="Não mapear" />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="__none__">Não mapear</SelectItem>
           {options.map((o) => (
             <SelectItem key={o} value={o}>{o}</SelectItem>
           ))}
@@ -159,7 +187,7 @@ function WorkspaceCard({
     toast.success("Workspace desconectado.")
   }
 
-  function setField(key: keyof FieldMapping, value: string) {
+  function setField(key: string, value: string) {
     setMapping((prev) => ({ ...prev, [key]: value }))
   }
 
@@ -310,6 +338,52 @@ function WorkspaceCard({
                         <SelectField label="Erro" value={mapping.statusErrorValue} options={statusOptions} onChange={(v) => setField("statusErrorValue", v)} hint="Ex: Erro" />
                       </div>
                     )}
+                  </div>
+
+                  {/* Analytics */}
+                  <div className="space-y-4">
+                    <div>
+                      <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                        <BarChart2 className="h-3.5 w-3.5" /> Analytics — sincronizar métricas no Notion
+                      </p>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        Crie propriedades <strong>Number</strong> no seu banco Notion e mapeie abaixo.
+                        A cada 6 horas o sistema escreve as métricas do Instagram de volta no post.
+                      </p>
+                    </div>
+                    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      <SelectFieldOptional
+                        label="Curtidas"
+                        value={mapping.likesField}
+                        options={properties.filter((p) => p.type === "number").map((p) => p.name)}
+                        onChange={(v) => setField("likesField", v)}
+                      />
+                      <SelectFieldOptional
+                        label="Alcance"
+                        value={mapping.reachField}
+                        options={properties.filter((p) => p.type === "number").map((p) => p.name)}
+                        onChange={(v) => setField("reachField", v)}
+                      />
+                      <SelectFieldOptional
+                        label="Comentários"
+                        value={mapping.commentsField}
+                        options={properties.filter((p) => p.type === "number").map((p) => p.name)}
+                        onChange={(v) => setField("commentsField", v)}
+                      />
+                      <SelectFieldOptional
+                        label="Salvamentos"
+                        value={mapping.savesField}
+                        options={properties.filter((p) => p.type === "number").map((p) => p.name)}
+                        onChange={(v) => setField("savesField", v)}
+                      />
+                      <SelectFieldOptional
+                        label="Impressões / Views"
+                        value={mapping.impressionsField}
+                        options={properties.filter((p) => p.type === "number").map((p) => p.name)}
+                        onChange={(v) => setField("impressionsField", v)}
+                        hint="Reels mostram visualizações"
+                      />
+                    </div>
                   </div>
 
                   <Button onClick={handleSaveMapping} disabled={savingMapping} className="w-full">

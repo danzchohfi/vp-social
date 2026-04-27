@@ -95,7 +95,7 @@ export const publishForConnection = task({
 
       if (!account) {
         logger.warn(`Conta "${post.conta}" não configurada — "${post.title}" ignorado.`)
-        await saveLog(db, userId, post, null, "skipped", `Conta "${post.conta}" não encontrada`)
+        await saveLog(db, userId, connectionId, post, null, "skipped", `Conta "${post.conta}" não encontrada`)
         results.skipped++
         continue
       }
@@ -108,14 +108,14 @@ export const publishForConnection = task({
       try {
         const igPostId = await publishPost(publisher, post)
         await notion.markPublished(post.pageId, mapping)
-        await saveLog(db, userId, post, igPostId, "published", null)
+        await saveLog(db, userId, connectionId, post, igPostId, "published", null)
         logger.info(`[${post.conta}] ✓ "${post.title}" (${post.tipo}) publicado! ID: ${igPostId}`)
         results.published++
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error)
         logger.error(`[${post.conta}] ✗ "${post.title}": ${message}`)
         await notion.markFailed(post.pageId, mapping)
-        await saveLog(db, userId, post, null, "failed", message)
+        await saveLog(db, userId, connectionId, post, null, "failed", message)
         results.failed++
       }
     }
@@ -176,6 +176,7 @@ function isVideo(url: string): boolean {
 async function saveLog(
   db: ReturnType<typeof getDb>,
   userId: string,
+  connectionId: string,
   post: NotionPost,
   igPostId: string | null,
   status: "published" | "failed" | "skipped",
@@ -184,6 +185,7 @@ async function saveLog(
   await db.insert(schema.publishLog).values({
     id: generateId(),
     userId,
+    connectionId,
     notionPageId: post.pageId,
     postTitle: post.title,
     conta: post.conta,

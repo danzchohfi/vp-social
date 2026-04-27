@@ -129,6 +129,22 @@ export function createNotionClient(accessToken: string) {
         },
       })
     },
+
+    async updateAnalytics(
+      pageId: string,
+      mapping: FieldMapping,
+      metrics: { likes: number | null; comments: number | null; reach: number | null; saves: number | null; impressions: number | null }
+    ): Promise<void> {
+      const properties: Record<string, unknown> = {}
+      if (mapping.likesField && metrics.likes !== null) properties[mapping.likesField] = { number: metrics.likes }
+      if (mapping.commentsField && metrics.comments !== null) properties[mapping.commentsField] = { number: metrics.comments }
+      if (mapping.reachField && metrics.reach !== null) properties[mapping.reachField] = { number: metrics.reach }
+      if (mapping.savesField && metrics.saves !== null) properties[mapping.savesField] = { number: metrics.saves }
+      if (mapping.impressionsField && metrics.impressions !== null) properties[mapping.impressionsField] = { number: metrics.impressions }
+
+      if (Object.keys(properties).length === 0) return
+      await client.pages.update({ page_id: pageId, properties: properties as any })
+    },
   }
 }
 

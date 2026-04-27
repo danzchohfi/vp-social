@@ -112,6 +112,12 @@ export const fieldMapping = pgTable("field_mapping", {
   // Agendamento e conta
   dateField: text("date_field").notNull().default("Dia para fazer"),
   accountField: text("account_field").notNull().default("Conta"),
+  // Analytics (opcionais — propriedades Number no Notion)
+  likesField: text("likes_field"),
+  reachField: text("reach_field"),
+  commentsField: text("comments_field"),
+  savesField: text("saves_field"),
+  impressionsField: text("impressions_field"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
@@ -121,11 +127,13 @@ export const fieldMapping = pgTable("field_mapping", {
 export const publishLog = pgTable("publish_log", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  connectionId: text("connection_id").references(() => notionConnection.id, { onDelete: "set null" }),
   notionPageId: text("notion_page_id").notNull(),
   postTitle: text("post_title"),
   conta: text("conta"),
   instagramPostId: text("instagram_post_id"),
   status: text("status").notNull(),
   error: text("error"),
+  analyticsUpdatedAt: timestamp("analytics_updated_at"),
   publishedAt: timestamp("published_at").notNull().defaultNow(),
 })

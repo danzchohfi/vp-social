@@ -153,3 +153,47 @@ async function postGraph(
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
+
+// ─── Analytics ─────────────────────────────────────────────────────────────
+
+export interface PostMetrics {
+  likes: number | null
+  comments: number | null
+  reach: number | null
+  saves: number | null
+  impressions: number | null
+}
+
+export async function getPostMetrics(mediaId: string, accessToken: string): Promise<PostMetrics> {
+  // Fetch like_count and comments_count from the media object
+  const mediaRes = await fetch(
+    `${GRAPH}/${mediaId}?fields=like_count,comments_count,media_type&access_token=${accessToken}`
+  )
+  const media = await mediaRes.json()
+  if (media.error) throw new Error(`Instagram metrics (media): ${media.error.message}`)
+
+  // Fetch reach, saved, impressions from insights
+  // Reels use "plays" instead of "impressions"
+  const isReel = media.media_type === "REELS"
+  const insightMetrics = isReel
+    ? "reach,saved,plays,likes,comments"
+    : "reach,saved,impressions"
+
+  const insightRes = await fetch(
+    `${GRAPH}/${mediaId}/insights?metric=${insightMetrics}&access_token=${accessToken}`
+  )
+  const insight = await insightRes.json()
+
+  const get = (name: string): number | null => {
+    const entry = insight.data?.find((m: any) => m.name === name)
+    return entry?.values?.[0]?.value ?? entry?.value ?? null
+  }
+
+  return {
+    likes: media.like_count ?? get("likes") ?? null,
+    comments: media.comments_count ?? get("comments") ?? null,
+    reach: get("reach"),
+    saves: get("saved"),
+    impressions: get("impressions") ?? get("plays") ?? null,
+  }
+}
