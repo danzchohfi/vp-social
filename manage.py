@@ -3,7 +3,7 @@
 Gerenciador de contas — adicione, liste e remova contas de clientes.
 
 Uso:
-  python manage.py add       Adiciona uma nova conta
+  python manage.py add       Adiciona uma nova conta via login com Facebook
   python manage.py list      Lista todas as contas
   python manage.py remove    Remove uma conta
   python manage.py disable   Desativa uma conta (sem deletar)
@@ -16,43 +16,70 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from src.client_config import ClientConfig, load_all_clients, find_client_by_conta
+from src.oauth import run_oauth_flow
 
 
 def cmd_add():
-    print("\n=== Adicionar nova conta ===\n")
-    print("O valor de 'Conta' deve ser idêntico ao que está no Notion.\n")
-    conta = input("Conta (valor exato do Notion): ").strip()
-    if not conta:
-        print("Conta obrigatória.")
+    print("\n=== Adicionar nova conta ===")
+    print("Você será redirecionado para o Facebook para autorizar o acesso.\n")
+
+    try:
+        accounts = run_oauth_flow()
+    except Exception as e:
+        print(f"\nErro no login: {e}")
         return
+
+    if not accounts:
+        print("\nNenhuma conta do Instagram Business encontrada.")
+        print("Verifique se sua Página do Facebook está conectada a uma conta Instagram Business.")
+        return
+
+    print("\nContas Instagram encontradas:\n")
+    for i, acc in enumerate(accounts, 1):
+        print(f"  {i}. {acc.page_name} (Instagram ID: {acc.instagram_id})")
+
+    print()
+    while True:
+        try:
+            choice = int(input("Escolha o número da conta: ")) - 1
+            if 0 <= choice < len(accounts):
+                break
+            print(f"Digite um número entre 1 e {len(accounts)}.")
+        except ValueError:
+            print("Digite um número válido.")
+
+    selected = accounts[choice]
+
+    conta = input(f"\nNome da Conta no Notion (valor exato da propriedade 'Conta')\n"
+                  f"[Enter para usar '{selected.page_name}']: ").strip()
+    if not conta:
+        conta = selected.page_name
 
     if find_client_by_conta(conta):
-        print(f"Conta '{conta}' já existe.")
-        return
-
-    ig_account = input("Instagram Business Account ID: ").strip()
-    fb_token = input("Facebook Access Token: ").strip()
+        overwrite = input(f"Conta '{conta}' já existe. Sobrescrever? (s/N): ").strip().lower()
+        if overwrite != "s":
+            return
 
     client = ClientConfig(
         conta=conta,
-        instagram_business_account_id=ig_account,
-        facebook_access_token=fb_token,
+        instagram_business_account_id=selected.instagram_id,
+        facebook_access_token=selected.page_access_token,
     )
     client.save()
-    print(f"\n✓ Conta '{conta}' adicionada! Arquivo: {client.file_path}")
+    print(f"\n✓ Conta '{conta}' adicionada com sucesso!")
 
 
 def cmd_list():
     clients = load_all_clients(active_only=False)
     if not clients:
-        print("Nenhuma conta cadastrada.")
+        print("Nenhuma conta cadastrada. Use 'python manage.py add'.")
         return
 
-    print(f"\n{'#':<4} {'Conta (Notion)':<35} {'Status'}")
-    print("-" * 55)
+    print(f"\n{'#':<4} {'Conta (Notion)':<35} {'Instagram ID':<22} {'Status'}")
+    print("-" * 72)
     for i, c in enumerate(clients, 1):
         status = "Ativa" if c.active else "Inativa"
-        print(f"{i:<4} {c.conta:<35} {status}")
+        print(f"{i:<4} {c.conta:<35} {c.instagram_business_account_id:<22} {status}")
     print()
 
 
@@ -93,7 +120,13 @@ def _toggle(active: bool = True, delete: bool = False):
         print(f"✓ Conta '{client.conta}' {'ativada' if active else 'desativada'}.")
 
 
-COMMANDS = {"add": cmd_add, "list": cmd_list, "remove": cmd_remove, "disable": cmd_disable, "enable": cmd_enable}
+COMMANDS = {
+    "add": cmd_add,
+    "list": cmd_list,
+    "remove": cmd_remove,
+    "disable": cmd_disable,
+    "enable": cmd_enable,
+}
 
 
 def main():
