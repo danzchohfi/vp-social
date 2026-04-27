@@ -28,11 +28,21 @@ export function createNotionClient(accessToken: string) {
 
   return {
     async getReadyPosts(databaseId: string, mapping: FieldMapping): Promise<NotionPost[]> {
+      const now = new Date().toISOString()
+
       const response = await client.databases.query({
         database_id: databaseId,
         filter: {
-          property: mapping.statusField,
-          status: { equals: mapping.statusReadyValue },
+          and: [
+            {
+              property: mapping.statusField,
+              status: { equals: mapping.statusReadyValue },
+            },
+            {
+              property: mapping.dateField,
+              date: { on_or_before: now },
+            },
+          ],
         },
         sorts: [{ property: mapping.dateField, direction: "ascending" }],
       })
