@@ -16,3 +16,17 @@ export async function GET() {
 
   return NextResponse.json({ connection: connection ?? null })
 }
+
+export async function PATCH(req: Request) {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const { databaseId, databaseName } = await req.json()
+
+  await db
+    .update(notionConnection)
+    .set({ databaseId, databaseName, updatedAt: new Date() })
+    .where(eq(notionConnection.userId, session.user.id))
+
+  return NextResponse.json({ ok: true })
+}
