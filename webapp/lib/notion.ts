@@ -97,6 +97,21 @@ export function createNotionClient(accessToken: string) {
         .map((page) => parsePage(page as any, mapping))
     },
 
+    async getScheduledPosts(databaseId: string, mapping: FieldMapping): Promise<NotionPost[]> {
+      const response = await client.databases.query({
+        database_id: databaseId,
+        filter: {
+          property: mapping.statusField,
+          status: { equals: mapping.statusReadyValue },
+        },
+        sorts: [{ property: mapping.dateField, direction: "ascending" }],
+      })
+
+      return response.results
+        .filter((p): p is typeof p & { properties: Record<string, unknown> } => "properties" in p)
+        .map((page) => parsePage(page as any, mapping))
+    },
+
     async markPublished(pageId: string, mapping: FieldMapping): Promise<void> {
       await client.pages.update({
         page_id: pageId,
