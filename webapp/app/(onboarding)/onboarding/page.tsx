@@ -45,8 +45,7 @@ export default function OnboardingPage() {
   const [dbLoading, setDbLoading] = useState(false)
   const [dbSaving, setDbSaving] = useState(false)
 
-  // Step 3 — Instagram
-  const [instagramConnected, setInstagramConnected] = useState(false)
+  // Step 3 — Instagram (tracked via step === 4)
 
   // ─── Detect OAuth redirects ─────────────────────────────────────────────────
 
@@ -66,7 +65,6 @@ export default function OnboardingPage() {
     }
 
     if (igConnected === "true") {
-      setInstagramConnected(true)
       setStep(4)
       return
     }
@@ -79,8 +77,9 @@ export default function OnboardingPage() {
     try {
       const res = await fetch("/api/notion/connection")
       const data = await res.json()
-      if (Array.isArray(data) && data.length > 0) {
-        const conn = data[0] as Connection
+      const list: Connection[] = data.connections ?? []
+      if (list.length > 0) {
+        const conn = list[0]
         setConnection(conn)
         if (conn.databaseId) {
           // Already has a database selected — skip to step 3
@@ -108,7 +107,7 @@ export default function OnboardingPage() {
     try {
       const res = await fetch(`/api/notion/databases?connectionId=${connectionId}`)
       const data = await res.json()
-      setDatabases(Array.isArray(data) ? data : [])
+      setDatabases(data.databases ?? [])
     } finally {
       setDbLoading(false)
     }
