@@ -29,7 +29,7 @@ const DEFAULT_MAPPING: FieldMapping = {
 
 export const publishScheduled = schedules.task({
   id: "publish-scheduled-posts",
-  cron: "*/15 * * * *",
+  cron: "*/5 * * * *",
   run: async () => {
     const db = getDb()
     const connections = await db.select().from(schema.notionConnection)
