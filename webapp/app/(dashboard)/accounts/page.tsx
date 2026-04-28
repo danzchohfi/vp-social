@@ -1,41 +1,127 @@
 "use client"
 import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
-import { Card, CardContent } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Instagram, Plus, Trash2, Loader2, Facebook, Pencil, Check, X } from "lucide-react"
+import { Instagram, Trash2, Loader2, Facebook, Pencil, Check, X, Youtube, Linkedin } from "lucide-react"
+import { cn } from "@/lib/utils"
+
+// TikTok SVG (not in lucide)
+function TikTokIcon({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor">
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z" />
+    </svg>
+  )
+}
+
+type Platform = "instagram" | "facebook" | "youtube" | "tiktok" | "linkedin"
 
 type Account = {
   id: string
+  platform: Platform
   conta: string
   pageName: string
   instagramBusinessAccountId: string
   active: boolean
 }
 
+const PLATFORM_CONFIG: Record<Platform, {
+  label: string
+  icon: React.ComponentType<{ className?: string }>
+  iconBg: string
+  connectLabel: string
+  authUrl: string
+}> = {
+  instagram: {
+    label: "Instagram",
+    icon: Instagram,
+    iconBg: "bg-gradient-to-br from-purple-500 to-pink-500",
+    connectLabel: "Conectar com Facebook",
+    authUrl: "/api/facebook/auth-url",
+  },
+  facebook: {
+    label: "Facebook",
+    icon: Facebook,
+    iconBg: "bg-blue-600",
+    connectLabel: "Conectar página do Facebook",
+    authUrl: "/api/facebook/auth-url",
+  },
+  youtube: {
+    label: "YouTube",
+    icon: Youtube,
+    iconBg: "bg-red-600",
+    connectLabel: "Conectar canal do YouTube",
+    authUrl: "/api/youtube/auth-url",
+  },
+  tiktok: {
+    label: "TikTok",
+    icon: TikTokIcon,
+    iconBg: "bg-black",
+    connectLabel: "Conectar conta TikTok",
+    authUrl: "/api/tiktok/auth-url",
+  },
+  linkedin: {
+    label: "LinkedIn",
+    icon: Linkedin,
+    iconBg: "bg-blue-700",
+    connectLabel: "Conectar LinkedIn",
+    authUrl: "/api/linkedin/auth-url",
+  },
+}
+
+const PLATFORMS: Platform[] = ["instagram", "facebook", "youtube", "tiktok", "linkedin"]
+
 export default function AccountsPage() {
+  const searchParams = useSearchParams()
   const [accounts, setAccounts] = useState<Account[]>([])
   const [loading, setLoading] = useState(true)
-  const [connecting, setConnecting] = useState(false)
+  const [connecting, setConnecting] = useState<Platform | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState("")
+  const [unavailable, setUnavailable] = useState<Set<Platform>>(new Set())
 
-  useEffect(() => { fetchAccounts() }, [])
+  useEffect(() => {
+    fetchAccounts()
+    // Check which platforms are configured
+    checkPlatformAvailability()
+    // Toast on successful connect
+    const connected = searchParams.get("connected")
+    if (connected) toast.success(`Conta conectada com sucesso!`)
+  }, [searchParams])
 
   async function fetchAccounts() {
     const res = await fetch("/api/accounts")
     const data = await res.json()
-    setAccounts(data)
+    setAccounts(Array.isArray(data) ? data : [])
     setLoading(false)
   }
 
-  async function handleConnect() {
-    setConnecting(true)
-    const res = await fetch("/api/facebook/auth-url")
-    const { url } = await res.json()
-    window.location.href = url
+  async function checkPlatformAvailability() {
+    const unavail = new Set<Platform>()
+    for (const p of ["tiktok", "linkedin"] as Platform[]) {
+      const config = PLATFORM_CONFIG[p]
+      const res = await fetch(config.authUrl).catch(() => null)
+      if (res?.status === 503) unavail.add(p)
+    }
+    setUnavailable(unavail)
+  }
+
+  async function handleConnect(platform: Platform) {
+    const config = PLATFORM_CONFIG[platform]
+    setConnecting(platform)
+    try {
+      const res = await fetch(config.authUrl)
+      const data = await res.json()
+      if (data.error) { toast.error(data.error); setConnecting(null); return }
+      window.location.href = data.url
+    } catch {
+      toast.error("Erro ao conectar.")
+      setConnecting(null)
+    }
   }
 
   async function handleToggle(id: string, active: boolean) {
@@ -73,23 +159,18 @@ export default function AccountsPage() {
     toast.success("Nome da conta atualizado.")
   }
 
+  const byPlatform = (p: Platform) => accounts.filter((a) => a.platform === p)
+
   return (
     <div className="p-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold">Contas Instagram</h1>
-          <p className="text-muted-foreground">Conecte as contas dos seus clientes</p>
-        </div>
-        <Button onClick={handleConnect} disabled={connecting}>
-          {connecting ? <Loader2 className="animate-spin" /> : <Facebook className="h-4 w-4 text-blue-600" />}
-          Conectar com Facebook
-        </Button>
+      <div className="mb-8">
+        <h1 className="text-2xl font-bold">Contas conectadas</h1>
+        <p className="text-muted-foreground">Gerencie as contas de cada plataforma</p>
       </div>
 
-      {/* Hint about account name matching */}
       {accounts.length > 0 && (
         <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-          <strong>Importante:</strong> o campo <strong>Conta</strong> (editável abaixo com o lápis) deve ser
+          <strong>Importante:</strong> o campo <strong>Conta</strong> (editável com o lápis) deve ser
           idêntico ao valor da propriedade <strong>Conta</strong> no seu banco de dados Notion.
         </div>
       )}
@@ -98,94 +179,107 @@ export default function AccountsPage() {
         <div className="flex justify-center py-20">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
         </div>
-      ) : accounts.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-muted">
-              <Instagram className="h-8 w-8 text-muted-foreground" />
-            </div>
-            <h3 className="mb-2 text-lg font-semibold">Nenhuma conta conectada</h3>
-            <p className="mb-6 max-w-sm text-sm text-muted-foreground">
-              Clique em "Conectar com Facebook" para autorizar o acesso às contas Instagram Business.
-            </p>
-            <Button onClick={handleConnect} disabled={connecting}>
-              {connecting ? <Loader2 className="animate-spin" /> : <Plus />}
-              Conectar primeira conta
-            </Button>
-          </CardContent>
-        </Card>
       ) : (
-        <div className="space-y-4">
-          {accounts.map((account) => (
-            <Card key={account.id}>
-              <CardContent className="flex items-center justify-between p-5">
-                <div className="flex items-center gap-4 min-w-0">
-                  <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-gradient-to-br from-purple-500 to-pink-500">
-                    <Instagram className="h-5 w-5 text-white" />
+        <div className="space-y-8">
+          {PLATFORMS.map((platform) => {
+            const config = PLATFORM_CONFIG[platform]
+            const platformAccounts = byPlatform(platform)
+            const isUnavailable = unavailable.has(platform)
+            const Icon = config.icon
+
+            return (
+              <Card key={platform}>
+                <CardHeader className="pb-3">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg", config.iconBg)}>
+                        <Icon className="h-4 w-4 text-white" />
+                      </div>
+                      <CardTitle className="text-base">{config.label}</CardTitle>
+                      <Badge variant="secondary" className="text-xs">
+                        {platformAccounts.length} {platformAccounts.length === 1 ? "conta" : "contas"}
+                      </Badge>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleConnect(platform)}
+                      disabled={connecting === platform || isUnavailable}
+                      title={isUnavailable ? "Credenciais não configuradas" : undefined}
+                    >
+                      {connecting === platform ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Icon className="h-3.5 w-3.5" />
+                      )}
+                      {isUnavailable ? "Aguardando credenciais" : config.connectLabel}
+                    </Button>
                   </div>
-                  <div className="min-w-0">
-                    {editingId === account.id ? (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          className="h-7 w-48 text-sm"
-                          value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
-                          onKeyDown={(e) => {
-                            if (e.key === "Enter") saveEdit(account.id)
-                            if (e.key === "Escape") setEditingId(null)
-                          }}
-                          autoFocus
-                        />
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600" onClick={() => saveEdit(account.id)}>
-                          <Check className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button size="icon" variant="ghost" className="h-7 w-7 text-muted-foreground" onClick={() => setEditingId(null)}>
-                          <X className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
-                    ) : (
-                      <div className="flex items-center gap-2">
-                        <p className="font-semibold truncate">{account.conta}</p>
-                        <Badge variant={account.active ? "success" : "secondary"}>
-                          {account.active ? "Ativa" : "Inativa"}
-                        </Badge>
-                        <button
-                          onClick={() => startEdit(account)}
-                          className="text-muted-foreground hover:text-foreground transition-colors"
-                          title="Renomear conta"
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </button>
-                      </div>
-                    )}
-                    <p className="text-sm text-muted-foreground truncate">
-                      {account.pageName} · ID: {account.instagramBusinessAccountId}
+                </CardHeader>
+                <CardContent className="pt-0">
+                  {platformAccounts.length === 0 ? (
+                    <p className="text-sm text-muted-foreground py-2">
+                      Nenhuma conta {config.label} conectada.
+                      {isUnavailable && " Configure as credenciais no .env para habilitar."}
                     </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => handleToggle(account.id, account.active)}
-                  >
-                    {account.active ? "Desativar" : "Ativar"}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    className="text-destructive hover:text-destructive"
-                    onClick={() => handleDelete(account.id)}
-                  >
-                    <Trash2 className="h-4 w-4" />
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-          <Button variant="outline" className="w-full" onClick={handleConnect} disabled={connecting}>
-            <Plus /> Adicionar outra conta
-          </Button>
+                  ) : (
+                    <div className="space-y-2">
+                      {platformAccounts.map((account) => (
+                        <div key={account.id} className="flex items-center justify-between rounded-lg border px-4 py-3">
+                          <div className="flex items-center gap-3 min-w-0">
+                            <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", config.iconBg)}>
+                              <Icon className="h-3.5 w-3.5 text-white" />
+                            </div>
+                            <div className="min-w-0">
+                              {editingId === account.id ? (
+                                <div className="flex items-center gap-2">
+                                  <Input
+                                    className="h-7 w-44 text-sm"
+                                    value={editValue}
+                                    onChange={(e) => setEditValue(e.target.value)}
+                                    onKeyDown={(e) => {
+                                      if (e.key === "Enter") saveEdit(account.id)
+                                      if (e.key === "Escape") setEditingId(null)
+                                    }}
+                                    autoFocus
+                                  />
+                                  <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600" onClick={() => saveEdit(account.id)}>
+                                    <Check className="h-3.5 w-3.5" />
+                                  </Button>
+                                  <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingId(null)}>
+                                    <X className="h-3.5 w-3.5" />
+                                  </Button>
+                                </div>
+                              ) : (
+                                <div className="flex items-center gap-2">
+                                  <span className="font-medium text-sm truncate">{account.conta}</span>
+                                  <Badge variant={account.active ? "success" : "secondary"} className="text-xs">
+                                    {account.active ? "Ativa" : "Inativa"}
+                                  </Badge>
+                                  <button onClick={() => startEdit(account)} className="text-muted-foreground hover:text-foreground transition-colors">
+                                    <Pencil className="h-3 w-3" />
+                                  </button>
+                                </div>
+                              )}
+                              <p className="text-xs text-muted-foreground truncate">{account.pageName}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0">
+                            <Button variant="outline" size="sm" onClick={() => handleToggle(account.id, account.active)}>
+                              {account.active ? "Desativar" : "Ativar"}
+                            </Button>
+                            <Button variant="ghost" size="icon" className="text-destructive hover:text-destructive" onClick={() => handleDelete(account.id)}>
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            )
+          })}
         </div>
       )}
     </div>

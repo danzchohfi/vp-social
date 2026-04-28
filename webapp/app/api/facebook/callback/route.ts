@@ -12,7 +12,7 @@ export async function GET(req: Request) {
   const [userId, from] = rawState.split(":")
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
 
-  const successUrl = from ? `${appUrl}/${from}?instagram_connected=true` : `${appUrl}/accounts?connected=true`
+  const successUrl = from ? `${appUrl}/${from}?instagram_connected=true` : `${appUrl}/accounts?connected=instagram`
   const errorBase = from ? `${appUrl}/${from}` : `${appUrl}/accounts`
 
   if (!code || !userId) return NextResponse.redirect(`${errorBase}?error=cancelled`)
@@ -38,33 +38,61 @@ export async function GET(req: Request) {
     let connected = 0
     for (const page of pages ?? []) {
       const ig = page.instagram_business_account
-      if (!ig) continue
 
+      // Save as Facebook Page account
       await db
         .insert(instagramAccount)
         .values({
           id: generateId(),
           userId,
+          platform: "facebook",
           conta: page.name,
           pageName: page.name,
           pageId: page.id,
-          instagramBusinessAccountId: ig.id,
           pageAccessToken: page.access_token,
           active: true,
         })
         .onConflictDoUpdate({
-          target: [instagramAccount.userId, instagramAccount.pageId],
+          target: [instagramAccount.userId, instagramAccount.platform, instagramAccount.pageId],
           set: {
             pageAccessToken: page.access_token,
             pageName: page.name,
             updatedAt: new Date(),
           },
         })
-      connected++
+
+      // Also save as Instagram account if this page has an Instagram Business Account
+      if (ig) {
+        await db
+          .insert(instagramAccount)
+          .values({
+            id: generateId(),
+            userId,
+            platform: "instagram",
+            conta: page.name,
+            pageName: page.name,
+            pageId: page.id,
+            instagramBusinessAccountId: ig.id,
+            platformAccountId: ig.id,
+            pageAccessToken: page.access_token,
+            active: true,
+          })
+          .onConflictDoUpdate({
+            target: [instagramAccount.userId, instagramAccount.platform, instagramAccount.pageId],
+            set: {
+              pageAccessToken: page.access_token,
+              pageName: page.name,
+              instagramBusinessAccountId: ig.id,
+              platformAccountId: ig.id,
+              updatedAt: new Date(),
+            },
+          })
+        connected++
+      }
     }
 
-    if (connected === 0) {
-      return NextResponse.redirect(`${errorBase}?error=no_instagram`)
+    if (connected === 0 && (pages ?? []).length === 0) {
+      return NextResponse.redirect(`${errorBase}?error=no_pages`)
     }
 
     return NextResponse.redirect(successUrl)

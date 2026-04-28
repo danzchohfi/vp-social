@@ -67,23 +67,26 @@ export const notionConnection = pgTable(
   (t) => [uniqueIndex("notion_connection_user_workspace").on(t.userId, t.workspaceId)]
 )
 
-// ─── Instagram / Facebook accounts ────────────────────────────────────────
+// ─── Social accounts (Instagram, Facebook, YouTube, TikTok, LinkedIn) ─────
 
 export const instagramAccount = pgTable(
   "instagram_account",
   {
     id: text("id").primaryKey(),
     userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    platform: text("platform").notNull().default("instagram"),
     conta: text("conta").notNull(),
     pageName: text("page_name").notNull(),
     pageId: text("page_id").notNull(),
-    instagramBusinessAccountId: text("instagram_business_account_id").notNull(),
+    instagramBusinessAccountId: text("instagram_business_account_id").notNull().default(""),
+    platformAccountId: text("platform_account_id"),
     pageAccessToken: text("page_access_token").notNull(),
+    refreshToken: text("refresh_token"),
     active: boolean("active").notNull().default(true),
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("instagram_account_user_page").on(t.userId, t.pageId)]
+  (t) => [uniqueIndex("instagram_account_user_platform_page").on(t.userId, t.platform, t.pageId)]
 )
 
 // ─── Field mapping ─────────────────────────────────────────────────────────
@@ -131,7 +134,9 @@ export const publishLog = pgTable("publish_log", {
   notionPageId: text("notion_page_id").notNull(),
   postTitle: text("post_title"),
   conta: text("conta"),
+  platform: text("platform"),
   instagramPostId: text("instagram_post_id"),
+  platformPostId: text("platform_post_id"),
   status: text("status").notNull(),
   error: text("error"),
   analyticsUpdatedAt: timestamp("analytics_updated_at"),

@@ -5,6 +5,10 @@ import { eq } from "drizzle-orm"
 import * as schema from "../lib/db/schema"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "../lib/notion"
 import { createInstagramPublisher } from "../lib/instagram"
+import { createFacebookPublisher } from "../lib/facebook"
+import { uploadYouTubeVideo } from "../lib/youtube"
+import { publishTikTokVideo } from "../lib/tiktok"
+import { publishLinkedInPost } from "../lib/linkedin"
 import { generateId } from "../lib/utils"
 
 function getDb() {
@@ -67,11 +71,15 @@ export const publishForConnection = task({
 
     const activeAccounts = igAccounts.filter((a) => a.active)
     if (!activeAccounts.length) {
-      logger.info(`Usuário ${userId} sem contas Instagram ativas.`)
+      logger.info(`Usuário ${userId} sem contas ativas.`)
       return { published: 0, failed: 0, skipped: 0 }
     }
 
-    const accountMap = new Map(activeAccounts.map((a) => [a.conta.toLowerCase(), a]))
+    // Map: "platform:conta" → account row
+    const accountMap = new Map(
+      activeAccounts.map((a) => [`${a.platform}:${a.conta.toLowerCase()}`, a])
+    )
+
     const notion = createNotionClient(connection.accessToken)
 
     let posts: NotionPost[]
@@ -91,32 +99,41 @@ export const publishForConnection = task({
     const results = { published: 0, failed: 0, skipped: 0 }
 
     for (const post of posts) {
-      const account = accountMap.get(post.conta.toLowerCase())
+      const plataformas = post.plataformas?.length ? post.plataformas : ["instagram"]
 
-      if (!account) {
-        logger.warn(`Conta "${post.conta}" não configurada — "${post.title}" ignorado.`)
-        await saveLog(db, userId, connectionId, post, null, "skipped", `Conta "${post.conta}" não encontrada`)
-        results.skipped++
-        continue
+      for (const plataforma of plataformas) {
+        const key = `${plataforma.toLowerCase()}:${post.conta.toLowerCase()}`
+        const account = accountMap.get(key)
+
+        if (!account) {
+          logger.warn(`[${plataforma}] Conta "${post.conta}" não configurada — "${post.title}" ignorado.`)
+          await saveLog(db, userId, connectionId, post, null, plataforma, "skipped", `Conta "${post.conta}" não encontrada para ${plataforma}`)
+          results.skipped++
+          continue
+        }
+
+        try {
+          const postId = await publishToPlatform(plataforma, account, post)
+          await saveLog(db, userId, connectionId, post, postId, plataforma, "published", null)
+          logger.info(`[${plataforma}/${post.conta}] ✓ "${post.title}" publicado! ID: ${postId}`)
+          results.published++
+        } catch (error) {
+          const message = error instanceof Error ? error.message : String(error)
+          logger.error(`[${plataforma}/${post.conta}] ✗ "${post.title}": ${message}`)
+          await saveLog(db, userId, connectionId, post, null, plataforma, "failed", message)
+          results.failed++
+        }
       }
 
-      const publisher = createInstagramPublisher(
-        account.instagramBusinessAccountId,
-        account.pageAccessToken
-      )
-
-      try {
-        const igPostId = await publishPost(publisher, post)
-        await notion.markPublished(post.pageId, mapping)
-        await saveLog(db, userId, connectionId, post, igPostId, "published", null)
-        logger.info(`[${post.conta}] ✓ "${post.title}" (${post.tipo}) publicado! ID: ${igPostId}`)
-        results.published++
-      } catch (error) {
-        const message = error instanceof Error ? error.message : String(error)
-        logger.error(`[${post.conta}] ✗ "${post.title}": ${message}`)
-        await notion.markFailed(post.pageId, mapping)
-        await saveLog(db, userId, connectionId, post, null, "failed", message)
-        results.failed++
+      // Mark as published in Notion after all platforms attempted
+      const anyPublished = plataformas.some((p) => {
+        const key = `${p.toLowerCase()}:${post.conta.toLowerCase()}`
+        return accountMap.has(key)
+      })
+      if (anyPublished) {
+        try { await notion.markPublished(post.pageId, mapping) } catch {}
+      } else {
+        try { await notion.markFailed(post.pageId, mapping) } catch {}
       }
     }
 
@@ -127,7 +144,83 @@ export const publishForConnection = task({
   },
 })
 
-// ─── Roteamento por tipo de conteúdo ──────────────────────────────────────
+// ─── Roteamento por plataforma ────────────────────────────────────────────
+
+async function publishToPlatform(
+  plataforma: string,
+  account: typeof schema.instagramAccount.$inferSelect,
+  post: NotionPost
+): Promise<string> {
+  const p = plataforma.toLowerCase()
+
+  if (p === "instagram") {
+    return publishInstagram(account, post)
+  }
+
+  if (p === "facebook") {
+    const fb = createFacebookPublisher(account.pageId, account.pageAccessToken)
+    const images = post.feedImageUrls.length > 0 ? post.feedImageUrls : post.verticalUrls
+    if (post.verticalUrls[0] && isVideo(post.verticalUrls[0])) {
+      return fb.publishVideo(post.verticalUrls[0], post.fullCaption, post.title)
+    }
+    if (images.length > 1) return fb.publishCarousel(images, post.fullCaption)
+    if (images.length === 1) return fb.publishSingleImage(images[0], post.fullCaption)
+    return fb.publishFeedPost(post.fullCaption)
+  }
+
+  if (p === "youtube" || p === "youtube short" || p === "youtube shorts") {
+    const videoUrl = post.verticalUrls[0] ?? post.horizontalUrls[0]
+    if (!videoUrl) throw new Error("YouTube requer um vídeo em Mídia Vertical ou Mídia Horizontal")
+    const isShort = p.includes("short")
+    return uploadYouTubeVideo(
+      account.pageAccessToken,
+      account.refreshToken!,
+      post.title,
+      post.fullCaption,
+      videoUrl,
+      isShort
+    )
+  }
+
+  if (p === "tiktok") {
+    const videoUrl = post.verticalUrls[0]
+    if (!videoUrl) throw new Error("TikTok requer um vídeo em Mídia Vertical")
+    return publishTikTokVideo(
+      account.platformAccountId ?? account.pageId,
+      account.pageAccessToken,
+      account.refreshToken!,
+      videoUrl,
+      post.fullCaption
+    )
+  }
+
+  if (p === "linkedin") {
+    const personUrn = account.platformAccountId ?? `urn:li:person:${account.pageId}`
+    const imageUrl = post.feedImageUrls[0] ?? post.horizontalUrls[0]
+    return publishLinkedInPost(
+      personUrn,
+      account.pageAccessToken,
+      account.refreshToken!,
+      post.fullCaption,
+      imageUrl
+    )
+  }
+
+  throw new Error(`Plataforma "${plataforma}" não suportada`)
+}
+
+// ─── Instagram (lógica original) ─────────────────────────────────────────
+
+async function publishInstagram(
+  account: typeof schema.instagramAccount.$inferSelect,
+  post: NotionPost
+): Promise<string> {
+  const publisher = createInstagramPublisher(
+    account.instagramBusinessAccountId,
+    account.pageAccessToken
+  )
+  return publishPost(publisher, post)
+}
 
 async function publishPost(
   publisher: ReturnType<typeof createInstagramPublisher>,
@@ -178,7 +271,8 @@ async function saveLog(
   userId: string,
   connectionId: string,
   post: NotionPost,
-  igPostId: string | null,
+  postId: string | null,
+  platform: string,
   status: "published" | "failed" | "skipped",
   error: string | null
 ) {
@@ -189,7 +283,9 @@ async function saveLog(
     notionPageId: post.pageId,
     postTitle: post.title,
     conta: post.conta,
-    instagramPostId: igPostId,
+    platform,
+    instagramPostId: platform === "instagram" ? postId : null,
+    platformPostId: postId,
     status,
     error,
   })
