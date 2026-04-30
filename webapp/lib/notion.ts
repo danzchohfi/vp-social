@@ -66,7 +66,7 @@ export const DEFAULT_MAPPING: FieldMapping = {
   accountField: "Conta",
 }
 
-// ─── Cliente Notion ────────────────────────────────────────────────────────
+// ─── Cliente Notion ──────────────────────────────────────────────────
 
 export function createNotionClient(accessToken: string) {
   const client = new Client({ auth: accessToken })
@@ -92,9 +92,10 @@ export function createNotionClient(accessToken: string) {
         sorts: [{ property: mapping.dateField, direction: "ascending" }],
       })
 
-      return response.results
-        .filter((p): p is typeof p & { properties: Record<string, unknown> } => "properties" in p)
-        .map((page) => parsePage(page as any, mapping))
+      const pages = response.results.filter(
+        (p): p is typeof p & { properties: Record<string, unknown> } => "properties" in p
+      )
+      return Promise.all(pages.map((page) => parsePage(page as any, mapping, client)))
     },
 
     async getScheduledPosts(databaseId: string, mapping: FieldMapping): Promise<NotionPost[]> {
@@ -107,9 +108,10 @@ export function createNotionClient(accessToken: string) {
         sorts: [{ property: mapping.dateField, direction: "ascending" }],
       })
 
-      return response.results
-        .filter((p): p is typeof p & { properties: Record<string, unknown> } => "properties" in p)
-        .map((page) => parsePage(page as any, mapping))
+      const pages = response.results.filter(
+        (p): p is typeof p & { properties: Record<string, unknown> } => "properties" in p
+      )
+      return Promise.all(pages.map((page) => parsePage(page as any, mapping, client)))
     },
 
     async markPublished(pageId: string, mapping: FieldMapping): Promise<void> {
@@ -148,17 +150,20 @@ export function createNotionClient(accessToken: string) {
   }
 }
 
-// ─── Parsing ───────────────────────────────────────────────────────────────
+// ─── Parsing ───────────────────────────────────────────────────────────
 
-function parsePage(page: any, m: FieldMapping): NotionPost {
+async function parsePage(page: any, m: FieldMapping, client: Client): Promise<NotionPost> {
   const p = page.properties
   const caption = getRichText(p[m.captionField], "rich_text")
   const hashtags = getRichText(p[m.hashtagsField], "rich_text")
 
+  // Resolve account: supports select, status, rich_text, title, and relation types
+  const conta = await resolveAccount(p[m.accountField], client)
+
   return {
     pageId: page.id,
     title: getRichText(p[m.titleField], "title"),
-    conta: getSelect(p[m.accountField]),
+    conta,
     caption,
     hashtags,
     tipo: getSelect(p[m.tipoField]) || "Feed",
@@ -170,6 +175,33 @@ function parsePage(page: any, m: FieldMapping): NotionPost {
     scheduledDate: getDate(p[m.dateField]),
     fullCaption: [caption, hashtags].filter(Boolean).join("\n\n"),
   }
+}
+
+async function resolveAccount(prop: any, client: Client): Promise<string> {
+  if (!prop) return ""
+
+  // select / status
+  if (prop.select?.name) return prop.select.name
+  if (prop.status?.name) return prop.status.name
+
+  // rich_text or title
+  const text = (prop.rich_text ?? prop.title ?? [])
+    .map((t: any) => t.plain_text ?? "")
+    .join("")
+  if (text) return text
+
+  // relation — fetch title of the first related page
+  if (prop.type === "relation" && prop.relation?.length > 0) {
+    try {
+      const related = await client.pages.retrieve({ page_id: prop.relation[0].id }) as any
+      const titleProp = Object.values(related.properties ?? {}).find((p: any) => p.type === "title") as any
+      return (titleProp?.title ?? []).map((t: any) => t.plain_text ?? "").join("")
+    } catch {
+      return ""
+    }
+  }
+
+  return ""
 }
 
 function getRichText(prop: any, type: "title" | "rich_text"): string {
