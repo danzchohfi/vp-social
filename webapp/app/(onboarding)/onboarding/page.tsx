@@ -250,17 +250,38 @@ export default function OnboardingPage() {
             <div className="flex justify-center py-4">
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
-          ) : databases.length === 0 ? (
+          ) : (
             <div className="space-y-3">
-              <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-                Nenhum banco encontrado automaticamente. Cole o link do seu banco abaixo.
-              </div>
+              {databases.length > 0 && (
+                <div className="space-y-1.5">
+                  <Label>Banco de dados detectado</Label>
+                  <Select value={selectedDbId} onValueChange={(v) => { setSelectedDbId(v); setManualUrl("") }}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Selecione um banco de dados…" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {databases.map((db) => (
+                        <SelectItem key={db.id} value={db.id}>
+                          {db.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              )}
               <div className="space-y-1.5">
-                <Label>Link do banco de dados no Notion</Label>
+                <Label>
+                  {databases.length > 0 ? "Ou cole o link do banco diretamente" : "Link do banco de dados no Notion"}
+                </Label>
+                {databases.length === 0 && (
+                  <div className="rounded-lg border border-dashed p-3 text-center text-sm text-muted-foreground mb-2">
+                    Nenhum banco encontrado automaticamente.
+                  </div>
+                )}
                 <Input
                   placeholder="https://notion.so/workspace/Titulo-xxxxxxxx"
                   value={manualUrl}
-                  onChange={(e) => setManualUrl(e.target.value)}
+                  onChange={(e) => { setManualUrl(e.target.value); setSelectedDbId("") }}
                 />
                 <p className="text-xs text-muted-foreground">
                   Abra o banco no Notion, copie a URL e cole aqui.
@@ -268,34 +289,7 @@ export default function OnboardingPage() {
               </div>
               <Button
                 onClick={saveDatabase}
-                disabled={!manualUrl || dbSaving}
-                className="w-full"
-                size="lg"
-              >
-                {dbSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
-                Continuar
-              </Button>
-            </div>
-          ) : (
-            <div className="space-y-3">
-              <div className="space-y-1.5">
-                <Label>Banco de dados</Label>
-                <Select value={selectedDbId} onValueChange={setSelectedDbId}>
-                  <SelectTrigger>
-                    <SelectValue placeholder="Selecione um banco de dados…" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {databases.map((db) => (
-                      <SelectItem key={db.id} value={db.id}>
-                        {db.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-              <Button
-                onClick={saveDatabase}
-                disabled={!selectedDbId || dbSaving}
+                disabled={!effectiveDbId || dbSaving}
                 className="w-full"
                 size="lg"
               >
@@ -306,12 +300,10 @@ export default function OnboardingPage() {
                 )}
                 Continuar
               </Button>
+              <p className="text-center text-xs text-muted-foreground">
+                Você pode trocar o banco de dados depois nas Configurações.
+              </p>
             </div>
-          )}
-          {databases.length > 0 && (
-            <p className="text-center text-xs text-muted-foreground">
-              Você pode trocar o banco de dados depois nas Configurações.
-            </p>
           )}
         </StepCard>
       )}
