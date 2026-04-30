@@ -126,10 +126,13 @@ function WorkspaceCard({
   // load databases on mount
   const fetchDatabases = useCallback(async () => {
     setLoadingDbs(true)
-    const res = await fetch(`/api/notion/databases?connectionId=${connection.id}`)
-    const data = await res.json()
-    setDatabases(data.databases ?? [])
-    setLoadingDbs(false)
+    try {
+      const res = await fetch(`/api/notion/databases?connectionId=${connection.id}`)
+      const data = await res.json()
+      setDatabases(data.databases ?? [])
+    } finally {
+      setLoadingDbs(false)
+    }
   }, [connection.id])
 
   // load properties when db is confirmed
@@ -258,39 +261,37 @@ function WorkspaceCard({
             <h3 className="flex items-center gap-2 text-sm font-semibold">
               <Database className="h-4 w-4" /> Banco de dados
             </h3>
-            {loadingDbs ? (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" /> Carregando bancos…
-              </div>
-            ) : (
-              <div className="space-y-2">
-                {databases.length > 0 && (
-                  <Select value={selectedDbId} onValueChange={(v) => { setSelectedDbId(v); setManualUrl("") }}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um banco de dados…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {databases.map((db) => (
-                        <SelectItem key={db.id} value={db.id}>{db.name}</SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-                <Input
-                  placeholder="Ou cole o link do banco: https://notion.so/…"
-                  value={manualUrl}
-                  onChange={(e) => { setManualUrl(e.target.value); setSelectedDbId("") }}
-                />
-                <Button
-                  onClick={handleSaveDatabase}
-                  disabled={!effectiveDbId || savingDb || (effectiveDbId === connection.databaseId && !manualUrl)}
-                  className="w-full"
-                >
-                  {savingDb ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
-                  Confirmar banco
-                </Button>
-              </div>
-            )}
+            <div className="space-y-2">
+              {loadingDbs ? (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" /> Carregando bancos…
+                </div>
+              ) : databases.length > 0 && (
+                <Select value={selectedDbId} onValueChange={(v) => { setSelectedDbId(v); setManualUrl("") }}>
+                  <SelectTrigger>
+                    <SelectValue placeholder="Selecione um banco de dados…" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {databases.map((db) => (
+                      <SelectItem key={db.id} value={db.id}>{db.name}</SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+              <Input
+                placeholder="Cole o link do banco: https://notion.so/…"
+                value={manualUrl}
+                onChange={(e) => { setManualUrl(e.target.value); setSelectedDbId("") }}
+              />
+              <Button
+                onClick={handleSaveDatabase}
+                disabled={!effectiveDbId || savingDb || (effectiveDbId === connection.databaseId && !manualUrl)}
+                className="w-full"
+              >
+                {savingDb ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
+                Confirmar banco
+              </Button>
+            </div>
           </section>
 
           {/* Field mapping */}
