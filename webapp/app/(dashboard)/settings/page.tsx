@@ -3,6 +3,7 @@ import { useEffect, useState, useCallback } from "react"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import {
@@ -112,6 +113,7 @@ function WorkspaceCard({
   const [databases, setDatabases] = useState<NotionDatabase[]>([])
   const [loadingDbs, setLoadingDbs] = useState(false)
   const [selectedDbId, setSelectedDbId] = useState(connection.databaseId ?? "")
+  const [manualUrl, setManualUrl] = useState("")
   const [savingDb, setSavingDb] = useState(false)
   const dbConfirmed = selectedDbId === connection.databaseId && !!connection.databaseId
 
@@ -149,19 +151,32 @@ function WorkspaceCard({
     if (dbConfirmed && connection.databaseId) fetchProperties(connection.databaseId)
   }, [dbConfirmed, connection.databaseId, fetchProperties])
 
+  function extractNotionId(input: string): string {
+    const match = input.match(/([a-f0-9]{32})/i)
+    if (match) {
+      const raw = match[1]
+      return `${raw.slice(0,8)}-${raw.slice(8,12)}-${raw.slice(12,16)}-${raw.slice(16,20)}-${raw.slice(20)}`
+    }
+    return input.trim()
+  }
+
+  const effectiveDbId = selectedDbId || (manualUrl ? extractNotionId(manualUrl) : "")
+
   async function handleSaveDatabase() {
-    if (!selectedDbId) return
+    if (!effectiveDbId) return
     setSavingDb(true)
-    const db = databases.find((d) => d.id === selectedDbId)
+    const db = databases.find((d) => d.id === effectiveDbId)
     await fetch("/api/notion/connection", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ connectionId: connection.id, databaseId: selectedDbId, databaseName: db?.name }),
+      body: JSON.stringify({ connectionId: connection.id, databaseId: effectiveDbId, databaseName: db?.name }),
     })
-    connection.databaseId = selectedDbId
-    connection.databaseName = db?.name ?? selectedDbId
-    await fetchProperties(selectedDbId)
-    toast.success(`Banco "${db?.name}" salvo!`)
+    connection.databaseId = effectiveDbId
+    connection.databaseName = db?.name ?? effectiveDbId
+    setSelectedDbId(effectiveDbId)
+    setManualUrl("")
+    await fetchProperties(effectiveDbId)
+    toast.success(`Banco salvo!`)
     setSavingDb(false)
   }
 
@@ -248,9 +263,9 @@ function WorkspaceCard({
                 <Loader2 className="h-4 w-4 animate-spin" /> Carregando bancos…
               </div>
             ) : (
-              <div className="flex gap-2">
-                <div className="flex-1">
-                  <Select value={selectedDbId} onValueChange={setSelectedDbId}>
+              <div className="space-y-2">
+                {databases.length > 0 && (
+                  <Select value={selectedDbId} onValueChange={(v) => { setSelectedDbId(v); setManualUrl("") }}>
                     <SelectTrigger>
                       <SelectValue placeholder="Selecione um banco de dados…" />
                     </SelectTrigger>
@@ -260,14 +275,19 @@ function WorkspaceCard({
                       ))}
                     </SelectContent>
                   </Select>
-                </div>
+                )}
+                <Input
+                  placeholder="Ou cole o link do banco: https://notion.so/…"
+                  value={manualUrl}
+                  onChange={(e) => { setManualUrl(e.target.value); setSelectedDbId("") }}
+                />
                 <Button
                   onClick={handleSaveDatabase}
-                  disabled={!selectedDbId || savingDb || selectedDbId === connection.databaseId}
-                  className="shrink-0"
+                  disabled={!effectiveDbId || savingDb || (effectiveDbId === connection.databaseId && !manualUrl)}
+                  className="w-full"
                 >
                   {savingDb ? <Loader2 className="h-4 w-4 animate-spin" /> : <ChevronRight className="h-4 w-4" />}
-                  Confirmar
+                  Confirmar banco
                 </Button>
               </div>
             )}
