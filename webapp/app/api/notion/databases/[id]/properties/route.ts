@@ -25,20 +25,25 @@ export async function GET(
 
   const { id } = await params
   const notion = new Client({ auth: connection.accessToken })
-  const database = await notion.databases.retrieve({ database_id: id })
 
-  const properties = Object.entries((database as any).properties).map(([name, prop]: [string, any]) => ({
-    name,
-    type: prop.type,
-    options:
-      prop.type === "select"
-        ? prop.select.options.map((o: any) => o.name)
-        : prop.type === "status"
-        ? prop.status.options.map((o: any) => o.name)
-        : prop.type === "multi_select"
-        ? prop.multi_select.options.map((o: any) => o.name)
-        : [],
-  }))
+  try {
+    const database = await notion.databases.retrieve({ database_id: id })
 
-  return NextResponse.json({ properties })
+    const properties = Object.entries((database as any).properties).map(([name, prop]: [string, any]) => ({
+      name,
+      type: prop.type,
+      options:
+        prop.type === "select"
+          ? prop.select.options.map((o: any) => o.name)
+          : prop.type === "status"
+          ? prop.status.options.map((o: any) => o.name)
+          : prop.type === "multi_select"
+          ? prop.multi_select.options.map((o: any) => o.name)
+          : [],
+    }))
+
+    return NextResponse.json({ properties })
+  } catch (e: any) {
+    return NextResponse.json({ error: e.message ?? "Failed to retrieve database", properties: [] }, { status: 500 })
+  }
 }
