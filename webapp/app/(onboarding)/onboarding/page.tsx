@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 import {
   BookOpen, Instagram, CheckCircle2, Loader2, ExternalLink,
   ArrowRight, Database, Zap,
@@ -42,6 +43,7 @@ export default function OnboardingPage() {
   // Step 2 — Database selection
   const [databases, setDatabases] = useState<NotionDatabase[]>([])
   const [selectedDbId, setSelectedDbId] = useState("")
+  const [manualUrl, setManualUrl] = useState("")
   const [dbLoading, setDbLoading] = useState(false)
   const [dbSaving, setDbSaving] = useState(false)
 
@@ -113,16 +115,31 @@ export default function OnboardingPage() {
     }
   }, [])
 
+  // ─── Extract DB ID from Notion URL ────────────────────────────────────────
+
+  function extractNotionId(input: string): string {
+    // Handle full URLs like https://notion.so/workspace/Title-xxxxxxxx?v=...
+    const match = input.match(/([a-f0-9]{32})/i)
+    if (match) {
+      const raw = match[1]
+      // Format as UUID: 8-4-4-4-12
+      return `${raw.slice(0,8)}-${raw.slice(8,12)}-${raw.slice(12,16)}-${raw.slice(16,20)}-${raw.slice(20)}`
+    }
+    return input.trim()
+  }
+
+  const effectiveDbId = selectedDbId || (manualUrl ? extractNotionId(manualUrl) : "")
+
   // ─── Save database selection ───────────────────────────────────────────────
 
   const saveDatabase = async () => {
-    if (!connection || !selectedDbId) return
+    if (!connection || !effectiveDbId) return
     setDbSaving(true)
     try {
       await fetch("/api/notion/connection", {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ connectionId: connection.id, databaseId: selectedDbId }),
+        body: JSON.stringify({ connectionId: connection.id, databaseId: effectiveDbId }),
       })
       setStep(3)
     } finally {
@@ -234,9 +251,30 @@ export default function OnboardingPage() {
               <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
             </div>
           ) : databases.length === 0 ? (
-            <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
-              Nenhum banco de dados encontrado no workspace. Certifique-se de ter compartilhado
-              uma página ou database com a integração Publify no Notion.
+            <div className="space-y-3">
+              <div className="rounded-lg border border-dashed p-4 text-center text-sm text-muted-foreground">
+                Nenhum banco encontrado automaticamente. Cole o link do seu banco abaixo.
+              </div>
+              <div className="space-y-1.5">
+                <Label>Link do banco de dados no Notion</Label>
+                <Input
+                  placeholder="https://notion.so/workspace/Titulo-xxxxxxxx"
+                  value={manualUrl}
+                  onChange={(e) => setManualUrl(e.target.value)}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Abra o banco no Notion, copie a URL e cole aqui.
+                </p>
+              </div>
+              <Button
+                onClick={saveDatabase}
+                disabled={!manualUrl || dbSaving}
+                className="w-full"
+                size="lg"
+              >
+                {dbSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
+                Continuar
+              </Button>
             </div>
           ) : (
             <div className="space-y-3">
