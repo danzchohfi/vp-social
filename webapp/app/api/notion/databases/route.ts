@@ -22,15 +22,17 @@ export async function GET(req: Request) {
 
   const notion = new Client({ auth: connection.accessToken })
 
+  // Search all objects — inline databases don't appear with the "database" filter
   const response = await notion.search({
-    filter: { value: "database", property: "object" },
     sort: { direction: "descending", timestamp: "last_edited_time" },
   })
 
-  const databases = response.results.map((db: any) => ({
-    id: db.id,
-    name: db.title?.[0]?.plain_text ?? "Sem nome",
-  }))
+  const databases = response.results
+    .filter((item: any) => item.object === "database")
+    .map((db: any) => ({
+      id: db.id,
+      name: db.title?.[0]?.plain_text ?? "Sem nome",
+    }))
 
   return NextResponse.json({ databases })
 }
