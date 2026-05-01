@@ -71,7 +71,13 @@ export default function SettingsPage() {
   const [loadingDbs, setLoadingDbs] = useState(false)
 
   useEffect(() => {
-    fetch("/api/notion/workspaces").then(r => r.json()).then(setWorkspaces)
+    fetch("/api/notion/workspaces").then(r => r.json()).then((data: Workspace[]) => {
+      setWorkspaces(data)
+      if (!data.length) return
+      const stored = typeof window !== "undefined" ? localStorage.getItem("publify_selected_workspace") : null
+      const valid = stored && data.find(w => w.id === stored)
+      setSelectedId(valid ? stored : data[0].id)
+    })
   }, [])
 
   const selected = workspaces.find(w => w.id === selectedId)
@@ -148,7 +154,7 @@ export default function SettingsPage() {
 
       <div className="space-y-3">
         <Label>Workspace do Notion</Label>
-        <Select value={selectedId} onValueChange={setSelectedId}>
+        <Select value={selectedId} onValueChange={(v) => { setSelectedId(v); localStorage.setItem("publify_selected_workspace", v) }}>
           <SelectTrigger className="w-full">
             <SelectValue placeholder="Selecione um workspace..." />
           </SelectTrigger>
