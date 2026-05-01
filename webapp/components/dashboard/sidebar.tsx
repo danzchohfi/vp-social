@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils"
 import { LayoutDashboard, Instagram, Settings, Zap, History, CalendarClock, LogOut } from "lucide-react"
 import { signOut, useSession } from "@/lib/auth-client"
 import { useRouter } from "next/navigation"
+import { ClientSwitcher } from "@/components/dashboard/client-switcher"
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -34,6 +35,11 @@ export function Sidebar() {
           <Zap className="h-4 w-4 text-primary-foreground" />
         </div>
         <span className="font-semibold">Publify</span>
+      </div>
+
+      {/* Client switcher */}
+      <div className="border-b p-3">
+        <ClientSwitcher />
       </div>
 
       {/* Nav */}

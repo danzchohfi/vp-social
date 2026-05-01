@@ -1,7 +1,7 @@
 import { schedules, task, logger } from "@trigger.dev/sdk"
 import { neon } from "@neondatabase/serverless"
 import { drizzle } from "drizzle-orm/neon-http"
-import { eq } from "drizzle-orm"
+import { and, eq } from "drizzle-orm"
 import * as schema from "../lib/db/schema"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "../lib/notion"
 import { publishToPlatform, saveLog } from "../lib/publisher"
@@ -32,7 +32,7 @@ export const publishScheduled = schedules.task({
   },
 })
 
-// ─── Task por workspace/conexão ─────────────────────────────────
+// ─── Task por workspace/conexão ───────────────────────────────────
 
 export const publishForConnection = task({
   id: "publish-for-connection",
@@ -62,7 +62,11 @@ export const publishForConnection = task({
     const igAccounts = await db
       .select()
       .from(schema.instagramAccount)
-      .where(eq(schema.instagramAccount.userId, userId))
+      .where(
+        connection.clientId
+          ? and(eq(schema.instagramAccount.userId, userId), eq(schema.instagramAccount.clientId, connection.clientId))
+          : eq(schema.instagramAccount.userId, userId)
+      )
 
     const activeAccounts = igAccounts.filter((a) => a.active)
     if (!activeAccounts.length) {
@@ -101,20 +105,20 @@ export const publishForConnection = task({
 
         if (!account) {
           logger.warn(`[${plataforma}] Conta "${post.conta}" não configurada — "${post.title}" ignorado.`)
-          await saveLog(db, userId, connectionId, post, null, plataforma, "skipped", `Conta "${post.conta}" não encontrada para ${plataforma}`)
+          await saveLog(db, userId, connectionId, post, null, plataforma, "skipped", `Conta "${post.conta}" não encontrada para ${plataforma}`, connection.clientId)
           results.skipped++
           continue
         }
 
         try {
           const postId = await publishToPlatform(plataforma, account, post)
-          await saveLog(db, userId, connectionId, post, postId, plataforma, "published", null)
+          await saveLog(db, userId, connectionId, post, postId, plataforma, "published", null, connection.clientId)
           logger.info(`[${plataforma}/${post.conta}] ✓ "${post.title}" publicado! ID: ${postId}`)
           results.published++
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
           logger.error(`[${plataforma}/${post.conta}] ✗ "${post.title}": ${message}`)
-          await saveLog(db, userId, connectionId, post, null, plataforma, "failed", message)
+          await saveLog(db, userId, connectionId, post, null, plataforma, "failed", message, connection.clientId)
           results.failed++
         }
       }

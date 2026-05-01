@@ -1,6 +1,7 @@
 import { db } from "@/lib/db"
 import { notionConnection } from "@/lib/db/schema"
 import { generateId } from "@/lib/utils"
+import { getActiveClientId } from "@/lib/active-client"
 import { NextResponse } from "next/server"
 
 export async function GET(req: Request) {
@@ -36,11 +37,14 @@ export async function GET(req: Request) {
     const data = await tokenRes.json()
     if (!data.access_token) throw new Error(data.error ?? "Token inválido")
 
+    const clientId = await getActiveClientId(userId)
+
     await db
       .insert(notionConnection)
       .values({
         id: generateId(),
         userId,
+        clientId,
         accessToken: data.access_token,
         workspaceId: data.workspace_id,
         workspaceName: data.workspace_name,
@@ -49,6 +53,7 @@ export async function GET(req: Request) {
       .onConflictDoUpdate({
         target: [notionConnection.userId, notionConnection.workspaceId],
         set: {
+          clientId,
           accessToken: data.access_token,
           workspaceName: data.workspace_name,
           workspaceIcon: data.workspace_icon ?? null,

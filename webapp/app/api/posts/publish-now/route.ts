@@ -46,7 +46,12 @@ export async function POST(req: Request) {
   const accounts = await db
     .select()
     .from(instagramAccount)
-    .where(eq(instagramAccount.userId, userId))
+    .where(and(
+      eq(instagramAccount.userId, userId),
+      connection.clientId
+        ? eq(instagramAccount.clientId, connection.clientId)
+        : eq(instagramAccount.userId, userId)
+    ))
 
   const accountMap = new Map(
     accounts.filter((a) => a.active).map((a) => [`${a.platform.toLowerCase()}:${a.conta.toLowerCase()}`, a])
@@ -62,19 +67,19 @@ export async function POST(req: Request) {
 
     if (!account) {
       const msg = `Conta "${post.conta}" não configurada para ${plataforma}`
-      await saveLog(db, userId, connectionId, post, null, plataforma, "skipped", msg)
+      await saveLog(db, userId, connectionId, post, null, plataforma, "skipped", msg, connection.clientId)
       results.push({ platform: plataforma, status: "skipped", error: msg })
       continue
     }
 
     try {
       const postId = await publishToPlatform(plataforma, account, post)
-      await saveLog(db, userId, connectionId, post, postId, plataforma, "published", null)
+      await saveLog(db, userId, connectionId, post, postId, plataforma, "published", null, connection.clientId)
       results.push({ platform: plataforma, status: "published", postId })
       anyPublished = true
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      await saveLog(db, userId, connectionId, post, null, plataforma, "failed", message)
+      await saveLog(db, userId, connectionId, post, null, plataforma, "failed", message, connection.clientId)
       results.push({ platform: plataforma, status: "failed", error: message })
     }
   }

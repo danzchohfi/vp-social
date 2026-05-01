@@ -1,6 +1,7 @@
 import { db } from "@/lib/db"
 import { instagramAccount } from "@/lib/db/schema"
 import { generateId } from "@/lib/utils"
+import { getActiveClientId } from "@/lib/active-client"
 import { NextResponse } from "next/server"
 
 export async function GET(req: Request) {
@@ -39,11 +40,14 @@ export async function GET(req: Request) {
     const displayName = userData.data?.user?.display_name ?? "TikTok Account"
     const openId = token.open_id as string
 
+    const clientId = await getActiveClientId(userId)
+
     await db
       .insert(instagramAccount)
       .values({
         id: generateId(),
         userId,
+        clientId,
         platform: "tiktok",
         conta: displayName,
         pageName: displayName,
@@ -56,6 +60,7 @@ export async function GET(req: Request) {
       .onConflictDoUpdate({
         target: [instagramAccount.userId, instagramAccount.platform, instagramAccount.pageId],
         set: {
+          clientId,
           pageAccessToken: token.access_token,
           refreshToken: token.refresh_token ?? null,
           pageName: displayName,

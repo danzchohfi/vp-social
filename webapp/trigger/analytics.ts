@@ -44,7 +44,7 @@ export const syncAnalyticsScheduled = schedules.task({
   },
 })
 
-// ─── Task por post ────────────────────────────────────────────────────────
+// ─── Task por post ──────────────────────────────────────────────────────
 
 export const syncPostAnalytics = task({
   id: "sync-post-analytics",
@@ -76,14 +76,15 @@ export const syncPostAnalytics = task({
     )
     if (!hasAnalyticsMapping) return { skipped: true, reason: "no analytics fields mapped" }
 
-    // Get Instagram access token via conta match
+    // Get Instagram access token via conta match (scoped by client when available)
     const igAccount = await db
       .select()
       .from(schema.instagramAccount)
       .where(
         and(
           eq(schema.instagramAccount.userId, log.userId),
-          eq(sql`lower(${schema.instagramAccount.conta})`, log.conta?.toLowerCase() ?? "")
+          eq(sql`lower(${schema.instagramAccount.conta})`, log.conta?.toLowerCase() ?? ""),
+          ...(log.clientId ? [eq(schema.instagramAccount.clientId, log.clientId)] : [])
         )
       )
       .then((rows) => rows[0])

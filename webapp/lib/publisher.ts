@@ -139,11 +139,13 @@ export async function saveLog(
   postId: string | null,
   platform: string,
   status: "published" | "failed" | "skipped",
-  error: string | null
+  error: string | null,
+  clientId?: string | null
 ) {
   await db.insert(schema.publishLog).values({
     id: generateId(),
     userId,
+    clientId: clientId ?? null,
     connectionId,
     notionPageId: post.pageId,
     postTitle: post.title,

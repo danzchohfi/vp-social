@@ -1,6 +1,7 @@
 import { db } from "@/lib/db"
 import { instagramAccount } from "@/lib/db/schema"
 import { generateId } from "@/lib/utils"
+import { getActiveClientId } from "@/lib/active-client"
 import { NextResponse } from "next/server"
 
 const GRAPH = "https://graph.facebook.com/v19.0"
@@ -75,6 +76,7 @@ export async function GET(req: Request) {
       }
     }
 
+    const clientId = await getActiveClientId(userId)
     let connected = 0
     for (const page of pages) {
       const ig = page.instagram_business_account
@@ -84,6 +86,7 @@ export async function GET(req: Request) {
         .values({
           id: generateId(),
           userId,
+          clientId,
           platform: "facebook",
           conta: page.name,
           pageName: page.name,
@@ -94,6 +97,7 @@ export async function GET(req: Request) {
         .onConflictDoUpdate({
           target: [instagramAccount.userId, instagramAccount.platform, instagramAccount.pageId],
           set: {
+            clientId,
             pageAccessToken: page.access_token,
             pageName: page.name,
             updatedAt: new Date(),
@@ -106,6 +110,7 @@ export async function GET(req: Request) {
           .values({
             id: generateId(),
             userId,
+            clientId,
             platform: "instagram",
             conta: page.name,
             pageName: page.name,
@@ -118,6 +123,7 @@ export async function GET(req: Request) {
           .onConflictDoUpdate({
             target: [instagramAccount.userId, instagramAccount.platform, instagramAccount.pageId],
             set: {
+              clientId,
               pageAccessToken: page.access_token,
               pageName: page.name,
               instagramBusinessAccountId: ig.id,

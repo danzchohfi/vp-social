@@ -1,6 +1,7 @@
 import { db } from "@/lib/db"
 import { instagramAccount } from "@/lib/db/schema"
 import { generateId } from "@/lib/utils"
+import { getActiveClientId } from "@/lib/active-client"
 import { NextResponse } from "next/server"
 
 export async function GET(req: Request) {
@@ -38,11 +39,14 @@ export async function GET(req: Request) {
     const displayName = profile.name ?? profile.given_name ?? "LinkedIn Account"
     const personUrn = `urn:li:person:${personId}`
 
+    const clientId = await getActiveClientId(userId)
+
     await db
       .insert(instagramAccount)
       .values({
         id: generateId(),
         userId,
+        clientId,
         platform: "linkedin",
         conta: displayName,
         pageName: displayName,
@@ -55,6 +59,7 @@ export async function GET(req: Request) {
       .onConflictDoUpdate({
         target: [instagramAccount.userId, instagramAccount.platform, instagramAccount.pageId],
         set: {
+          clientId,
           pageAccessToken: tokenData.access_token,
           refreshToken: tokenData.refresh_token ?? null,
           pageName: displayName,
