@@ -222,11 +222,20 @@ async function publishInstagram(
   return publishPost(publisher, post)
 }
 
+function normalizeTipo(raw: string): string {
+  const t = raw.toLowerCase().trim()
+  if (t.includes("story") || t.includes("storie")) return "story"
+  if (t.includes("reel")) return "reel"
+  if (t.includes("carrossel") || t.includes("carousel")) return "carrossel"
+  if (t.includes("vídeo") || t.includes("video")) return "feed vídeo"
+  return "feed"
+}
+
 async function publishPost(
   publisher: ReturnType<typeof createInstagramPublisher>,
   post: NotionPost
 ): Promise<string> {
-  const tipo = post.tipo.toLowerCase()
+  const tipo = normalizeTipo(post.tipo)
 
   if (tipo === "story") {
     const videoUrl = post.verticalUrls[0]
@@ -248,7 +257,7 @@ async function publishPost(
     return publisher.publishCarousel(images, post.fullCaption)
   }
 
-  if (tipo === "feed vídeo" || tipo === "feed video") {
+  if (tipo === "feed vídeo") {
     const videoUrl = post.feedImageUrls[0] ?? post.verticalUrls[0]
     if (!videoUrl) throw new Error("Feed Vídeo requer mídia em Imagens Feed ou Mídia Vertical")
     return publisher.publishFeedVideo(videoUrl, post.fullCaption, post.thumbnailUrl)
