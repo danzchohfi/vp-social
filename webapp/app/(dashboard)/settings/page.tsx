@@ -137,7 +137,12 @@ export default function SettingsPage() {
           <SelectContent>
             {workspaces.map((w) => (
               <SelectItem key={w.id} value={w.id}>
-                {w.workspaceIcon && <span className="mr-2">{w.workspaceIcon}</span>}{w.workspaceName}
+                <span className="flex items-center gap-2">
+                  {w.workspaceIcon && (w.workspaceIcon.startsWith("http")
+                    ? <img src={w.workspaceIcon} alt="" className="h-4 w-4 rounded" />
+                    : <span>{w.workspaceIcon}</span>)}
+                  <span>{w.workspaceName || "Sem nome"}</span>
+                </span>
               </SelectItem>
             ))}
           </SelectContent>
