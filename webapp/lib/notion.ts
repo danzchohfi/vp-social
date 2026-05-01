@@ -46,6 +46,11 @@ export interface FieldMapping {
   statusErrorValue: string
   dateField: string
   accountField: string
+  likesField?: string
+  commentsField?: string
+  reachField?: string
+  savesField?: string
+  impressionsField?: string
 }
 
 export const DEFAULT_MAPPING: FieldMapping = {
