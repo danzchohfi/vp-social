@@ -6,10 +6,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Instagram, Trash2, Loader2, Facebook, Pencil, Check, X, Youtube, Linkedin, Building2 } from "lucide-react"
+import { Instagram, Trash2, Loader2, Facebook, Pencil, Check, X, Youtube, Linkedin, Building2, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-// TikTok SVG (not in lucide)
 function TikTokIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
@@ -88,9 +87,7 @@ export default function AccountsPage() {
   useEffect(() => {
     fetchAccounts()
     fetchActiveClient()
-    // Check which platforms are configured
     checkPlatformAvailability()
-    // Toast on successful connect
     const connected = searchParams.get("connected")
     if (connected) toast.success(`Conta conectada com sucesso!`)
   }, [searchParams])
@@ -150,6 +147,21 @@ export default function AccountsPage() {
     toast.success("Conta removida.")
   }
 
+  async function handleKeepOnly(account: Account) {
+    const platformLabel = PLATFORM_CONFIG[account.platform].label
+    const others = accounts.filter((a) => a.platform === account.platform && a.id !== account.id)
+    if (!others.length) {
+      toast.info("Já é a única conta deste cliente nessa plataforma.")
+      return
+    }
+    if (!confirm(`Manter apenas "${account.conta}" para ${platformLabel} neste cliente? As outras ${others.length} conta(s) serão removidas.`)) return
+    const res = await fetch(`/api/accounts/${account.id}/keep-only`, { method: "POST" })
+    const data = await res.json()
+    if (!res.ok) { toast.error(data.error ?? "Erro"); return }
+    toast.success(`${data.removed} conta(s) removida(s)`)
+    fetchAccounts()
+  }
+
   function startEdit(account: Account) {
     setEditingId(account.id)
     setEditValue(account.conta)
@@ -191,13 +203,24 @@ export default function AccountsPage() {
         </p>
       </div>
 
-      {accounts.length > 0 && (
-        <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
-          <strong>Importante:</strong> o campo <strong>Conta</strong> (editável com o lápis) deve ser
-          idêntico ao valor da propriedade <strong>Conta</strong> no seu banco de dados Notion.
-          Conexões via OAuth podem trazer várias páginas — <strong>delete as que não pertencem a este cliente</strong>.
-        </div>
-      )}
+      {accounts.length > 0 && (() => {
+        const hasMultiplePerPlatform = PLATFORMS.some((p) => byPlatform(p).length > 1)
+        return (
+          <>
+            {hasMultiplePerPlatform && (
+              <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+                <strong>Várias contas conectadas em uma mesma plataforma.</strong>{" "}
+                Cada cliente publica em <strong>uma conta por plataforma</strong>. Clique em
+                <strong> &quot;Manter só esta&quot;</strong> na conta correta para remover as demais automaticamente.
+              </div>
+            )}
+            <div className="mb-6 rounded-lg border bg-card px-4 py-3 text-sm text-muted-foreground">
+              <strong className="text-foreground">Dica:</strong> o campo <strong>Conta</strong> (editável com o lápis)
+              deve bater com o valor da propriedade <strong>Conta</strong> no banco do Notion deste cliente.
+            </div>
+          </>
+        )
+      })()}
 
       {loading ? (
         <div className="flex justify-center py-20">
@@ -289,6 +312,12 @@ export default function AccountsPage() {
                             </div>
                           </div>
                           <div className="flex items-center gap-2 shrink-0">
+                            {platformAccounts.length > 1 && (
+                              <Button variant="outline" size="sm" onClick={() => handleKeepOnly(account)} title="Manter apenas esta para este cliente (remove as outras de mesma plataforma)">
+                                <Star className="h-3.5 w-3.5" />
+                                Manter só esta
+                              </Button>
+                            )}
                             <Button variant="outline" size="sm" onClick={() => handleToggle(account.id, account.active)}>
                               {account.active ? "Desativar" : "Ativar"}
                             </Button>
