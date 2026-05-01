@@ -7,7 +7,7 @@ import { eq, desc, count } from "drizzle-orm"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, Zap, ArrowRight } from "lucide-react"
+import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, Zap, ArrowRight, Facebook, Youtube, Linkedin } from "lucide-react"
 import Link from "next/link"
 import { PublishButton } from "@/components/dashboard/publish-button"
 import { getActiveClient } from "@/lib/active-client"
@@ -41,6 +41,22 @@ export default async function DashboardPage() {
 
   const totalPublished = stats.find((s) => s.status === "published")?.total ?? 0
   const totalFailed = stats.find((s) => s.status === "failed")?.total ?? 0
+
+  const PLATFORM_META: Record<string, { label: string; icon: any }> = {
+    instagram: { label: "Instagram", icon: Instagram },
+    facebook: { label: "Facebook", icon: Facebook },
+    youtube: { label: "YouTube", icon: Youtube },
+    tiktok: { label: "TikTok", icon: null },
+    linkedin: { label: "LinkedIn", icon: Linkedin },
+  }
+  const PLATFORM_ORDER = ["instagram", "facebook", "youtube", "tiktok", "linkedin"]
+  const activeByPlatform = PLATFORM_ORDER.map((p) => ({
+    platform: p,
+    label: PLATFORM_META[p]?.label ?? p,
+    icon: PLATFORM_META[p]?.icon,
+    active: accounts.filter((a) => a.platform === p && a.active).length,
+    total: accounts.filter((a) => a.platform === p).length,
+  })).filter((x) => x.total > 0)
 
   return (
     <div className="p-8">
@@ -93,16 +109,7 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      <div className="mb-8 grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Contas ativas</CardDescription>
-            <CardTitle className="text-3xl">{accounts.filter((a) => a.active).length}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">{accounts.length} conectada{accounts.length !== 1 ? "s" : ""} no total</p>
-          </CardContent>
-        </Card>
+      <div className="mb-6 grid gap-4 sm:grid-cols-2">
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Publicados</CardDescription>
@@ -122,6 +129,54 @@ export default async function DashboardPage() {
           </CardContent>
         </Card>
       </div>
+
+      <Card className="mb-8">
+        <CardHeader className="pb-3">
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="text-base">Contas ativas por plataforma</CardTitle>
+              <CardDescription>Onde {activeClient.name} pode publicar</CardDescription>
+            </div>
+            <Button variant="ghost" size="sm" asChild>
+              <Link href="/accounts">Gerenciar <ArrowRight className="h-3.5 w-3.5" /></Link>
+            </Button>
+          </div>
+        </CardHeader>
+        <CardContent>
+          {activeByPlatform.length === 0 ? (
+            <p className="py-3 text-sm text-muted-foreground">
+              Nenhuma conta conectada a este cliente ainda.{" "}
+              <Link href="/accounts" className="underline">Conectar agora</Link>.
+            </p>
+          ) : (
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+              {activeByPlatform.map((p) => {
+                const Icon = p.icon
+                const isActive = p.active > 0
+                return (
+                  <div
+                    key={p.platform}
+                    className={`flex items-center justify-between rounded-lg border px-3 py-2.5 ${isActive ? "border-emerald-200 bg-emerald-50/30 dark:border-emerald-800 dark:bg-emerald-950/20" : "bg-muted/20"}`}
+                  >
+                    <div className="flex items-center gap-2.5">
+                      {Icon ? (
+                        <Icon className="h-4 w-4 text-muted-foreground" />
+                      ) : (
+                        <div className="h-4 w-4 rounded-sm bg-foreground/70" />
+                      )}
+                      <span className="text-sm font-medium">{p.label}</span>
+                    </div>
+                    <span className={isActive ? "text-sm font-semibold text-emerald-600" : "text-sm text-muted-foreground"}>
+                      {p.active} ativa{p.active === 1 ? "" : "s"}
+                      {p.total !== p.active && <span className="ml-1 text-xs text-muted-foreground">/ {p.total}</span>}
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
