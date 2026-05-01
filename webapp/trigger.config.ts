@@ -14,4 +14,5 @@ export default defineConfig({
     },
   },
   dirs: ["./trigger"],
+  maxDuration: 300,
 })
