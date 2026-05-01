@@ -3,29 +3,30 @@ import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
 import { instagramAccount, notionConnection, publishLog } from "@/lib/db/schema"
-import { eq, desc, count, and, sql } from "drizzle-orm"
+import { eq, desc, count } from "drizzle-orm"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, Zap, ArrowRight } from "lucide-react"
 import Link from "next/link"
 import { PublishButton } from "@/components/dashboard/publish-button"
+import { getActiveClient } from "@/lib/active-client"
 
 export default async function DashboardPage() {
   const session = await auth.api.getSession({ headers: await headers() })
   const userId = session!.user.id
 
+  const activeClient = await getActiveClient(userId)
+  const clientId = activeClient.id
+
   const [accounts, notion, logs, stats] = await Promise.all([
-    db.select().from(instagramAccount).where(eq(instagramAccount.userId, userId)),
-    db.select().from(notionConnection).where(eq(notionConnection.userId, userId)),
-    db.select().from(publishLog).where(eq(publishLog.userId, userId)).orderBy(desc(publishLog.publishedAt)).limit(10),
+    db.select().from(instagramAccount).where(eq(instagramAccount.clientId, clientId)),
+    db.select().from(notionConnection).where(eq(notionConnection.clientId, clientId)),
+    db.select().from(publishLog).where(eq(publishLog.clientId, clientId)).orderBy(desc(publishLog.publishedAt)).limit(10),
     db
-      .select({
-        status: publishLog.status,
-        total: count(),
-      })
+      .select({ status: publishLog.status, total: count() })
       .from(publishLog)
-      .where(eq(publishLog.userId, userId))
+      .where(eq(publishLog.clientId, clientId))
       .groupBy(publishLog.status),
   ])
 
@@ -34,8 +35,7 @@ export default async function DashboardPage() {
   const hasAccounts = accounts.filter((a) => a.active).length > 0
   const isReady = notionConnected && notionHasDb && hasAccounts
 
-  // Brand-new users with no connections at all go through onboarding
-  if (!notionConnected && !hasAccounts && logs.length === 0) {
+  if (!notionConnected && !hasAccounts && logs.length === 0 && activeClient.name === "Cliente padrão") {
     redirect("/onboarding")
   }
 
@@ -47,12 +47,13 @@ export default async function DashboardPage() {
       <div className="mb-8 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-bold">Dashboard</h1>
-          <p className="text-muted-foreground">Olá, {session!.user.name} 👋</p>
+          <p className="text-muted-foreground">
+            {activeClient.name} · Olá, {session!.user.name} 👋
+          </p>
         </div>
         {isReady && <PublishButton />}
       </div>
 
-      {/* Setup banner */}
       {!isReady && (
         <div className="mb-8 rounded-xl border border-primary/20 bg-primary/5 p-6">
           <div className="flex items-start gap-4">
@@ -60,9 +61,9 @@ export default async function DashboardPage() {
               <Zap className="h-5 w-5 text-primary" />
             </div>
             <div className="flex-1">
-              <h3 className="font-semibold">Configure sua conta</h3>
+              <h3 className="font-semibold">Configure este cliente</h3>
               <p className="mt-1 text-sm text-muted-foreground">
-                Complete os passos abaixo para começar a publicar automaticamente.
+                Complete os passos abaixo para começar a publicar para <strong>{activeClient.name}</strong>.
               </p>
               <div className="mt-4 flex flex-wrap gap-3">
                 {!notionConnected && (
@@ -92,7 +93,6 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {/* Stats */}
       <div className="mb-8 grid gap-4 sm:grid-cols-3">
         <Card>
           <CardHeader className="pb-2">
@@ -109,7 +109,7 @@ export default async function DashboardPage() {
             <CardTitle className="text-3xl text-emerald-600">{totalPublished}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground">total histórico</p>
+            <p className="text-xs text-muted-foreground">total deste cliente</p>
           </CardContent>
         </Card>
         <Card>
@@ -118,17 +118,16 @@ export default async function DashboardPage() {
             <CardTitle className="text-3xl text-red-500">{totalFailed}</CardTitle>
           </CardHeader>
           <CardContent>
-            <p className="text-xs text-muted-foreground">total histórico</p>
+            <p className="text-xs text-muted-foreground">total deste cliente</p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Recent activity */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between">
           <div>
             <CardTitle>Atividade recente</CardTitle>
-            <CardDescription>Últimas 10 publicações do sistema</CardDescription>
+            <CardDescription>Últimas 10 publicações deste cliente</CardDescription>
           </div>
           <Button variant="ghost" size="sm" asChild>
             <Link href="/history">Ver tudo <ArrowRight className="h-3.5 w-3.5" /></Link>
@@ -140,7 +139,7 @@ export default async function DashboardPage() {
               <Clock className="mb-3 h-10 w-10 text-muted-foreground/40" />
               <p className="font-medium">Nenhuma publicação ainda</p>
               <p className="mt-1 text-sm text-muted-foreground">
-                Configure as contas e marque posts como "Agendamento" no Notion.
+                Configure as contas e marque posts como &quot;Agendamento&quot; no Notion.
               </p>
             </div>
           ) : (
