@@ -17,6 +17,7 @@ type Workspace = {
 }
 
 type NotionDatabase = { id: string; name: string }
+type PropInfo = { name: string; type: string; options: string[] }
 
 type FieldMapping = {
   statusField: string; statusReadyValue: string; statusPublishedValue: string; statusErrorValue: string
@@ -56,13 +57,46 @@ function SelectField({ label, value, options, onChange, hint }: { label: string;
   )
 }
 
+function StatusValueSelect({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
+  if (!options.length) {
+    return (
+      <div className="space-y-1">
+        <Label className="text-sm">{label}</Label>
+        <Input value={value} onChange={e => onChange(e.target.value)} placeholder="Selecione um campo de Status acima" disabled />
+      </div>
+    )
+  }
+  return (
+    <div className="space-y-1">
+      <Label className="text-sm">{label}</Label>
+      <Select value={value || NONE_VALUE} onValueChange={(v) => onChange(v === NONE_VALUE ? "" : v)}>
+        <SelectTrigger className="w-full">
+          <SelectValue placeholder="Selecionar valor..." />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value={NONE_VALUE}>— Não usar —</SelectItem>
+          {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+        </SelectContent>
+      </Select>
+    </div>
+  )
+}
+
+function normalizeProps(data: any): PropInfo[] {
+  if (!Array.isArray(data)) return []
+  return data.map((p: any) => {
+    if (typeof p === "string") return { name: p, type: "unknown", options: [] }
+    return { name: p.name, type: p.type ?? "unknown", options: Array.isArray(p.options) ? p.options : [] }
+  })
+}
+
 export default function SettingsPage() {
   const { data: session } = useSession()
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [selectedId, setSelectedId] = useState<string>("")
   const [dbUrl, setDbUrl] = useState("")
   const [dbName, setDbName] = useState<string | null>(null)
-  const [propNames, setPropNames] = useState<string[]>([])
+  const [props, setProps] = useState<PropInfo[]>([])
   const [mapping, setMapping] = useState<FieldMapping>(DEFAULT_MAPPING)
   const [saving, setSaving] = useState(false)
   const [loadingDb, setLoadingDb] = useState(false)
@@ -92,11 +126,11 @@ export default function SettingsPage() {
       setSelectedDbId("")
       setDbName(selected.databaseName)
       fetch(`/api/notion/workspaces/${selectedId}/props`).then(r => r.json()).then(data => {
-        if (Array.isArray(data)) setPropNames(data)
+        setProps(normalizeProps(data))
       })
     } else {
       setDbName(null)
-      setPropNames([])
+      setProps([])
       setSelectedDbId("")
       setDbUrl("")
       setLoadingDbs(true)
@@ -107,7 +141,11 @@ export default function SettingsPage() {
     }
   }, [selectedId, selected?.databaseId])
 
-  const allPropNames = propNames.length ? propNames : [mapping.statusField, mapping.dateField, mapping.captionField, mapping.hashtagsField, mapping.tipoField, mapping.plataformasField, mapping.accountField, mapping.feedImageUrlsField, mapping.verticalUrlsField, mapping.horizontalUrlsField, mapping.thumbnailUrlField].filter(Boolean)
+  const propNames = props.length
+    ? props.map(p => p.name)
+    : [mapping.statusField, mapping.dateField, mapping.captionField, mapping.hashtagsField, mapping.tipoField, mapping.plataformasField, mapping.accountField, mapping.feedImageUrlsField, mapping.verticalUrlsField, mapping.horizontalUrlsField, mapping.thumbnailUrlField].filter(Boolean)
+
+  const statusOptions = props.find(p => p.name === mapping.statusField)?.options ?? []
 
   function setField(key: keyof FieldMapping, value: string) {
     setMapping(prev => ({ ...prev, [key]: value }))
@@ -126,7 +164,7 @@ export default function SettingsPage() {
     setLoadingDb(false)
     if (!res.ok) { toast.error(data.error ?? "Erro ao conectar banco"); return }
     setDbName(data.name)
-    setPropNames(data.props ?? [])
+    setProps(normalizeProps(data.props))
     toast.success(`Banco "${data.name}" conectado!`)
     setWorkspaces(ws => ws.map(w => w.id === selectedId ? { ...w, databaseId: data.id, databaseName: data.name } : w))
   }
@@ -233,47 +271,38 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <SelectField label="Campo de Status" value={mapping.statusField} options={allPropNames} onChange={(v) => setField("statusField", v)} />
-                  <div className="space-y-1">
-                    <Label className="text-sm">Valor &quot;Pronto para publicar&quot;</Label>
-                    <Input value={mapping.statusReadyValue} onChange={e => setField("statusReadyValue", e.target.value)} placeholder="ex: Pronto" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-sm">Valor &quot;Publicado&quot;</Label>
-                    <Input value={mapping.statusPublishedValue} onChange={e => setField("statusPublishedValue", e.target.value)} placeholder="ex: Publicado" />
-                  </div>
-                  <div className="space-y-1">
-                    <Label className="text-sm">Valor &quot;Erro&quot;</Label>
-                    <Input value={mapping.statusErrorValue} onChange={e => setField("statusErrorValue", e.target.value)} placeholder="ex: Erro" />
-                  </div>
+                  <SelectField label="Campo de Status" value={mapping.statusField} options={propNames} onChange={(v) => setField("statusField", v)} />
+                  <StatusValueSelect label='Valor "Pronto para publicar"' value={mapping.statusReadyValue} options={statusOptions} onChange={(v) => setField("statusReadyValue", v)} />
+                  <StatusValueSelect label='Valor "Publicado"' value={mapping.statusPublishedValue} options={statusOptions} onChange={(v) => setField("statusPublishedValue", v)} />
+                  <StatusValueSelect label='Valor "Erro"' value={mapping.statusErrorValue} options={statusOptions} onChange={(v) => setField("statusErrorValue", v)} />
                 </div>
               </div>
 
               <div className="space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Agendamento</p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <SelectField label="Data de publicação" value={mapping.dateField} options={allPropNames} onChange={(v) => setField("dateField", v)} />
-                  <SelectField label="Conta" value={mapping.accountField} options={allPropNames} onChange={(v) => setField("accountField", v)} hint="Deve bater com o nome da conta no app" />
+                  <SelectField label="Data de publicação" value={mapping.dateField} options={propNames} onChange={(v) => setField("dateField", v)} />
+                  <SelectField label="Conta" value={mapping.accountField} options={propNames} onChange={(v) => setField("accountField", v)} hint="Deve bater com o nome da conta no app" />
                 </div>
               </div>
 
               <div className="space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Conteúdo</p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <SelectField label="Legenda" value={mapping.captionField} options={allPropNames} onChange={(v) => setField("captionField", v)} />
-                  <SelectField label="Hashtags" value={mapping.hashtagsField} options={allPropNames} onChange={(v) => setField("hashtagsField", v)} />
-                  <SelectField label="Publicar em" value={mapping.tipoField} options={allPropNames} onChange={(v) => setField("tipoField", v)} hint="IG Reels, IG Story, IG Feed…" />
-                  <SelectField label="Plataformas" value={mapping.plataformasField} options={allPropNames} onChange={(v) => setField("plataformasField", v)} />
+                  <SelectField label="Legenda" value={mapping.captionField} options={propNames} onChange={(v) => setField("captionField", v)} />
+                  <SelectField label="Hashtags" value={mapping.hashtagsField} options={propNames} onChange={(v) => setField("hashtagsField", v)} />
+                  <SelectField label="Publicar em" value={mapping.tipoField} options={propNames} onChange={(v) => setField("tipoField", v)} hint="IG Reels, IG Story, IG Feed…" />
+                  <SelectField label="Plataformas" value={mapping.plataformasField} options={propNames} onChange={(v) => setField("plataformasField", v)} />
                 </div>
               </div>
 
               <div className="space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Mídia</p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <SelectField label="Imagens Feed" value={mapping.feedImageUrlsField} options={allPropNames} onChange={(v) => setField("feedImageUrlsField", v)} />
-                  <SelectField label="Mídia Vertical" value={mapping.verticalUrlsField} options={allPropNames} onChange={(v) => setField("verticalUrlsField", v)} hint="Stories, Reels" />
-                  <SelectField label="Mídia Horizontal" value={mapping.horizontalUrlsField} options={allPropNames} onChange={(v) => setField("horizontalUrlsField", v)} />
-                  <SelectField label="Thumbnail" value={mapping.thumbnailUrlField} options={allPropNames} onChange={(v) => setField("thumbnailUrlField", v)} />
+                  <SelectField label="Imagens Feed" value={mapping.feedImageUrlsField} options={propNames} onChange={(v) => setField("feedImageUrlsField", v)} />
+                  <SelectField label="Mídia Vertical" value={mapping.verticalUrlsField} options={propNames} onChange={(v) => setField("verticalUrlsField", v)} hint="Stories, Reels" />
+                  <SelectField label="Mídia Horizontal" value={mapping.horizontalUrlsField} options={propNames} onChange={(v) => setField("horizontalUrlsField", v)} />
+                  <SelectField label="Thumbnail" value={mapping.thumbnailUrlField} options={propNames} onChange={(v) => setField("thumbnailUrlField", v)} />
                 </div>
               </div>
 
@@ -281,11 +310,11 @@ export default function SettingsPage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Analytics (opcional)</p>
                 <p className="text-xs text-muted-foreground">Crie campos Number no Notion e mapeie aqui para sincronizar métricas automaticamente.</p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <SelectField label="Curtidas" value={mapping.likesField} options={allPropNames} onChange={(v) => setField("likesField", v)} />
-                  <SelectField label="Comentários" value={mapping.commentsField} options={allPropNames} onChange={(v) => setField("commentsField", v)} />
-                  <SelectField label="Alcance" value={mapping.reachField} options={allPropNames} onChange={(v) => setField("reachField", v)} />
-                  <SelectField label="Salvamentos" value={mapping.savesField} options={allPropNames} onChange={(v) => setField("savesField", v)} />
-                  <SelectField label="Impressões" value={mapping.impressionsField} options={allPropNames} onChange={(v) => setField("impressionsField", v)} />
+                  <SelectField label="Curtidas" value={mapping.likesField} options={propNames} onChange={(v) => setField("likesField", v)} />
+                  <SelectField label="Comentários" value={mapping.commentsField} options={propNames} onChange={(v) => setField("commentsField", v)} />
+                  <SelectField label="Alcance" value={mapping.reachField} options={propNames} onChange={(v) => setField("reachField", v)} />
+                  <SelectField label="Salvamentos" value={mapping.savesField} options={propNames} onChange={(v) => setField("savesField", v)} />
+                  <SelectField label="Impressões" value={mapping.impressionsField} options={propNames} onChange={(v) => setField("impressionsField", v)} />
                 </div>
               </div>
 

@@ -25,7 +25,19 @@ export async function GET(
   try {
     const notion = new Client({ auth: connection.accessToken })
     const database = await notion.databases.retrieve({ database_id: connection.databaseId })
-    const props = Object.keys((database as any).properties)
+    const properties = (database as any).properties as Record<string, any>
+    const props = Object.entries(properties).map(([name, p]) => {
+      const type = p.type as string
+      let options: string[] = []
+      if (type === "status") {
+        options = (p.status?.options ?? []).map((o: any) => o.name)
+      } else if (type === "select") {
+        options = (p.select?.options ?? []).map((o: any) => o.name)
+      } else if (type === "multi_select") {
+        options = (p.multi_select?.options ?? []).map((o: any) => o.name)
+      }
+      return { name, type, options }
+    })
     return NextResponse.json(props)
   } catch {
     return NextResponse.json([])

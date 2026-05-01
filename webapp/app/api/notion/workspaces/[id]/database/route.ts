@@ -39,7 +39,15 @@ export async function POST(
     const database = await notion.databases.retrieve({ database_id: databaseId })
 
     const name = (database as any).title?.[0]?.plain_text ?? "Sem nome"
-    const props = Object.keys((database as any).properties)
+    const properties = (database as any).properties as Record<string, any>
+    const props = Object.entries(properties).map(([n, p]) => {
+      const type = p.type as string
+      let options: string[] = []
+      if (type === "status") options = (p.status?.options ?? []).map((o: any) => o.name)
+      else if (type === "select") options = (p.select?.options ?? []).map((o: any) => o.name)
+      else if (type === "multi_select") options = (p.multi_select?.options ?? []).map((o: any) => o.name)
+      return { name: n, type, options }
+    })
 
     await db
       .update(notionConnection)
