@@ -16,11 +16,14 @@ export async function GET(req: Request) {
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
   const clientId = process.env.GOOGLE_CLIENT_ID
+  if (!appUrl || !clientId) return NextResponse.json({ error: "YouTube not configured" }, { status: 503 })
+
+  const redirectUri = `${appUrl}/api/youtube/callback`
 
   const url =
     `https://accounts.google.com/o/oauth2/v2/auth` +
     `?client_id=${clientId}` +
-    `&redirect_uri=${appUrl}/api/youtube/callback` +
+    `&redirect_uri=${encodeURIComponent(redirectUri)}` +
     `&response_type=code` +
     `&scope=${encodeURIComponent(SCOPES)}` +
     `&access_type=offline` +
