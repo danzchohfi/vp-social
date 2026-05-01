@@ -40,6 +40,14 @@ export async function GET(req: Request) {
     console.log("Facebook long-lived token response:", JSON.stringify(longData))
     if (!longData.access_token) throw new Error(longData.error?.message ?? "Token long-lived inválido")
 
+    const meRes = await fetch(`${GRAPH}/me?fields=id,name&access_token=${longData.access_token}`)
+    const meData = await meRes.json()
+    console.log("Facebook me:", JSON.stringify(meData))
+
+    const permRes = await fetch(`${GRAPH}/me/permissions?access_token=${longData.access_token}`)
+    const permData = await permRes.json()
+    console.log("Facebook permissions:", JSON.stringify(permData))
+
     const pagesRes = await fetch(
       `${GRAPH}/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${longData.access_token}`
     )
