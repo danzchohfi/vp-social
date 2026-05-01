@@ -18,10 +18,17 @@ export async function GET(req: Request) {
   if (!code || !userId) return NextResponse.redirect(`${errorBase}?error=cancelled`)
 
   try {
-    const redirectUri = encodeURIComponent(`${appUrl}/api/facebook/callback`)
-    const tokenRes = await fetch(
-      `${GRAPH}/oauth/access_token?client_id=${process.env.FACEBOOK_APP_ID}&client_secret=${process.env.FACEBOOK_APP_SECRET}&redirect_uri=${redirectUri}&code=${code}`
-    )
+    const redirectUri = `${appUrl}/api/facebook/callback`
+    const tokenRes = await fetch(`${GRAPH}/oauth/access_token`, {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        client_id: process.env.FACEBOOK_APP_ID ?? "",
+        client_secret: process.env.FACEBOOK_APP_SECRET ?? "",
+        redirect_uri: redirectUri,
+        code,
+      }),
+    })
     const tokenData = await tokenRes.json()
     if (!tokenData.access_token) throw new Error(tokenData.error?.message ?? "Token inválido")
 
