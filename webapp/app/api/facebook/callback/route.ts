@@ -30,6 +30,7 @@ export async function GET(req: Request) {
       }),
     })
     const tokenData = await tokenRes.json()
+    console.log("Facebook token response:", JSON.stringify(tokenData))
     if (!tokenData.access_token) throw new Error(tokenData.error?.message ?? "Token inválido")
 
     const longRes = await fetch(
