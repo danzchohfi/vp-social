@@ -22,7 +22,7 @@ jobs:
 
       - name: Install dependencies
         working-directory: webapp
-        run: npm install
+        run: npm install --legacy-peer-deps
 
       - name: Deploy to Trigger.dev
         working-directory: webapp
