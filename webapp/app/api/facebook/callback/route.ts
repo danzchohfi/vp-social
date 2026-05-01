@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   const code = searchParams.get("code")
   const rawState = searchParams.get("state") ?? ""
   const [userId, from] = rawState.split(":")
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  const appUrl = new URL(req.url).origin
 
   const successUrl = from ? `${appUrl}/${from}?instagram_connected=true` : `${appUrl}/accounts?connected=instagram`
   const errorBase = from ? `${appUrl}/${from}` : `${appUrl}/accounts`
@@ -18,8 +18,9 @@ export async function GET(req: Request) {
   if (!code || !userId) return NextResponse.redirect(`${errorBase}?error=cancelled`)
 
   try {
+    const redirectUri = encodeURIComponent(`${appUrl}/api/facebook/callback`)
     const tokenRes = await fetch(
-      `${GRAPH}/oauth/access_token?client_id=${process.env.FACEBOOK_APP_ID}&client_secret=${process.env.FACEBOOK_APP_SECRET}&redirect_uri=${appUrl}/api/facebook/callback&code=${code}`
+      `${GRAPH}/oauth/access_token?client_id=${process.env.FACEBOOK_APP_ID}&client_secret=${process.env.FACEBOOK_APP_SECRET}&redirect_uri=${redirectUri}&code=${code}`
     )
     const tokenData = await tokenRes.json()
     if (!tokenData.access_token) throw new Error(tokenData.error?.message ?? "Token inválido")

@@ -8,7 +8,7 @@ export async function GET(req: Request) {
   const code = searchParams.get("code")
   const rawState = searchParams.get("state") ?? ""
   const [userId, from] = rawState.split(":")
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL
+  const appUrl = new URL(req.url).origin
 
   const successUrl = from ? `${appUrl}/${from}?notion_connected=true` : `${appUrl}/settings?connected=true`
   const errorBase = from ? `${appUrl}/${from}` : `${appUrl}/settings`
@@ -29,7 +29,7 @@ export async function GET(req: Request) {
       body: JSON.stringify({
         grant_type: "authorization_code",
         code,
-        redirect_uri: `${appUrl}/api/notion/callback`,
+        redirect_uri: `${new URL(req.url).origin}/api/notion/callback`,
       }),
     })
 
