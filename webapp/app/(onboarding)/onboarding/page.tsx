@@ -8,11 +8,11 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import {
   BookOpen, Instagram, CheckCircle2, Loader2, ExternalLink,
-  ArrowRight, Database, Zap,
+  ArrowRight, Database, Zap, Building2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
-type Step = 1 | 2 | 3 | 4
+type Step = 0 | 1 | 2 | 3 | 4
 
 type Connection = {
   id: string
@@ -24,9 +24,10 @@ type Connection = {
 type NotionDatabase = { id: string; name: string }
 
 const STEPS = [
-  { num: 1, label: "Conectar Notion" },
-  { num: 2, label: "Selecionar banco" },
-  { num: 3, label: "Conectar Instagram" },
+  { num: 0, label: "Cliente" },
+  { num: 1, label: "Notion" },
+  { num: 2, label: "Banco" },
+  { num: 3, label: "Instagram" },
   { num: 4, label: "Pronto!" },
 ]
 
@@ -34,8 +35,14 @@ export default function OnboardingPage() {
   const router = useRouter()
   const searchParams = useSearchParams()
 
-  const [step, setStep] = useState<Step>(1)
+  const [step, setStep] = useState<Step>(0)
   const [loading, setLoading] = useState(false)
+
+  // Step 0 — Client name
+  const [clientId, setClientId] = useState<string | null>(null)
+  const [clientName, setClientName] = useState("")
+  const [clientLogo, setClientLogo] = useState("")
+  const [savingClient, setSavingClient] = useState(false)
 
   // Step 1 — Notion connection
   const [connection, setConnection] = useState<Connection | null>(null)
@@ -49,7 +56,7 @@ export default function OnboardingPage() {
 
   // Step 3 — Instagram (tracked via step === 4)
 
-  // ─── Detect OAuth redirects ─────────────────────────────────────────────────
+  // ─── Detect OAuth redirects ──────────────────────────────────────
 
   useEffect(() => {
     const notionConnected = searchParams.get("notion_connected")
@@ -72,26 +79,36 @@ export default function OnboardingPage() {
     }
   }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // ─── Load existing connection on mount ────────────────────────────────────
+  // ─── Load existing connection on mount ──────────────────────────────────
 
   const loadConnection = useCallback(async () => {
     setLoading(true)
     try {
+      // Step 0: ensure we have a named client. The default "Cliente padrão"
+      // must be renamed before continuing onboarding.
+      const clientsRes = await fetch("/api/clients")
+      const clientsData = await clientsRes.json()
+      const activeClient = (clientsData.clients ?? []).find((c: any) => c.id === clientsData.activeClientId)
+      const isDefaultName = activeClient?.name === "Cliente padrão"
+      setClientId(activeClient?.id ?? null)
+      setClientName(isDefaultName ? "" : activeClient?.name ?? "")
+      setClientLogo(activeClient?.logoUrl ?? "")
+
       const res = await fetch("/api/notion/connection")
       const data = await res.json()
       const list: Connection[] = data.connections ?? []
+
       if (list.length > 0) {
         const conn = list[0]
         setConnection(conn)
         if (conn.databaseId) {
-          // Already has a database selected — skip to step 3
           setStep(3)
         } else {
           setStep(2)
           loadDatabases(conn.id)
         }
       } else {
-        setStep(1)
+        setStep(isDefaultName ? 0 : 1)
       }
     } finally {
       setLoading(false)
@@ -102,7 +119,24 @@ export default function OnboardingPage() {
     loadConnection()
   }, [loadConnection])
 
-  // ─── Load databases ────────────────────────────────────────────────────────
+  // ─── Save client (step 0) ────────────────────────────────────────────────
+
+  const saveClient = async () => {
+    if (!clientId || !clientName.trim()) return
+    setSavingClient(true)
+    try {
+      await fetch(`/api/clients/${clientId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name: clientName.trim(), logoUrl: clientLogo.trim() || null }),
+      })
+      setStep(1)
+    } finally {
+      setSavingClient(false)
+    }
+  }
+
+  // ─── Load databases ──────────────────────────────────────────────────────────
 
   const loadDatabases = useCallback(async (connectionId: string) => {
     setDbLoading(true)
@@ -115,14 +149,12 @@ export default function OnboardingPage() {
     }
   }, [])
 
-  // ─── Extract DB ID from Notion URL ────────────────────────────────────────
+  // ─── Extract DB ID from Notion URL ───────────────────────────────────────
 
   function extractNotionId(input: string): string {
-    // Handle full URLs like https://notion.so/workspace/Title-xxxxxxxx?v=...
     const match = input.match(/([a-f0-9]{32})/i)
     if (match) {
       const raw = match[1]
-      // Format as UUID: 8-4-4-4-12
       return `${raw.slice(0,8)}-${raw.slice(8,12)}-${raw.slice(12,16)}-${raw.slice(16,20)}-${raw.slice(20)}`
     }
     return input.trim()
@@ -130,7 +162,7 @@ export default function OnboardingPage() {
 
   const effectiveDbId = selectedDbId || (manualUrl ? extractNotionId(manualUrl) : "")
 
-  // ─── Save database selection ───────────────────────────────────────────────
+  // ─── Save database selection ────────────────────────────────────────────────
 
   const saveDatabase = async () => {
     if (!connection || !effectiveDbId) return
@@ -147,7 +179,7 @@ export default function OnboardingPage() {
     }
   }
 
-  // ─── Connect Notion ────────────────────────────────────────────────────────
+  // ─── Connect Notion ──────────────────────────────────────────────────────────
 
   const connectNotion = async () => {
     setLoading(true)
@@ -160,7 +192,7 @@ export default function OnboardingPage() {
     }
   }
 
-  // ─── Connect Instagram ─────────────────────────────────────────────────────
+  // ─── Connect Instagram ────────────────────────────────────────────────────────
 
   const connectInstagram = async () => {
     setLoading(true)
@@ -173,11 +205,11 @@ export default function OnboardingPage() {
     }
   }
 
-  // ─── Finish ────────────────────────────────────────────────────────────────
+  // ─── Finish ──────────────────────────────────────────────────────────────────
 
   const finish = () => router.push("/dashboard")
 
-  // ─── Render ────────────────────────────────────────────────────────────────
+  // ─── Render ──────────────────────────────────────────────────────────────────
 
   return (
     <div className="w-full max-w-lg space-y-8">
@@ -220,6 +252,42 @@ export default function OnboardingPage() {
       </div>
 
       {/* Step cards */}
+      {step === 0 && (
+        <StepCard
+          icon={<Building2 className="h-6 w-6 text-primary" />}
+          title="Seu primeiro cliente"
+          description="Cada cliente tem seu próprio Notion, contas sociais e histórico isolados. Comece dando um nome."
+        >
+          <div className="space-y-3">
+            <div className="space-y-1.5">
+              <Label>Nome do cliente</Label>
+              <Input
+                autoFocus
+                value={clientName}
+                onChange={(e) => setClientName(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") saveClient() }}
+                placeholder="Ex: Vitamina Publicitária, Naydacury…"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Logo (URL opcional)</Label>
+              <Input
+                value={clientLogo}
+                onChange={(e) => setClientLogo(e.target.value)}
+                placeholder="https://exemplo.com/logo.png"
+              />
+            </div>
+            <Button onClick={saveClient} disabled={savingClient || !clientName.trim()} className="w-full" size="lg">
+              {savingClient ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
+              Continuar
+            </Button>
+            <p className="text-center text-xs text-muted-foreground">
+              Você pode adicionar mais clientes depois em &quot;Clientes&quot;.
+            </p>
+          </div>
+        </StepCard>
+      )}
+
       {step === 1 && (
         <StepCard
           icon={<BookOpen className="h-6 w-6 text-primary" />}

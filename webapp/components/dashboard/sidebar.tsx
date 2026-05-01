@@ -2,13 +2,14 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Instagram, Settings, Zap, History, CalendarClock, LogOut } from "lucide-react"
+import { LayoutDashboard, Instagram, Settings, Zap, History, CalendarClock, LogOut, Building2 } from "lucide-react"
 import { signOut, useSession } from "@/lib/auth-client"
 import { useRouter } from "next/navigation"
 import { ClientSwitcher } from "@/components/dashboard/client-switcher"
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/clients", label: "Clientes", icon: Building2 },
   { href: "/accounts", label: "Contas", icon: Instagram },
   { href: "/scheduled", label: "Agendados", icon: CalendarClock },
   { href: "/history", label: "Histórico", icon: History },
