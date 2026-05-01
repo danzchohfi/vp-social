@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp, boolean, uniqueIndex } from "drizzle-orm/pg-core"
 
-// ─── Better Auth tables ───────────────────────────────────────
+// ─── Better Auth tables ───────────────────────────────
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -48,7 +48,7 @@ export const verification = pgTable("verification", {
   updatedAt: timestamp("updated_at").defaultNow(),
 })
 
-// ─── Client (perfil de cliente da agência) ──────────────────────────────
+// ─── Client (perfil de cliente da agência) ───────────────────────
 
 export const client = pgTable("client", {
   id: text("id").primaryKey(),
@@ -57,6 +57,33 @@ export const client = pgTable("client", {
   logoUrl: text("logo_url"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
+})
+
+// Quem tem acesso a um cliente (owner | admin | member)
+export const clientMember = pgTable(
+  "client_member",
+  {
+    id: text("id").primaryKey(),
+    clientId: text("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
+    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    role: text("role").notNull().default("member"),
+    invitedByUserId: text("invited_by_user_id").references(() => user.id, { onDelete: "set null" }),
+    createdAt: timestamp("created_at").notNull().defaultNow(),
+  },
+  (t) => [uniqueIndex("client_member_client_user").on(t.clientId, t.userId)]
+)
+
+// Convites pendentes — link compartilhado por token
+export const clientInvite = pgTable("client_invite", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
+  email: text("email").notNull(),
+  role: text("role").notNull().default("member"),
+  token: text("token").notNull().unique(),
+  invitedByUserId: text("invited_by_user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  acceptedAt: timestamp("accepted_at"),
+  expiresAt: timestamp("expires_at").notNull(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 
 // ─── Notion connections ───────────────────────────────────────

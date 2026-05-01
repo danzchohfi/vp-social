@@ -2,14 +2,13 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Instagram, Settings, Zap, History, CalendarClock, LogOut, Building2 } from "lucide-react"
+import { LayoutDashboard, Instagram, Settings, Zap, History, CalendarClock, LogOut } from "lucide-react"
 import { signOut, useSession } from "@/lib/auth-client"
 import { useRouter } from "next/navigation"
 import { ClientSwitcher } from "@/components/dashboard/client-switcher"
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
-  { href: "/clients", label: "Clientes", icon: Building2 },
   { href: "/accounts", label: "Contas", icon: Instagram },
   { href: "/scheduled", label: "Agendados", icon: CalendarClock },
   { href: "/history", label: "Histórico", icon: History },
@@ -30,7 +29,6 @@ export function Sidebar() {
 
   return (
     <aside className="flex h-full w-60 flex-col border-r bg-card">
-      {/* Logo */}
       <div className="flex h-16 items-center gap-2 border-b px-5">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
           <Zap className="h-4 w-4 text-primary-foreground" />
@@ -38,12 +36,10 @@ export function Sidebar() {
         <span className="font-semibold">Publify</span>
       </div>
 
-      {/* Client switcher */}
       <div className="border-b p-3">
         <ClientSwitcher />
       </div>
 
-      {/* Nav */}
       <nav className="flex-1 space-y-1 p-3">
         {nav.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/")
@@ -65,10 +61,12 @@ export function Sidebar() {
         })}
       </nav>
 
-      {/* User + Sign out */}
       <div className="border-t p-3 space-y-1">
         {user && (
-          <div className="flex items-center gap-3 rounded-lg px-3 py-2">
+          <Link
+            href="/account"
+            className="flex items-center gap-3 rounded-lg px-3 py-2 transition-colors hover:bg-accent"
+          >
             {user.image ? (
               <img
                 src={user.image}
@@ -80,11 +78,11 @@ export function Sidebar() {
                 {user.name?.charAt(0).toUpperCase() ?? "?"}
               </div>
             )}
-            <div className="min-w-0">
+            <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-medium">{user.name}</p>
               <p className="truncate text-xs text-muted-foreground">{user.email}</p>
             </div>
-          </div>
+          </Link>
         )}
         <button
           onClick={handleSignOut}

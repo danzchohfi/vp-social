@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { notionConnection, fieldMapping, instagramAccount } from "@/lib/db/schema"
-import { eq, and } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING } from "@/lib/notion"
@@ -13,12 +13,11 @@ export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const userId = session.user.id
-  const clientId = await getActiveClientId(userId)
+  const clientId = await getActiveClientId(session.user.id)
 
   const [connections, accounts] = await Promise.all([
-    db.select().from(notionConnection).where(and(eq(notionConnection.userId, userId), eq(notionConnection.clientId, clientId))),
-    db.select().from(instagramAccount).where(and(eq(instagramAccount.userId, userId), eq(instagramAccount.clientId, clientId))),
+    db.select().from(notionConnection).where(eq(notionConnection.clientId, clientId)),
+    db.select().from(instagramAccount).where(eq(instagramAccount.clientId, clientId)),
   ])
 
   const configured = connections.filter((c) => c.databaseId)
@@ -33,7 +32,7 @@ export async function GET() {
       const [mappingRow] = await db
         .select()
         .from(fieldMapping)
-        .where(and(eq(fieldMapping.connectionId, connection.id), eq(fieldMapping.userId, userId)))
+        .where(eq(fieldMapping.connectionId, connection.id))
 
       const mapping = mappingRow ?? DEFAULT_MAPPING
       const notion = createNotionClient(connection.accessToken)

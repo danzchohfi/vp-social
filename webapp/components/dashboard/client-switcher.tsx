@@ -2,7 +2,8 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { Building2, Check, ChevronsUpDown, Plus, Loader2 } from "lucide-react"
+import Link from "next/link"
+import { Building2, Check, ChevronsUpDown, Plus, Loader2, Settings as SettingsIcon } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -151,13 +152,23 @@ export function ClientSwitcher() {
                 </div>
               </div>
             ) : (
-              <button
-                onClick={() => setShowCreate(true)}
-                className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
-              >
-                <Plus className="h-3.5 w-3.5" />
-                Novo cliente
-              </button>
+              <>
+                <button
+                  onClick={() => setShowCreate(true)}
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <Plus className="h-3.5 w-3.5" />
+                  Novo cliente
+                </button>
+                <Link
+                  href="/clients"
+                  onClick={() => setOpen(false)}
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                >
+                  <SettingsIcon className="h-3.5 w-3.5" />
+                  Gerenciar clientes
+                </Link>
+              </>
             )}
           </div>
         </>
