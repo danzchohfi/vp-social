@@ -36,17 +36,20 @@ const DEFAULT_MAPPING: FieldMapping = {
   likesField: "", commentsField: "", reachField: "", savesField: "", impressionsField: "",
 }
 
+const NONE_VALUE = "__none__"
+
 function SelectField({ label, value, options, onChange, hint }: { label: string; value: string; options: string[]; onChange: (v: string) => void; hint?: string }) {
   return (
     <div className="space-y-1">
       <Label className="text-sm">{label}</Label>
       {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
-      <Select value={value} onValueChange={onChange}>
+      <Select value={value || NONE_VALUE} onValueChange={(v) => onChange(v === NONE_VALUE ? "" : v)}>
         <SelectTrigger className="w-full">
           <SelectValue placeholder="Selecionar campo..." />
         </SelectTrigger>
         <SelectContent>
-          {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
+          <SelectItem value={NONE_VALUE}>— Não usar —</SelectItem>
+          {options.filter(Boolean).map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
         </SelectContent>
       </Select>
     </div>
@@ -98,7 +101,7 @@ export default function SettingsPage() {
     }
   }, [selectedId, selected?.databaseId])
 
-  const allPropNames = propNames.length ? ["", ...propNames] : ["", mapping.statusField, mapping.dateField, mapping.captionField, mapping.hashtagsField, mapping.tipoField, mapping.plataformasField, mapping.accountField, mapping.feedImageUrlsField, mapping.verticalUrlsField, mapping.horizontalUrlsField, mapping.thumbnailUrlField].filter(Boolean)
+  const allPropNames = propNames.length ? propNames : [mapping.statusField, mapping.dateField, mapping.captionField, mapping.hashtagsField, mapping.tipoField, mapping.plataformasField, mapping.accountField, mapping.feedImageUrlsField, mapping.verticalUrlsField, mapping.horizontalUrlsField, mapping.thumbnailUrlField].filter(Boolean)
 
   function setField(key: keyof FieldMapping, value: string) {
     setMapping(prev => ({ ...prev, [key]: value }))
