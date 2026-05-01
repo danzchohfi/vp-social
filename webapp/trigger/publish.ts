@@ -1,4 +1,4 @@
-import { schedules, task, logger } from "@trigger.dev/sdk/v3"
+import { schedules, task, logger } from "@trigger.dev/sdk"
 import { neon } from "@neondatabase/serverless"
 import { drizzle } from "drizzle-orm/neon-http"
 import { eq } from "drizzle-orm"
