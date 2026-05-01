@@ -9,7 +9,7 @@ export async function GET(req: Request) {
   const from = new URL(req.url).searchParams.get("from") ?? ""
   const state = from ? `${session.user.id}:${from}` : session.user.id
 
-  const appUrl = (process.env.NEXT_PUBLIC_APP_URL ?? "").replace(/\/$/, "")
+  const appUrl = new URL(req.url).origin
   const clientId = process.env.NOTION_CLIENT_ID
   const redirectUri = encodeURIComponent(`${appUrl}/api/notion/callback`)
 
