@@ -51,9 +51,9 @@ export async function publishToPlatform(
     return uploadYouTubeVideo(
       account.pageAccessToken,
       account.refreshToken!,
+      videoUrl,
       post.title,
       post.fullCaption,
-      videoUrl,
       isShort
     )
   }
