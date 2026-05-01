@@ -58,7 +58,7 @@ export async function GET(req: Request) {
         active: true,
       })
       .onConflictDoUpdate({
-        target: [instagramAccount.userId, instagramAccount.platform, instagramAccount.pageId],
+        target: [instagramAccount.userId, instagramAccount.clientId, instagramAccount.platform, instagramAccount.pageId],
         set: {
           clientId,
           pageAccessToken: token.access_token,

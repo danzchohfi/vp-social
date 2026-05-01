@@ -76,7 +76,7 @@ export const notionConnection = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("notion_connection_user_workspace").on(t.userId, t.workspaceId)]
+  (t) => [uniqueIndex("notion_connection_client_workspace").on(t.userId, t.clientId, t.workspaceId)]
 )
 
 // ─── Social accounts (Instagram, Facebook, YouTube, TikTok, LinkedIn) ─────
@@ -99,10 +99,10 @@ export const instagramAccount = pgTable(
     createdAt: timestamp("created_at").notNull().defaultNow(),
     updatedAt: timestamp("updated_at").notNull().defaultNow(),
   },
-  (t) => [uniqueIndex("instagram_account_user_platform_page").on(t.userId, t.platform, t.pageId)]
+  (t) => [uniqueIndex("instagram_account_client_platform_page").on(t.userId, t.clientId, t.platform, t.pageId)]
 )
 
-// ─── Field mapping ────────────────────────────────────────────
+// ─── Field mapping ─────────────────────────────────────────────
 
 export const fieldMapping = pgTable("field_mapping", {
   id: text("id").primaryKey(),
@@ -138,7 +138,7 @@ export const fieldMapping = pgTable("field_mapping", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
 
-// ─── Publish log ──────────────────────────────────────────────
+// ─── Publish log ────────────────────────────────────────────────
 
 export const publishLog = pgTable("publish_log", {
   id: text("id").primaryKey(),

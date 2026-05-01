@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
-import { Instagram, Trash2, Loader2, Facebook, Pencil, Check, X, Youtube, Linkedin } from "lucide-react"
+import { Instagram, Trash2, Loader2, Facebook, Pencil, Check, X, Youtube, Linkedin, Building2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 // TikTok SVG (not in lucide)
@@ -83,15 +83,24 @@ export default function AccountsPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState("")
   const [unavailable, setUnavailable] = useState<Set<Platform>>(new Set())
+  const [activeClient, setActiveClient] = useState<{ name: string; logoUrl: string | null } | null>(null)
 
   useEffect(() => {
     fetchAccounts()
+    fetchActiveClient()
     // Check which platforms are configured
     checkPlatformAvailability()
     // Toast on successful connect
     const connected = searchParams.get("connected")
     if (connected) toast.success(`Conta conectada com sucesso!`)
   }, [searchParams])
+
+  async function fetchActiveClient() {
+    const res = await fetch("/api/clients")
+    const data = await res.json()
+    const c = (data.clients ?? []).find((x: any) => x.id === data.activeClientId)
+    if (c) setActiveClient({ name: c.name, logoUrl: c.logoUrl })
+  }
 
   async function fetchAccounts() {
     const res = await fetch("/api/accounts")
@@ -163,15 +172,30 @@ export default function AccountsPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold">Contas conectadas</h1>
-        <p className="text-muted-foreground">Gerencie as contas de cada plataforma</p>
+      <div className="mb-6">
+        <div className="flex items-baseline gap-2">
+          <h1 className="text-2xl font-bold">Contas conectadas</h1>
+          {activeClient && (
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+              {activeClient.logoUrl ? (
+                <img src={activeClient.logoUrl} alt="" className="h-3.5 w-3.5 rounded object-cover" />
+              ) : (
+                <Building2 className="h-3 w-3" />
+              )}
+              {activeClient.name}
+            </span>
+          )}
+        </div>
+        <p className="text-muted-foreground text-sm">
+          Apenas as contas deste cliente. Para conectar outro, troque o cliente na barra lateral.
+        </p>
       </div>
 
       {accounts.length > 0 && (
         <div className="mb-6 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800 dark:border-amber-800 dark:bg-amber-950 dark:text-amber-200">
           <strong>Importante:</strong> o campo <strong>Conta</strong> (editável com o lápis) deve ser
           idêntico ao valor da propriedade <strong>Conta</strong> no seu banco de dados Notion.
+          Conexões via OAuth podem trazer várias páginas — <strong>delete as que não pertencem a este cliente</strong>.
         </div>
       )}
 

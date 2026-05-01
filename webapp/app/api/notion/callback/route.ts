@@ -51,7 +51,7 @@ export async function GET(req: Request) {
         workspaceIcon: data.workspace_icon ?? null,
       })
       .onConflictDoUpdate({
-        target: [notionConnection.userId, notionConnection.workspaceId],
+        target: [notionConnection.userId, notionConnection.clientId, notionConnection.workspaceId],
         set: {
           clientId,
           accessToken: data.access_token,
