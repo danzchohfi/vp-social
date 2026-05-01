@@ -13,6 +13,12 @@ export function isVideo(url: string): boolean {
   return /\.(mp4|mov|avi|mkv|webm)(\?|$)/i.test(url)
 }
 
+export function normalizePlatformForLookup(plataforma: string): string {
+  const p = plataforma.toLowerCase().trim()
+  if (p === "youtube short" || p === "youtube shorts") return "youtube"
+  return p
+}
+
 export function normalizeTipo(raw: string): string {
   const t = raw.toLowerCase().trim()
   if (t.includes("story") || t.includes("storie")) return "story"

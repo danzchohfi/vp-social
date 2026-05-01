@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/neon-http"
 import { and, eq } from "drizzle-orm"
 import * as schema from "../lib/db/schema"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "../lib/notion"
-import { publishToPlatform, saveLog } from "../lib/publisher"
+import { publishToPlatform, saveLog, normalizePlatformForLookup } from "../lib/publisher"
 
 function getDb() {
   const sql = neon(process.env.DATABASE_URL!)
@@ -100,7 +100,7 @@ export const publishForConnection = task({
       const plataformas = post.plataformas?.length ? post.plataformas : ["instagram"]
 
       for (const plataforma of plataformas) {
-        const key = `${plataforma.toLowerCase()}:${post.conta.toLowerCase()}`
+        const key = `${normalizePlatformForLookup(plataforma)}:${post.conta.toLowerCase()}`
         const account = accountMap.get(key)
 
         if (!account) {
@@ -122,21 +122,8 @@ export const publishForConnection = task({
           results.failed++
         }
       }
-
-      const anyPublished = plataformas.some((p) => {
-        const key = `${p.toLowerCase()}:${post.conta.toLowerCase()}`
-        return accountMap.has(key)
-      })
-      if (anyPublished) {
-        try { await notion.markPublished(post.pageId, mapping) } catch {}
-      } else {
-        try { await notion.markFailed(post.pageId, mapping) } catch {}
-      }
     }
 
-    logger.info(
-      `Workspace ${connection.workspaceName}: ${results.published} publicados, ${results.failed} erros, ${results.skipped} ignorados.`
-    )
     return results
   },
 })

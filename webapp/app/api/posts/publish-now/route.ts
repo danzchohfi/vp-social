@@ -5,7 +5,7 @@ import { eq, and } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING } from "@/lib/notion"
-import { publishToPlatform, saveLog } from "@/lib/publisher"
+import { publishToPlatform, saveLog, normalizePlatformForLookup } from "@/lib/publisher"
 
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -62,7 +62,7 @@ export async function POST(req: Request) {
   let anyPublished = false
 
   for (const plataforma of plataformas) {
-    const key = `${plataforma.toLowerCase()}:${post.conta.toLowerCase()}`
+    const key = `${normalizePlatformForLookup(plataforma)}:${post.conta.toLowerCase()}`
     const account = accountMap.get(key)
 
     if (!account) {
