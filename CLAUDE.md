@@ -30,6 +30,13 @@ npm run trigger:deploy # Deploy worker to Trigger.dev cloud
 
 Schema changes require `db:push` to take effect. Vercel runs `db:push && build` automatically on deploy (`vercel.json` → `buildCommand`).
 
+## Git workflow
+
+**IMPORTANT:** Edits made by Claude Code in this environment push to a local git server, NOT directly to GitHub. To sync changes to the user's machine:
+- Use `mcp__github__push_files` to push files directly to GitHub
+- The user then runs `git pull origin claude/notion-instagram-integration-RoecP` on their Mac
+- Never rely on local `git push` alone — it won’t reach the user
+
 ## Architecture
 
 **Request path:** Browser → Vercel (Next.js API routes) → Neon (PostgreSQL via Drizzle ORM)
@@ -47,9 +54,13 @@ Schema changes require `db:push` to take effect. Vercel runs `db:push && build` 
 | `lib/db/schema.ts` | Single source of truth for all tables. Edit here, then `db:push`. |
 | `lib/notion.ts` | Notion API client: `getReadyPosts`, `getScheduledPosts`, `markPublished`, `markFailed`, `updateAnalytics` |
 | `lib/instagram.ts` | Instagram Graph API: all publish methods + `getPostMetrics` for analytics |
-| `lib/auth.ts` | Better Auth config (email+password + Facebook OAuth). Server-side. |
+| `lib/facebook.ts` | Facebook Pages publisher: `publishSingleImage`, `publishCarousel`, `publishVideo` |
+| `lib/youtube.ts` | YouTube Data API v3 upload with token refresh |
+| `lib/tiktok.ts` | TikTok Content Posting API v2 with token refresh |
+| `lib/linkedin.ts` | LinkedIn UGC Posts with image upload and token refresh |
+| `lib/auth.ts` | Better Auth config (email+password + Google + Facebook OAuth). Server-side. |
 | `lib/auth-client.ts` | Better Auth client (`useSession`, `signOut`). Client components only. |
-| `trigger/publish.ts` | `publishForConnection` task — the core publish loop |
+| `trigger/publish.ts` | `publishForConnection` task — the core multi-platform publish loop |
 | `trigger/analytics.ts` | `syncPostAnalytics` task — writes Instagram metrics back to Notion |
 
 ## Data model (key relationships)
@@ -58,28 +69,44 @@ Schema changes require `db:push` to take effect. Vercel runs `db:push && build` 
 user
  ├── notionConnection   (many, unique on userId+workspaceId)
  │    └── fieldMapping  (one per connection, unique on connectionId)
- ├── instagramAccount   (many, unique on userId+pageId)
+ ├── instagramAccount   (many, unique on userId+platform+pageId)
  └── publishLog         (many; connectionId nullable FK → notionConnection)
 ```
 
-`fieldMapping.connectionId` links every field mapping to a specific Notion workspace. The `publishLog.connectionId` is needed by the analytics sync to find the correct Notion access token.
+`instagramAccount` table is used for ALL platforms (instagram, facebook, youtube, tiktok, linkedin) — the `platform` column differentiates them. The `conta` field must match the Notion account field value.
 
-## Publish flow
+## Multi-platform publish flow
 
 1. Notion post has `statusField = statusReadyValue` AND `dateField ≤ now`
 2. `publishForConnection` reads the matching `fieldMapping` for the workspace
-3. Routes by `tipo` field → one of: `publishFeedImage`, `publishCarousel`, `publishReel`, `publishStoryImage`, `publishStoryVideo`, `publishFeedVideo`
-4. On success: Notion page status → `statusPublishedValue`; `publishLog` row saved with `instagramPostId`
+3. For each platform in `post.plataformas[]`:
+   - Looks up account via Map key `"{platform}:{conta}"` (case-insensitive)
+   - Routes by `tipo` field to the appropriate publisher lib
+4. On success: Notion page status → `statusPublishedValue`; `publishLog` row saved
 5. On failure: Notion page status → `statusErrorValue`; error message saved to log
 
-## Instagram account matching
+## Account matching
 
-The `instagramAccount.conta` field (editable in the Accounts page) must **exactly match** (case-insensitive) the value of the `accountField` property in the Notion post. If they don't match, the post is logged as `skipped`.
+The `instagramAccount.conta` field (editable in the Accounts page) must **exactly match** (case-insensitive) the value of the `accountField` property in the Notion post. Map key format: `"platform:conta"`. If no match, the post is logged as `skipped` for that platform.
+
+For Notion **relation** fields used as the account field: `lib/notion.ts` automatically fetches the title of the first related page to use as the account name.
 
 ## OAuth flows
 
 - **Notion:** `/api/notion/auth-url` → Notion OAuth → `/api/notion/callback` → upsert `notionConnection`
-- **Facebook/Instagram:** `/api/facebook/auth-url` → Facebook OAuth → `/api/facebook/callback` → calls `me/accounts`, resolves Instagram Business Account IDs, upserts `instagramAccount` rows
+- **Facebook/Instagram:** `/api/facebook/auth-url` → Facebook OAuth → `/api/facebook/callback` → saves rows for both `platform='instagram'` AND `platform='facebook'` per page
+- **YouTube:** `/api/youtube/auth-url` → Google OAuth (scope: youtube.upload) → `/api/youtube/callback`
+- **TikTok:** `/api/tiktok/auth-url` → `/api/tiktok/callback` (requires `TIKTOK_CLIENT_KEY` + `TIKTOK_CLIENT_SECRET`)
+- **LinkedIn:** `/api/linkedin/auth-url` → `/api/linkedin/callback` (requires `LINKEDIN_CLIENT_ID` + `LINKEDIN_CLIENT_SECRET`)
+
+**Facebook OAuth local dev:** `http://localhost` redirects are automatically allowed in Meta development mode. The app must be in **Development** mode (not Live) for localhost to work. `redirect_uri` must be URL-encoded in the auth URL.
+
+## Notion database notes
+
+- Databases with **multiple data sources** (combined views) are NOT supported by the Notion API — use the source database directly
+- **Inline databases** may not appear in the Notion search API — use the manual URL input in Settings to paste the database URL directly
+- The integration must be shared with ALL databases referenced by relation fields, not just the main database
+- The database URL format: `https://notion.so/workspace/Title-{32hexchars}?v=...` — the 32-char hex is the database ID
 
 ## Analytics sync
 
@@ -93,11 +120,24 @@ Stories lose insight data after 24 h; errors are caught per-post without failing
 
 shadcn/ui components live in `components/ui/`. Currently present: `badge`, `button`, `card`, `input`, `label`, `select`. Add new ones by creating files there following the existing Radix UI wrapper pattern. There is no shadcn CLI configured — copy the pattern manually.
 
+**Tailwind v4 note:** CSS utility classes like `bg-popover`, `bg-card`, etc. require the corresponding `--color-*` variable to be registered in the `@theme inline` block in `globals.css`. Missing registrations cause the utility to silently have no effect.
+
 ## Environment variables
 
 See `webapp/.env.example` for the full list. Required for local dev:
 `DATABASE_URL`, `BETTER_AUTH_SECRET`, `NEXT_PUBLIC_APP_URL`, `FACEBOOK_APP_ID`, `FACEBOOK_APP_SECRET`, `NOTION_CLIENT_ID`, `NOTION_CLIENT_SECRET`, `TRIGGER_PROJECT_ID`, `TRIGGER_SECRET_KEY`
 
+Optional (enable additional platforms):
+`GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` (YouTube + Google login), `TIKTOK_CLIENT_KEY`, `TIKTOK_CLIENT_SECRET`, `LINKEDIN_CLIENT_ID`, `LINKEDIN_CLIENT_SECRET`
+
 ## Deployment
 
 Full step-by-step in `webapp/DEPLOY.md`. Services used: Vercel (app), Neon (PostgreSQL), Trigger.dev (background jobs). GitHub Actions (`.github/workflows/trigger-deploy.yml`) auto-deploys the Trigger.dev worker on push when files under `webapp/trigger/` or `webapp/lib/` change.
+
+## Known issues / gotchas
+
+- `npm install` may need `--legacy-peer-deps` due to `drizzle-kit` / `better-auth` peer dep conflict
+- `db:push` needs env vars exported: `export $(grep -v '^#' .env.local | xargs) && npm run db:push`
+- Mac: Notion OAuth may open the desktop app — click "Não permitir" when prompted
+- Facebook app must be in **Development** mode for localhost OAuth to work
+- Select dropdown items need `bg-popover` AND `--color-popover` registered in `@theme inline` to be opaque in dark mode
