@@ -3,9 +3,11 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { CalendarClock, Loader2, RefreshCw, Zap, Clock, CheckCircle2 } from "lucide-react"
+import { CalendarClock, Loader2, RefreshCw, Zap, Clock, CheckCircle2, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+
+type PlatformCheck = { platform: string; configured: boolean; pageName?: string | null }
 
 type ScheduledPost = {
   pageId: string
@@ -15,6 +17,7 @@ type ScheduledPost = {
   plataformas: string[]
   scheduledDate: string | null
   workspaceName?: string
+  accountChecks?: PlatformCheck[]
 }
 
 const TIPO_COLORS: Record<string, string> = {
@@ -169,33 +172,68 @@ export default function ScheduledPage() {
   )
 }
 
+function PlatformBadge({ check }: { check: PlatformCheck }) {
+  const ok = check.configured
+  return (
+    <span
+      title={ok
+        ? `${check.platform} conectada${check.pageName ? ` — ${check.pageName}` : ""}`
+        : `Nenhuma conta de ${check.platform} encontrada para esta conta`}
+      className={cn(
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+        ok
+          ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"
+          : "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"
+      )}
+    >
+      {ok ? <CheckCircle2 className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
+      {check.platform}
+    </span>
+  )
+}
+
 function PostRow({ post }: { post: ScheduledPost }) {
   const { label, isPast } = timeUntil(post.scheduledDate)
+  const checks = post.accountChecks ?? []
+  const hasIssue = checks.some((c) => !c.configured)
 
   return (
-    <div className="flex items-center justify-between rounded-lg border bg-card p-4">
-      <div className="flex items-center gap-4 min-w-0">
+    <div className={cn(
+      "rounded-lg border bg-card p-4",
+      hasIssue && "border-amber-300 dark:border-amber-700"
+    )}>
+      <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <p className="font-medium truncate">{post.title || "Sem título"}</p>
           <p className="text-sm text-muted-foreground">
-            {post.conta}
+            <span className="font-medium text-foreground/80">{post.conta || "Sem conta"}</span>
             {post.workspaceName && (
               <span className="ml-2 opacity-60">· {post.workspaceName}</span>
             )}
           </p>
         </div>
-      </div>
-      <div className="flex items-center gap-3 shrink-0 ml-4">
-        <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", tipoClass(post.tipo))}>
-          {post.tipo}
-        </span>
-        <div className="text-right">
-          <p className="text-sm text-muted-foreground">{formatDate(post.scheduledDate)}</p>
-          <p className={cn("text-xs font-medium", isPast ? "text-emerald-600" : "text-muted-foreground")}>
-            {label}
-          </p>
+        <div className="flex items-center gap-3 shrink-0">
+          <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", tipoClass(post.tipo))}>
+            {post.tipo}
+          </span>
+          <div className="text-right">
+            <p className="text-sm text-muted-foreground">{formatDate(post.scheduledDate)}</p>
+            <p className={cn("text-xs font-medium", isPast ? "text-emerald-600" : "text-muted-foreground")}>
+              {label}
+            </p>
+          </div>
         </div>
       </div>
+      {checks.length > 0 && (
+        <div className="mt-3 flex flex-wrap items-center gap-1.5">
+          {checks.map((c) => <PlatformBadge key={c.platform} check={c} />)}
+          {hasIssue && (
+            <Link href="/accounts" className="ml-1 text-xs text-amber-700 underline dark:text-amber-300">
+              Configurar conta
+            </Link>
+          )}
+        </div>
+      )}
     </div>
   )
 }

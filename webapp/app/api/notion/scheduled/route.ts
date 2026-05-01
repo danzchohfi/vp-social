@@ -1,10 +1,12 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { notionConnection, fieldMapping } from "@/lib/db/schema"
+import { notionConnection, fieldMapping, instagramAccount } from "@/lib/db/schema"
 import { eq, and } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING } from "@/lib/notion"
+
+type PlatformCheck = { platform: string; configured: boolean; pageName?: string | null }
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -12,13 +14,17 @@ export async function GET() {
 
   const userId = session.user.id
 
-  const connections = await db
-    .select()
-    .from(notionConnection)
-    .where(eq(notionConnection.userId, userId))
+  const [connections, accounts] = await Promise.all([
+    db.select().from(notionConnection).where(eq(notionConnection.userId, userId)),
+    db.select().from(instagramAccount).where(eq(instagramAccount.userId, userId)),
+  ])
 
   const configured = connections.filter((c) => c.databaseId)
   if (!configured.length) return NextResponse.json({ posts: [], configured: false })
+
+  const accountMap = new Map(
+    accounts.filter((a) => a.active).map((a) => [`${a.platform.toLowerCase()}:${a.conta.toLowerCase()}`, a])
+  )
 
   const allPosts = await Promise.allSettled(
     configured.map(async (connection) => {
@@ -30,7 +36,15 @@ export async function GET() {
       const mapping = mappingRow ?? DEFAULT_MAPPING
       const notion = createNotionClient(connection.accessToken)
       const posts = await notion.getScheduledPosts(connection.databaseId!, mapping)
-      return posts.map((p) => ({ ...p, workspaceName: connection.workspaceName }))
+      return posts.map((p) => {
+        const plataformas = p.plataformas?.length ? p.plataformas : ["instagram"]
+        const accountChecks: PlatformCheck[] = plataformas.map((plat) => {
+          const key = `${plat.toLowerCase()}:${p.conta?.toLowerCase() ?? ""}`
+          const account = accountMap.get(key)
+          return { platform: plat, configured: !!account, pageName: account?.pageName ?? null }
+        })
+        return { ...p, workspaceName: connection.workspaceName, accountChecks }
+      })
     })
   )
 
