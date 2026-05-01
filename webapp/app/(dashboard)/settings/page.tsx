@@ -16,6 +16,8 @@ type Workspace = {
   databaseName: string | null
 }
 
+type NotionDatabase = { id: string; name: string }
+
 type FieldMapping = {
   statusField: string; statusReadyValue: string; statusPublishedValue: string; statusErrorValue: string
   dateField: string; captionField: string; hashtagsField: string
@@ -61,6 +63,9 @@ export default function SettingsPage() {
   const [mapping, setMapping] = useState<FieldMapping>(DEFAULT_MAPPING)
   const [saving, setSaving] = useState(false)
   const [loadingDb, setLoadingDb] = useState(false)
+  const [databases, setDatabases] = useState<NotionDatabase[]>([])
+  const [selectedDbId, setSelectedDbId] = useState("")
+  const [loadingDbs, setLoadingDbs] = useState(false)
 
   useEffect(() => {
     fetch("/api/notion/workspaces").then(r => r.json()).then(setWorkspaces)
@@ -75,6 +80,7 @@ export default function SettingsPage() {
     })
     if (selected?.databaseId) {
       setDbUrl("")
+      setSelectedDbId("")
       setDbName(selected.databaseName)
       fetch(`/api/notion/workspaces/${selectedId}/props`).then(r => r.json()).then(data => {
         if (Array.isArray(data)) setPropNames(data)
@@ -82,8 +88,15 @@ export default function SettingsPage() {
     } else {
       setDbName(null)
       setPropNames([])
+      setSelectedDbId("")
+      setDbUrl("")
+      setLoadingDbs(true)
+      fetch(`/api/notion/databases?connectionId=${selectedId}`)
+        .then(r => r.json())
+        .then((data) => setDatabases(data.databases ?? []))
+        .finally(() => setLoadingDbs(false))
     }
-  }, [selectedId])
+  }, [selectedId, selected?.databaseId])
 
   const allPropNames = propNames.length ? ["", ...propNames] : ["", mapping.statusField, mapping.dateField, mapping.captionField, mapping.hashtagsField, mapping.tipoField, mapping.plataformasField, mapping.accountField, mapping.feedImageUrlsField, mapping.verticalUrlsField, mapping.horizontalUrlsField, mapping.thumbnailUrlField].filter(Boolean)
 
@@ -92,11 +105,13 @@ export default function SettingsPage() {
   }
 
   async function connectDb() {
-    if (!selectedId || !dbUrl.trim()) return
+    if (!selectedId) return
+    const idOrUrl = selectedDbId || dbUrl.trim()
+    if (!idOrUrl) return
     setLoadingDb(true)
     const res = await fetch(`/api/notion/workspaces/${selectedId}/database`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ url: dbUrl.trim() }),
+      body: JSON.stringify({ url: idOrUrl }),
     })
     const data = await res.json()
     setLoadingDb(false)
@@ -159,24 +174,49 @@ export default function SettingsPage() {
             {dbName ? (
               <div className="flex items-center gap-2">
                 <span className="text-sm font-medium text-green-600">✓ {dbName}</span>
-                <Button variant="outline" size="sm" onClick={() => { setDbName(null); setDbUrl("") }}>Trocar</Button>
+                <Button variant="outline" size="sm" onClick={() => { setDbName(null); setDbUrl(""); setSelectedDbId("") }}>Trocar</Button>
               </div>
             ) : (
-              <div className="flex gap-2">
-                <Input
-                  placeholder="Cole a URL do banco do Notion aqui..."
-                  value={dbUrl}
-                  onChange={e => setDbUrl(e.target.value)}
-                  className="flex-1"
-                />
-                <Button onClick={connectDb} disabled={loadingDb || !dbUrl.trim()}>
-                  {loadingDb ? "Conectando..." : "Conectar"}
-                </Button>
+              <div className="space-y-3">
+                {loadingDbs ? (
+                  <p className="text-sm text-muted-foreground">Carregando bancos com acesso…</p>
+                ) : databases.length > 0 ? (
+                  <div className="space-y-1.5">
+                    <Label className="text-sm">Bancos com acesso da integração</Label>
+                    <Select value={selectedDbId} onValueChange={(v) => { setSelectedDbId(v); setDbUrl("") }}>
+                      <SelectTrigger className="w-full">
+                        <SelectValue placeholder="Selecione um banco…" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {databases.map((d) => (
+                          <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                ) : (
+                  <p className="text-xs text-muted-foreground">Nenhum banco encontrado automaticamente. Cole a URL abaixo.</p>
+                )}
+
+                <div className="space-y-1.5">
+                  <Label className="text-sm">{databases.length > 0 ? "Ou cole a URL do banco" : "URL do banco"}</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      placeholder="https://notion.so/workspace/Titulo-xxxxxxxx"
+                      value={dbUrl}
+                      onChange={e => { setDbUrl(e.target.value); setSelectedDbId("") }}
+                      className="flex-1"
+                    />
+                    <Button onClick={connectDb} disabled={loadingDb || (!dbUrl.trim() && !selectedDbId)}>
+                      {loadingDb ? "Conectando..." : "Conectar"}
+                    </Button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Abra o banco no Notion, clique em ⋯ → Copiar link e cole aqui.
+                  </p>
+                </div>
               </div>
             )}
-            <p className="text-xs text-muted-foreground">
-              Abra o banco no Notion, clique em ⋯ → Copiar link e cole aqui.
-            </p>
           </div>
 
           {dbName && (
