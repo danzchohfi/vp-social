@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { CalendarClock, Loader2, RefreshCw, Zap, Clock, CheckCircle2, AlertTriangle } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 type PlatformCheck = { platform: string; configured: boolean; pageName?: string | null }
 
@@ -17,6 +18,7 @@ type ScheduledPost = {
   plataformas: string[]
   scheduledDate: string | null
   workspaceName?: string
+  connectionId?: string
   accountChecks?: PlatformCheck[]
 }
 
@@ -144,7 +146,7 @@ export default function ScheduledPage() {
               </div>
               <div className="space-y-2">
                 {readyNow.map((post) => (
-                  <PostRow key={post.pageId} post={post} />
+                  <PostRow key={post.pageId} post={post} canPublishNow onPublished={load} />
                 ))}
               </div>
             </section>
@@ -192,10 +194,38 @@ function PlatformBadge({ check }: { check: PlatformCheck }) {
   )
 }
 
-function PostRow({ post }: { post: ScheduledPost }) {
+function PostRow({ post, canPublishNow, onPublished }: { post: ScheduledPost; canPublishNow?: boolean; onPublished?: () => void }) {
   const { label, isPast } = timeUntil(post.scheduledDate)
   const checks = post.accountChecks ?? []
   const hasIssue = checks.some((c) => !c.configured)
+  const allMissing = checks.length > 0 && checks.every((c) => !c.configured)
+  const [publishing, setPublishing] = useState(false)
+
+  async function publishNow() {
+    if (!post.connectionId) return
+    if (!confirm(`Publicar "${post.title || "este post"}" agora?`)) return
+    setPublishing(true)
+    try {
+      const res = await fetch("/api/posts/publish-now", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId: post.pageId, connectionId: post.connectionId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Erro ao publicar")
+      const ok = (data.results ?? []).filter((r: any) => r.status === "published").length
+      const fail = (data.results ?? []).filter((r: any) => r.status === "failed").length
+      const skip = (data.results ?? []).filter((r: any) => r.status === "skipped").length
+      if (ok > 0 && fail === 0) toast.success(`Publicado em ${ok} plataforma(s)!`)
+      else if (ok > 0) toast.warning(`${ok} publicado(s), ${fail} falhou(aram)`)
+      else toast.error(fail > 0 ? `Falha ao publicar (${fail})` : `Nenhuma plataforma publicou (${skip} ignorada(s))`)
+      onPublished?.()
+    } catch (e) {
+      toast.error(String(e instanceof Error ? e.message : e))
+    } finally {
+      setPublishing(false)
+    }
+  }
 
   return (
     <div className={cn(
@@ -224,16 +254,27 @@ function PostRow({ post }: { post: ScheduledPost }) {
           </div>
         </div>
       </div>
-      {checks.length > 0 && (
-        <div className="mt-3 flex flex-wrap items-center gap-1.5">
-          {checks.map((c) => <PlatformBadge key={c.platform} check={c} />)}
-          {hasIssue && (
-            <Link href="/accounts" className="ml-1 text-xs text-amber-700 underline dark:text-amber-300">
-              Configurar conta
-            </Link>
-          )}
-        </div>
-      )}
+      <div className="mt-3 flex flex-wrap items-center gap-1.5">
+        {checks.map((c) => <PlatformBadge key={c.platform} check={c} />)}
+        {hasIssue && (
+          <Link href="/accounts" className="ml-1 text-xs text-amber-700 underline dark:text-amber-300">
+            Configurar conta
+          </Link>
+        )}
+        {canPublishNow && (
+          <div className="ml-auto">
+            <Button
+              size="sm"
+              onClick={publishNow}
+              disabled={publishing || allMissing || !post.connectionId}
+              title={allMissing ? "Nenhuma plataforma com conta conectada" : "Publicar imediatamente"}
+            >
+              {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
+              {publishing ? "Publicando..." : "Publicar agora"}
+            </Button>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

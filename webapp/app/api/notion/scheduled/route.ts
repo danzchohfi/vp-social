@@ -43,7 +43,7 @@ export async function GET() {
           const account = accountMap.get(key)
           return { platform: plat, configured: !!account, pageName: account?.pageName ?? null }
         })
-        return { ...p, workspaceName: connection.workspaceName, accountChecks }
+        return { ...p, workspaceName: connection.workspaceName, connectionId: connection.id, accountChecks }
       })
     })
   )
