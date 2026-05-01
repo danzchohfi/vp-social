@@ -2,7 +2,13 @@ import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 
-const SCOPES = ["pages_show_list"].join(",")
+const SCOPES = [
+  "pages_show_list",
+  "pages_read_engagement",
+  "instagram_basic",
+  "instagram_content_publish",
+  "business_management",
+].join(",")
 
 export async function GET(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
