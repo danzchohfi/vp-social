@@ -37,12 +37,15 @@ export async function GET(req: Request) {
       `${GRAPH}/oauth/access_token?grant_type=fb_exchange_token&client_id=${process.env.FACEBOOK_APP_ID}&client_secret=${process.env.FACEBOOK_APP_SECRET}&fb_exchange_token=${tokenData.access_token}`
     )
     const longData = await longRes.json()
+    console.log("Facebook long-lived token response:", JSON.stringify(longData))
     if (!longData.access_token) throw new Error(longData.error?.message ?? "Token long-lived inválido")
 
     const pagesRes = await fetch(
       `${GRAPH}/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${longData.access_token}`
     )
-    const { data: pages } = await pagesRes.json()
+    const pagesData = await pagesRes.json()
+    console.log("Facebook pages response:", JSON.stringify(pagesData))
+    const { data: pages } = pagesData
 
     let connected = 0
     for (const page of pages ?? []) {
