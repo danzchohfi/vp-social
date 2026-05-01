@@ -46,11 +46,11 @@ export interface FieldMapping {
   statusErrorValue: string
   dateField: string
   accountField: string
-  likesField?: string
-  commentsField?: string
-  reachField?: string
-  savesField?: string
-  impressionsField?: string
+  likesField?: string | null
+  commentsField?: string | null
+  reachField?: string | null
+  savesField?: string | null
+  impressionsField?: string | null
 }
 
 export const DEFAULT_MAPPING: FieldMapping = {
