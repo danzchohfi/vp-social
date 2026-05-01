@@ -86,6 +86,19 @@ export default function ScheduledPage() {
   const readyNow = posts.filter((p) => p.scheduledDate && new Date(p.scheduledDate) <= now)
   const upcoming = posts.filter((p) => !p.scheduledDate || new Date(p.scheduledDate) > now)
 
+  function groupByConta(list: ScheduledPost[]): Array<{ conta: string; posts: ScheduledPost[] }> {
+    const map = new Map<string, ScheduledPost[]>()
+    for (const p of list) {
+      const key = p.conta || "Sem conta"
+      const arr = map.get(key) ?? []
+      arr.push(p)
+      map.set(key, arr)
+    }
+    return Array.from(map.entries())
+      .map(([conta, posts]) => ({ conta, posts }))
+      .sort((a, b) => a.conta.localeCompare(b.conta, "pt-BR"))
+  }
+
   return (
     <div className="p-8">
       <div className="mb-8 flex items-center justify-between">
@@ -138,15 +151,15 @@ export default function ScheduledPage() {
           {/* Ready to publish now */}
           {readyNow.length > 0 && (
             <section>
-              <div className="mb-3 flex items-center gap-2">
+              <div className="mb-4 flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-emerald-500" />
                 <h2 className="text-sm font-semibold text-emerald-600">
                   Prontos para publicar agora ({readyNow.length})
                 </h2>
               </div>
-              <div className="space-y-2">
-                {readyNow.map((post) => (
-                  <PostRow key={post.pageId} post={post} canPublishNow onPublished={load} />
+              <div className="space-y-6">
+                {groupByConta(readyNow).map(({ conta, posts: ps }) => (
+                  <ContaGroup key={`ready-${conta}`} conta={conta} posts={ps} canPublishNow onPublished={load} />
                 ))}
               </div>
             </section>
@@ -155,21 +168,41 @@ export default function ScheduledPage() {
           {/* Upcoming */}
           {upcoming.length > 0 && (
             <section>
-              <div className="mb-3 flex items-center gap-2">
+              <div className="mb-4 flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
                 <h2 className="text-sm font-semibold text-muted-foreground">
                   Próximas publicações ({upcoming.length})
                 </h2>
               </div>
-              <div className="space-y-2">
-                {upcoming.map((post) => (
-                  <PostRow key={post.pageId} post={post} />
+              <div className="space-y-6">
+                {groupByConta(upcoming).map(({ conta, posts: ps }) => (
+                  <ContaGroup key={`upcoming-${conta}`} conta={conta} posts={ps} />
                 ))}
               </div>
             </section>
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function ContaGroup({ conta, posts, canPublishNow, onPublished }: { conta: string; posts: ScheduledPost[]; canPublishNow?: boolean; onPublished?: () => void }) {
+  const ws = posts[0]?.workspaceName
+  return (
+    <div className="space-y-2">
+      <div className="flex items-baseline gap-2 px-1">
+        <h3 className="text-sm font-semibold">{conta}</h3>
+        <span className="text-xs text-muted-foreground">
+          {posts.length} post{posts.length === 1 ? "" : "s"}
+          {ws && <span className="ml-2 opacity-70">· {ws}</span>}
+        </span>
+      </div>
+      <div className="space-y-2">
+        {posts.map((post) => (
+          <PostRow key={post.pageId} post={post} canPublishNow={canPublishNow} onPublished={onPublished} />
+        ))}
+      </div>
     </div>
   )
 }
@@ -235,23 +268,20 @@ function PostRow({ post, canPublishNow, onPublished }: { post: ScheduledPost; ca
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <p className="font-medium truncate">{post.title || "Sem título"}</p>
-          <p className="text-sm text-muted-foreground">
-            <span className="font-medium text-foreground/80">{post.conta || "Sem conta"}</span>
-            {post.workspaceName && (
-              <span className="ml-2 opacity-60">· {post.workspaceName}</span>
-            )}
-          </p>
-        </div>
-        <div className="flex items-center gap-3 shrink-0">
-          <span className={cn("rounded-full px-2.5 py-0.5 text-xs font-medium", tipoClass(post.tipo))}>
-            {post.tipo}
-          </span>
-          <div className="text-right">
-            <p className="text-sm text-muted-foreground">{formatDate(post.scheduledDate)}</p>
-            <p className={cn("text-xs font-medium", isPast ? "text-emerald-600" : "text-muted-foreground")}>
-              {label}
-            </p>
+          <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+            <span className="inline-flex items-center gap-1.5">
+              <span className="opacity-70">Publicar em:</span>
+              <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", tipoClass(post.tipo))}>
+                {post.tipo || "—"}
+              </span>
+            </span>
           </div>
+        </div>
+        <div className="text-right shrink-0">
+          <p className="text-sm text-muted-foreground">{formatDate(post.scheduledDate)}</p>
+          <p className={cn("text-xs font-medium", isPast ? "text-emerald-600" : "text-muted-foreground")}>
+            {label}
+          </p>
         </div>
       </div>
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
