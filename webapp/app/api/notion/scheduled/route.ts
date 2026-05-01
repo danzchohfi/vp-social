@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING } from "@/lib/notion"
+import { getActiveClientId } from "@/lib/active-client"
 
 type PlatformCheck = { platform: string; configured: boolean; pageName?: string | null }
 
@@ -13,10 +14,11 @@ export async function GET() {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const userId = session.user.id
+  const clientId = await getActiveClientId(userId)
 
   const [connections, accounts] = await Promise.all([
-    db.select().from(notionConnection).where(eq(notionConnection.userId, userId)),
-    db.select().from(instagramAccount).where(eq(instagramAccount.userId, userId)),
+    db.select().from(notionConnection).where(and(eq(notionConnection.userId, userId), eq(notionConnection.clientId, clientId))),
+    db.select().from(instagramAccount).where(and(eq(instagramAccount.userId, userId), eq(instagramAccount.clientId, clientId))),
   ])
 
   const configured = connections.filter((c) => c.databaseId)

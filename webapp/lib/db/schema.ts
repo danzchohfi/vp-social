@@ -1,6 +1,6 @@
 import { pgTable, text, timestamp, boolean, uniqueIndex } from "drizzle-orm/pg-core"
 
-// ─── Better Auth tables ────────────────────────────────────────────────────
+// ─── Better Auth tables ───────────────────────────────────────
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -48,13 +48,25 @@ export const verification = pgTable("verification", {
   updatedAt: timestamp("updated_at").defaultNow(),
 })
 
-// ─── Notion connections ────────────────────────────────────────────────────
+// ─── Client (perfil de cliente da agência) ──────────────────────────────
+
+export const client = pgTable("client", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  logoUrl: text("logo_url"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+})
+
+// ─── Notion connections ───────────────────────────────────────
 
 export const notionConnection = pgTable(
   "notion_connection",
   {
     id: text("id").primaryKey(),
     userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    clientId: text("client_id").references(() => client.id, { onDelete: "cascade" }),
     accessToken: text("access_token").notNull(),
     workspaceId: text("workspace_id").notNull(),
     workspaceName: text("workspace_name").notNull(),
@@ -74,6 +86,7 @@ export const instagramAccount = pgTable(
   {
     id: text("id").primaryKey(),
     userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+    clientId: text("client_id").references(() => client.id, { onDelete: "cascade" }),
     platform: text("platform").notNull().default("instagram"),
     conta: text("conta").notNull(),
     pageName: text("page_name").notNull(),
@@ -89,7 +102,7 @@ export const instagramAccount = pgTable(
   (t) => [uniqueIndex("instagram_account_user_platform_page").on(t.userId, t.platform, t.pageId)]
 )
 
-// ─── Field mapping ─────────────────────────────────────────────────────────
+// ─── Field mapping ────────────────────────────────────────────
 
 export const fieldMapping = pgTable("field_mapping", {
   id: text("id").primaryKey(),
@@ -125,11 +138,12 @@ export const fieldMapping = pgTable("field_mapping", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
 
-// ─── Publish log ───────────────────────────────────────────────────────────
+// ─── Publish log ──────────────────────────────────────────────
 
 export const publishLog = pgTable("publish_log", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  clientId: text("client_id").references(() => client.id, { onDelete: "cascade" }),
   connectionId: text("connection_id").references(() => notionConnection.id, { onDelete: "set null" }),
   notionPageId: text("notion_page_id").notNull(),
   postTitle: text("post_title"),
