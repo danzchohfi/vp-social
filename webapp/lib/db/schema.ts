@@ -48,7 +48,7 @@ export const verification = pgTable("verification", {
   updatedAt: timestamp("updated_at").defaultNow(),
 })
 
-// ─── Cliente (perfis multi-tenant) ───────────────────────────────────
+// ─── Cliente (perfis multi-tenant) ────────────────────────────────────────
 
 export const client = pgTable("client", {
   id: text("id").primaryKey(),
@@ -82,7 +82,7 @@ export const clientInvite = pgTable("client_invite", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 
-// ─── Notion connections ────────────────────────────────────────
+// ─── Notion connections ───────────────────────────────────────
 
 export const notionConnection = pgTable("notion_connection", {
   id: text("id").primaryKey(),
@@ -121,7 +121,7 @@ export const instagramAccount = pgTable("instagram_account", {
   uniqUserClientPlatformPage: uniqueIndex("instagram_account_user_client_platform_page_uniq").on(t.userId, t.clientId, t.platform, t.pageId),
 }))
 
-// ─── Field mapping ────────────────────────────────
+// ─── Field mapping ─────────────────────────────────────────
 
 export const fieldMapping = pgTable("field_mapping", {
   id: text("id").primaryKey(),
@@ -155,6 +155,9 @@ export const fieldMapping = pgTable("field_mapping", {
   commentsField: text("comments_field"),
   savesField: text("saves_field"),
   impressionsField: text("impressions_field"),
+  // Link de volta para o app (URL property no Notion). Default "Social VP";
+  // o valor escrito é {NEXT_PUBLIC_APP_URL}/scheduled?postId={pageId}.
+  socialVpField: text("social_vp_field").default("Social VP"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })

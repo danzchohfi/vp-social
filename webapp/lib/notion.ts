@@ -49,6 +49,7 @@ export interface NotionPost {
   // Caption final usada nas publicações (hashtags entram direto na legenda)
   fullCaption: string
   notionUrl: string
+  socialVpUrl: string | null
 }
 
 export interface FieldMapping {
@@ -70,6 +71,7 @@ export interface FieldMapping {
   reachField?: string | null
   savesField?: string | null
   impressionsField?: string | null
+  socialVpField?: string | null
 }
 
 export const DEFAULT_MAPPING: FieldMapping = {
@@ -86,6 +88,7 @@ export const DEFAULT_MAPPING: FieldMapping = {
   statusErrorValue: "Erro",
   dateField: "Dia para fazer",
   accountField: "Conta",
+  socialVpField: "Social VP",
 }
 
 // ─── Cliente Notion ──────────────────────────────────────────────────
@@ -169,6 +172,20 @@ export function createNotionClient(accessToken: string) {
       if (Object.keys(properties).length === 0) return
       await client.pages.update({ page_id: pageId, properties: properties as any })
     },
+
+    async setSocialVpUrl(pageId: string, mapping: FieldMapping, url: string): Promise<void> {
+      if (!mapping.socialVpField) return
+      try {
+        await client.pages.update({
+          page_id: pageId,
+          properties: {
+            [mapping.socialVpField]: { url },
+          } as any,
+        })
+      } catch {
+        // Field may not exist on the user's database — fail silently
+      }
+    },
   }
 }
 
@@ -198,6 +215,7 @@ async function parsePage(page: any, m: FieldMapping, client: Client): Promise<No
     scheduledDate: getDate(p[m.dateField]),
     fullCaption: caption,
     notionUrl: page.url,
+    socialVpUrl: m.socialVpField ? getUrl(p[m.socialVpField]) : null,
   }
 }
 
@@ -240,6 +258,10 @@ function getMultiSelect(prop: any): string[] {
 
 function getDate(prop: any): string | null {
   return prop?.date?.start ?? null
+}
+
+function getUrl(prop: any): string | null {
+  return prop?.url ?? null
 }
 
 function getFiles(prop: any): string[] {

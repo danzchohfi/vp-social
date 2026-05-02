@@ -30,6 +30,7 @@ export async function GET() {
   const clientContas = new Set(accounts.filter((a) => a.active).map((a) => a.conta.toLowerCase()))
 
   // ─── Upcoming (Notion) ────────────────────────────────────────────────────
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? ""
   let upcoming: any[] = []
   if (configured.length) {
     const allPosts = await Promise.allSettled(
@@ -42,6 +43,19 @@ export async function GET() {
         const mapping = mappingRow ?? DEFAULT_MAPPING
         const notion = createNotionClient(connection.accessToken)
         const posts = await notion.getScheduledPosts(connection.databaseId!, mapping)
+
+        // Write the back-link URL to Notion's "Social VP" field for any post
+        // whose stored value differs from the expected one. Fire-and-forget so
+        // it doesn't block the response.
+        if (appUrl && mapping.socialVpField) {
+          for (const p of posts) {
+            const expected = `${appUrl}/scheduled?postId=${p.pageId}`
+            if (p.socialVpUrl !== expected) {
+              notion.setSocialVpUrl(p.pageId, mapping, expected).catch(() => {})
+            }
+          }
+        }
+
         return posts.map((p) => {
           const targetChecks: TargetCheck[] = p.publishTargets.map((t) => {
             const key = `${t.platform}:${p.conta?.toLowerCase() ?? ""}`
@@ -80,7 +94,7 @@ export async function GET() {
       })
   }
 
-  // ─── Past (publishLog) ─────────────────────────────────────────────────────
+  // ─── Past (publishLog) ────────────────────────────────────────────────────
   const cutoff = new Date(Date.now() - PAST_WINDOW_DAYS * 24 * 60 * 60 * 1000)
   const logs = await db
     .select()
