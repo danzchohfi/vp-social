@@ -2,11 +2,15 @@ name: Deploy Trigger.dev Worker
 
 on:
   push:
-    branches: [claude/notion-instagram-integration-RoecP, main]
+    branches:
+      - main
+      - "claude/**"
     paths:
       - "webapp/trigger/**"
       - "webapp/lib/**"
       - "webapp/trigger.config.ts"
+      - ".github/workflows/trigger-deploy.yml"
+  workflow_dispatch:
 
 jobs:
   deploy:
@@ -22,7 +26,17 @@ jobs:
 
       - name: Install dependencies
         working-directory: webapp
-        run: npm install --legacy-peer-deps
+        run: |
+          for i in 1 2 3; do
+            npm install --legacy-peer-deps \
+              --fetch-retries=5 \
+              --fetch-retry-mintimeout=20000 \
+              --fetch-retry-maxtimeout=120000 \
+              --prefer-online && exit 0
+            echo "npm install attempt $i failed, retrying in 15s..."
+            sleep 15
+          done
+          exit 1
 
       - name: Deploy to Trigger.dev
         working-directory: webapp

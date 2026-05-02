@@ -6,6 +6,28 @@ import { eq, desc } from "drizzle-orm"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, XCircle, Clock, History } from "lucide-react"
+import { parsePublishTarget } from "@/lib/notion"
+import { cn } from "@/lib/utils"
+
+const PLATFORM_COLORS: Record<string, string> = {
+  instagram: "bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300",
+  facebook: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
+  youtube: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
+  tiktok: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
+  linkedin: "bg-sky-100 text-sky-700 dark:bg-sky-900 dark:text-sky-300",
+}
+
+function PlatformBadge({ raw }: { raw: string | null }) {
+  if (!raw || raw === "—") return null
+  const target = parsePublishTarget(raw)
+  const platform = target?.platform ?? raw.toLowerCase().split(/[\s-]+/)[0]
+  const colorClass = PLATFORM_COLORS[platform] ?? "bg-muted text-muted-foreground"
+  return (
+    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", colorClass)}>
+      {raw}
+    </span>
+  )
+}
 
 export default async function HistoryPage() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -73,15 +95,19 @@ export default async function HistoryPage() {
                       {log.status === "skipped" && <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />}
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{log.postTitle || "Post sem título"}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {log.conta} · {new Date(log.publishedAt).toLocaleString("pt-BR", {
-                            day: "2-digit", month: "2-digit", year: "numeric",
-                            hour: "2-digit", minute: "2-digit",
-                          })}
-                          {log.instagramPostId && (
-                            <span className="ml-2 font-mono opacity-60">ID: {log.instagramPostId}</span>
-                          )}
-                        </p>
+                        <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                          <PlatformBadge raw={log.platform} />
+                          <p className="text-xs text-muted-foreground">
+                            {log.conta} · {new Date(log.publishedAt).toLocaleString("pt-BR", {
+                              day: "2-digit", month: "2-digit", year: "numeric",
+                              hour: "2-digit", minute: "2-digit",
+                              timeZone: "America/Sao_Paulo",
+                            })}
+                            {log.platformPostId && (
+                              <span className="ml-2 font-mono opacity-60">ID: {log.platformPostId}</span>
+                            )}
+                          </p>
+                        </div>
                       </div>
                     </div>
                     <Badge

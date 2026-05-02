@@ -15,7 +15,7 @@ function getDb() {
 
 export const syncAnalyticsScheduled = schedules.task({
   id: "sync-analytics-scheduled",
-  cron: "0 */6 * * *",
+  cron: { pattern: "0 */6 * * *", timezone: "America/Sao_Paulo" },
   run: async () => {
     const db = getDb()
     const cutoff = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
@@ -33,18 +33,19 @@ export const syncAnalyticsScheduled = schedules.task({
       )
 
     logger.info(`Sincronizando analytics de ${logs.length} posts...`)
+    if (!logs.length) return
 
-    const results = await Promise.allSettled(
-      logs.map((log) => syncPostAnalytics.triggerAndWait({ logId: log.id }))
+    const result = await syncPostAnalytics.batchTriggerAndWait(
+      logs.map((log) => ({ payload: { logId: log.id } }))
     )
 
-    const ok = results.filter((r) => r.status === "fulfilled").length
-    const err = results.filter((r) => r.status === "rejected").length
+    const ok = result.runs.filter((r) => r.ok).length
+    const err = result.runs.filter((r) => !r.ok).length
     logger.info(`Analytics: ${ok} atualizados, ${err} com erro.`)
   },
 })
 
-// ─── Task por post ───────────────────────────────────────────────────────
+// ─── Task por post ────────────────────────────────────────────────────────
 
 export const syncPostAnalytics = task({
   id: "sync-post-analytics",

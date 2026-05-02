@@ -11,28 +11,30 @@ function getDb() {
   return drizzle(sql, { schema })
 }
 
-// ─── Scheduled: roda a cada 5 minutos para todos os workspaces ──────────
+// ─── Scheduled: roda a cada 5 minutos para todos os workspaces ──────
 
 export const publishScheduled = schedules.task({
   id: "publish-scheduled-posts",
-  cron: "*/5 * * * *",
+  cron: { pattern: "*/5 * * * *", timezone: "America/Sao_Paulo" },
   run: async () => {
     const db = getDb()
     const connections = await db.select().from(schema.notionConnection)
     const ready = connections.filter((c) => c.databaseId)
     logger.info(`Verificando ${ready.length} workspaces com banco configurado...`)
 
-    const results = await Promise.allSettled(
-      ready.map((c) => publishForConnection.triggerAndWait({ connectionId: c.id }))
+    if (!ready.length) return
+
+    const result = await publishForConnection.batchTriggerAndWait(
+      ready.map((c) => ({ payload: { connectionId: c.id } }))
     )
 
-    const ok = results.filter((r) => r.status === "fulfilled").length
-    const err = results.filter((r) => r.status === "rejected").length
+    const ok = result.runs.filter((r) => r.ok).length
+    const err = result.runs.filter((r) => !r.ok).length
     logger.info(`Finalizado: ${ok} workspaces OK, ${err} com erro.`)
   },
 })
 
-// ─── Task por workspace/conexão ───────────────────────────────────
+// ─── Task por workspace/conexão ───────────────────────────────
 
 export const publishForConnection = task({
   id: "publish-for-connection",
@@ -101,8 +103,11 @@ export const publishForConnection = task({
         logger.warn(`Post "${post.title}" sem "Publicar em" definido — ignorado.`)
         await saveLog(db, userId, connectionId, post, null, "—", "skipped", `Campo "Publicar em" vazio`, connection.clientId)
         results.skipped++
+        await markNotionStatus(notion, post.pageId, mapping, "failed", post.title)
         continue
       }
+
+      let postSuccess = 0
 
       for (const target of post.publishTargets) {
         const key = `${target.platform}:${post.conta.toLowerCase()}`
@@ -120,6 +125,7 @@ export const publishForConnection = task({
           await saveLog(db, userId, connectionId, post, postId, target.raw, "published", null, connection.clientId)
           logger.info(`[${target.raw}/${post.conta}] ✓ "${post.title}" publicado! ID: ${postId}`)
           results.published++
+          postSuccess++
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
           logger.error(`[${target.raw}/${post.conta}] ✗ "${post.title}": ${message}`)
@@ -127,8 +133,31 @@ export const publishForConnection = task({
           results.failed++
         }
       }
+
+      // Sai do filtro "Agendamento" para impedir reprocessamento na próxima execução do cron.
+      // Qualquer sucesso conta como publicado; só marca erro se nenhum target deu certo.
+      await markNotionStatus(
+        notion, post.pageId, mapping,
+        postSuccess > 0 ? "published" : "failed",
+        post.title
+      )
     }
 
     return results
   },
 })
+
+async function markNotionStatus(
+  notion: ReturnType<typeof createNotionClient>,
+  pageId: string,
+  mapping: FieldMapping,
+  status: "published" | "failed",
+  title: string
+) {
+  try {
+    if (status === "published") await notion.markPublished(pageId, mapping)
+    else await notion.markFailed(pageId, mapping)
+  } catch (e) {
+    logger.error(`Falha ao atualizar status do Notion para "${title}" (${status}): ${e}`)
+  }
+}
