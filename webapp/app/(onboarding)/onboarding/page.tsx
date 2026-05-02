@@ -56,30 +56,7 @@ export default function OnboardingPage() {
 
   // Step 3 — Instagram (tracked via step === 4)
 
-  // ─── Detect OAuth redirects ──────────────────────────────────────
-
-  useEffect(() => {
-    const notionConnected = searchParams.get("notion_connected")
-    const igConnected = searchParams.get("instagram_connected")
-    const error = searchParams.get("error")
-
-    if (error) {
-      // Stay on current step, errors are surfaced by missing connection state
-      return
-    }
-
-    if (notionConnected === "true") {
-      loadConnection()
-      return
-    }
-
-    if (igConnected === "true") {
-      setStep(4)
-      return
-    }
-  }, [searchParams]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // ─── Load existing connection on mount ──────────────────────────────────
+  // ─── Load existing connection ───────────────────────────────────────────────────
 
   const loadConnection = useCallback(async () => {
     setLoading(true)
@@ -115,11 +92,30 @@ export default function OnboardingPage() {
     }
   }, [])
 
-  useEffect(() => {
-    loadConnection()
-  }, [loadConnection])
+  // ─── Detect OAuth redirects + load existing connection ─────────────
 
-  // ─── Save client (step 0) ────────────────────────────────────────────────
+  useEffect(() => {
+    const igConnected = searchParams.get("instagram_connected")
+    const error = searchParams.get("error")
+
+    if (error) {
+      // Stay on current step; errors are surfaced by missing connection state
+      return
+    }
+
+    if (igConnected === "true") {
+      // Returning from Facebook OAuth: jump to "Tudo pronto!" and skip
+      // loadConnection — otherwise it would reset us back to step 3.
+      setStep(4)
+      setLoading(false)
+      return
+    }
+
+    // Fresh visit OR notion_connected=true (newly created connection)
+    loadConnection()
+  }, [searchParams, loadConnection])
+
+  // ─── Save client (step 0) ─────────────────────────────────────────────────────────────
 
   const saveClient = async () => {
     if (!clientId || !clientName.trim()) return
@@ -136,7 +132,7 @@ export default function OnboardingPage() {
     }
   }
 
-  // ─── Load databases ──────────────────────────────────────────────────────────
+  // ─── Load databases ────────────────────────────────────────────────────────────────────────────────
 
   const loadDatabases = useCallback(async (connectionId: string) => {
     setDbLoading(true)
@@ -149,7 +145,7 @@ export default function OnboardingPage() {
     }
   }, [])
 
-  // ─── Extract DB ID from Notion URL ───────────────────────────────────────
+  // ─── Extract DB ID from Notion URL ──────────────────────────────────────────
 
   function extractNotionId(input: string): string {
     const match = input.match(/([a-f0-9]{32})/i)
@@ -162,7 +158,7 @@ export default function OnboardingPage() {
 
   const effectiveDbId = selectedDbId || (manualUrl ? extractNotionId(manualUrl) : "")
 
-  // ─── Save database selection ────────────────────────────────────────────────
+  // ─── Save database selection ────────────────────────────────────────────────────────────────
 
   const saveDatabase = async () => {
     if (!connection || !effectiveDbId) return
@@ -179,7 +175,7 @@ export default function OnboardingPage() {
     }
   }
 
-  // ─── Connect Notion ──────────────────────────────────────────────────────────
+  // ─── Connect Notion ──────────────────────────────────────────────────────────────────────────────
 
   const connectNotion = async () => {
     setLoading(true)
@@ -192,7 +188,7 @@ export default function OnboardingPage() {
     }
   }
 
-  // ─── Connect Instagram ────────────────────────────────────────────────────────
+  // ─── Connect Instagram ──────────────────────────────────────────────────────────────────────────
 
   const connectInstagram = async () => {
     setLoading(true)
@@ -205,11 +201,11 @@ export default function OnboardingPage() {
     }
   }
 
-  // ─── Finish ──────────────────────────────────────────────────────────────────
+  // ─── Finish ──────────────────────────────────────────────────────────────────────────────────────────────
 
   const finish = () => router.push("/dashboard")
 
-  // ─── Render ──────────────────────────────────────────────────────────────────
+  // ─── Render ──────────────────────────────────────────────────────────────────────────────────────────────
 
   return (
     <div className="w-full max-w-lg space-y-8">

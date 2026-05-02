@@ -4,15 +4,18 @@ import { notionConnection } from "@/lib/db/schema"
 import { eq, and } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
+import { getActiveClientId } from "@/lib/active-client"
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+  const clientId = await getActiveClientId(session.user.id)
+
   const connections = await db
     .select()
     .from(notionConnection)
-    .where(eq(notionConnection.userId, session.user.id))
+    .where(and(eq(notionConnection.userId, session.user.id), eq(notionConnection.clientId, clientId)))
 
   return NextResponse.json({ connections })
 }
