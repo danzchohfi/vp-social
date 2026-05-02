@@ -37,7 +37,7 @@ export function MobileNav() {
           </div>
           <span className="text-base tracking-tight">
             <span className="font-semibold">VP</span>
-            <span className="ml-1 italic font-[family-name:var(--font-display)]">Social</span>
+            <span className="ml-1 italic font-display">Social</span>
           </span>
         </div>
         <button

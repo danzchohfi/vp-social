@@ -60,7 +60,7 @@ export default function SignupPage() {
   return (
     <Card className="w-full max-w-md shadow-lg">
       <CardHeader className="text-center">
-        <CardTitle className="font-[family-name:var(--font-display)] text-3xl font-normal tracking-tight">Criar conta grátis</CardTitle>
+        <CardTitle className="font-display text-3xl font-normal tracking-tight">Criar conta grátis</CardTitle>
         <CardDescription>Comece a publicar do Notion em minutos</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

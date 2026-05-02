@@ -186,7 +186,7 @@ export default function AccountsPage() {
     <div className="p-4 sm:p-8">
       <div className="mb-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">Contas conectadas</h1>
+          <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Contas conectadas</h1>
           {activeClient && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
               {activeClient.logoUrl ? (

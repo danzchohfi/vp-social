@@ -78,7 +78,7 @@ export default function AccountPage() {
   return (
     <div className="max-w-2xl mx-auto p-8 space-y-6">
       <div>
-        <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">Minha conta</h1>
+        <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Minha conta</h1>
         <p className="text-muted-foreground">Atualize seus dados pessoais e senha.</p>
       </div>
 

@@ -18,7 +18,7 @@ export default function LandingPage() {
             </div>
             <span className="text-lg tracking-tight">
               <span className="font-semibold">VP</span>
-              <span className="ml-1 italic font-[family-name:var(--font-display)]">Social</span>
+              <span className="ml-1 italic font-display">Social</span>
             </span>
           </div>
           <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
@@ -48,7 +48,7 @@ export default function LandingPage() {
               <Sparkles className="h-3 w-3" />
               Feito para agências e criadores
             </Badge>
-            <h1 className="mb-6 font-[family-name:var(--font-display)] text-5xl font-normal leading-[1.05] tracking-tight md:text-7xl">
+            <h1 className="mb-6 font-display text-5xl font-normal leading-[1.05] tracking-tight md:text-7xl">
               Publique nas redes
               <br />
               <span className="italic text-primary">direto do Notion</span>
@@ -185,7 +185,7 @@ export default function LandingPage() {
             </div>
             <span>
               <span className="font-semibold">VP</span>
-              <span className="ml-1 italic font-[family-name:var(--font-display)]">Social</span>
+              <span className="ml-1 italic font-display">Social</span>
             </span>
           </div>
           <p>© 2026 VP Social. Todos os direitos reservados.</p>

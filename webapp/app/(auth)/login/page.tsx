@@ -54,7 +54,7 @@ export default function LoginPage() {
   return (
     <Card className="w-full max-w-md shadow-lg">
       <CardHeader className="text-center">
-        <CardTitle className="font-[family-name:var(--font-display)] text-3xl font-normal tracking-tight">Bem-vindo de volta</CardTitle>
+        <CardTitle className="font-display text-3xl font-normal tracking-tight">Bem-vindo de volta</CardTitle>
         <CardDescription>Entre na sua conta para continuar</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">

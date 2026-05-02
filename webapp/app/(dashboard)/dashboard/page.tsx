@@ -62,7 +62,7 @@ export default async function DashboardPage() {
     <div className="p-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">Dashboard</h1>
+          <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Dashboard</h1>
           <p className="text-muted-foreground">
             {activeClient.name} · Olá, {session!.user.name} 👋
           </p>
@@ -113,7 +113,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Publicados</CardDescription>
-            <CardTitle className="font-[family-name:var(--font-display)] text-4xl font-normal text-success">{totalPublished}</CardTitle>
+            <CardTitle className="font-display text-4xl font-normal text-success">{totalPublished}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">total deste cliente</p>
@@ -122,7 +122,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Com erro</CardDescription>
-            <CardTitle className="font-[family-name:var(--font-display)] text-4xl font-normal text-destructive">{totalFailed}</CardTitle>
+            <CardTitle className="font-display text-4xl font-normal text-destructive">{totalFailed}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">total deste cliente</p>

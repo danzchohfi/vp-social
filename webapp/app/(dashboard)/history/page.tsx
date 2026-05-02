@@ -25,7 +25,7 @@ export default async function HistoryPage() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">Histórico</h1>
+        <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Histórico</h1>
         <p className="text-muted-foreground">Registro completo de todas as publicações</p>
       </div>
 

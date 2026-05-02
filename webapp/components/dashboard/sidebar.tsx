@@ -35,7 +35,7 @@ export function Sidebar() {
         </div>
         <span className="text-lg tracking-tight">
           <span className="font-semibold">VP</span>
-          <span className="ml-1 italic font-[family-name:var(--font-display)]">Social</span>
+          <span className="ml-1 italic font-display">Social</span>
         </span>
       </div>
 
@@ -94,6 +94,9 @@ export function Sidebar() {
           <LogOut className="h-4 w-4" />
           Sair
         </button>
+        <p className="px-3 pt-2 text-[10px] font-mono text-muted-foreground/60">
+          build r2 · serif+tokens
+        </p>
       </div>
     </aside>
   )

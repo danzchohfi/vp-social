@@ -128,7 +128,7 @@ export default function ScheduledPage() {
     <div className="p-4 sm:p-8">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">Posts agendados</h1>
+          <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Posts agendados</h1>
           <p className="text-muted-foreground">
             {willPublishPosts.length} prontos para publicar
             {needsAttention.length > 0 && <span className="text-warning"> · {needsAttention.length} precisam de ajustes</span>}
