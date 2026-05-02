@@ -186,7 +186,7 @@ export default function AccountsPage() {
     <div className="p-4 sm:p-8">
       <div className="mb-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <h1 className="text-2xl font-bold">Contas conectadas</h1>
+          <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">Contas conectadas</h1>
           {activeClient && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
               {activeClient.logoUrl ? (
@@ -208,7 +208,7 @@ export default function AccountsPage() {
         return (
           <>
             {hasMultiplePerPlatform && (
-              <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+              <div className="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
                 <strong>Várias contas conectadas em uma mesma plataforma.</strong>{" "}
                 Cada cliente publica em <strong>uma conta por plataforma</strong>. Clique em
                 <strong> &quot;Manter só esta&quot;</strong> na conta correta para remover as demais automaticamente.
@@ -291,7 +291,7 @@ export default function AccountsPage() {
                                     }}
                                     autoFocus
                                   />
-                                  <Button size="icon" variant="ghost" className="h-7 w-7 text-emerald-600" onClick={() => saveEdit(account.id)}>
+                                  <Button size="icon" variant="ghost" className="h-7 w-7 text-success" onClick={() => saveEdit(account.id)}>
                                     <Check className="h-3.5 w-3.5" />
                                   </Button>
                                   <Button size="icon" variant="ghost" className="h-7 w-7" onClick={() => setEditingId(null)}>

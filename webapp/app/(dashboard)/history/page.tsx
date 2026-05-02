@@ -25,20 +25,20 @@ export default async function HistoryPage() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="text-2xl font-bold">Histórico</h1>
+        <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">Histórico</h1>
         <p className="text-muted-foreground">Registro completo de todas as publicações</p>
       </div>
 
       {/* Summary */}
       <div className="mb-8 flex flex-wrap gap-3">
         <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-2 text-sm">
-          <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-          <span className="font-semibold text-emerald-600">{published}</span>
+          <CheckCircle2 className="h-4 w-4 text-success" />
+          <span className="font-semibold text-success">{published}</span>
           <span className="text-muted-foreground">publicados</span>
         </div>
         <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-2 text-sm">
-          <XCircle className="h-4 w-4 text-red-500" />
-          <span className="font-semibold text-red-600">{failed}</span>
+          <XCircle className="h-4 w-4 text-destructive" />
+          <span className="font-semibold text-destructive">{failed}</span>
           <span className="text-muted-foreground">com erro</span>
         </div>
         <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-2 text-sm">
@@ -68,8 +68,8 @@ export default async function HistoryPage() {
                 <div key={log.id} className="rounded-lg border p-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-start gap-3 min-w-0">
-                      {log.status === "published" && <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-500" />}
-                      {log.status === "failed" && <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-500" />}
+                      {log.status === "published" && <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-success" />}
+                      {log.status === "failed" && <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />}
                       {log.status === "skipped" && <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />}
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{log.postTitle || "Post sem título"}</p>
@@ -102,7 +102,7 @@ export default async function HistoryPage() {
                     </Badge>
                   </div>
                   {log.error && (
-                    <p className="mt-2 rounded bg-red-50 px-3 py-1.5 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">
+                    <p className="mt-2 rounded bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
                       {log.error}
                     </p>
                   )}

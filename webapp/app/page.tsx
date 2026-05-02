@@ -16,7 +16,10 @@ export default function LandingPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <Zap className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-lg font-semibold">VP Social</span>
+            <span className="text-lg tracking-tight">
+              <span className="font-semibold">VP</span>
+              <span className="ml-1 italic font-[family-name:var(--font-display)]">Social</span>
+            </span>
           </div>
           <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
             <Link href="#features" className="hover:text-foreground transition-colors">Funcionalidades</Link>
@@ -45,10 +48,10 @@ export default function LandingPage() {
               <Sparkles className="h-3 w-3" />
               Feito para agências e criadores
             </Badge>
-            <h1 className="mb-6 text-5xl font-bold tracking-tight md:text-7xl">
-              Publique no Instagram
+            <h1 className="mb-6 font-[family-name:var(--font-display)] text-5xl font-normal leading-[1.05] tracking-tight md:text-7xl">
+              Publique nas redes
               <br />
-              <span className="text-primary">direto do Notion</span>
+              <span className="italic text-primary">direto do Notion</span>
             </h1>
             <p className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground md:text-xl">
               Gerencie o calendário editorial dos seus clientes no Notion e publique automaticamente
@@ -180,7 +183,10 @@ export default function LandingPage() {
             <div className="flex h-6 w-6 items-center justify-center rounded bg-primary">
               <Zap className="h-3 w-3 text-primary-foreground" />
             </div>
-            <span>VP Social</span>
+            <span>
+              <span className="font-semibold">VP</span>
+              <span className="ml-1 italic font-[family-name:var(--font-display)]">Social</span>
+            </span>
           </div>
           <p>© 2026 VP Social. Todos os direitos reservados.</p>
         </div>

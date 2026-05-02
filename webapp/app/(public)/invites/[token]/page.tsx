@@ -80,8 +80,8 @@ export default function InviteAcceptPage() {
         ) : invite.accepted ? (
           <>
             <CardHeader>
-              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-100 dark:bg-emerald-950">
-                <CheckCircle2 className="h-6 w-6 text-emerald-600" />
+              <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-success/15">
+                <CheckCircle2 className="h-6 w-6 text-success" />
               </div>
               <CardTitle>Convite já aceito</CardTitle>
               <CardDescription>Você já tem acesso a este cliente.</CardDescription>
@@ -130,7 +130,7 @@ export default function InviteAcceptPage() {
                 <p className="text-muted-foreground">O convite é para:</p>
                 <p className="font-medium">{invite.email}</p>
                 {session && session.user.email.toLowerCase() !== invite.email.toLowerCase() && (
-                  <p className="mt-2 text-xs text-amber-600 dark:text-amber-400">
+                  <p className="mt-2 text-xs text-warning">
                     Você está logado como {session.user.email}. Faça login com {invite.email} para aceitar.
                   </p>
                 )}

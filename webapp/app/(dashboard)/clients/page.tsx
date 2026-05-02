@@ -135,7 +135,7 @@ export default function ClientsPage() {
     <div className="p-8 max-w-3xl mx-auto">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Clientes</h1>
+          <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">Clientes</h1>
           <p className="text-muted-foreground">Cada cliente tem seu próprio Notion, contas sociais e histórico.</p>
         </div>
         <Button onClick={() => setShowNew(true)} disabled={showNew}>

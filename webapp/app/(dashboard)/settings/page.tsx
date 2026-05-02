@@ -186,7 +186,7 @@ export default function SettingsPage() {
   return (
     <div className="max-w-2xl mx-auto space-y-8 py-8 px-4">
       <div>
-        <h1 className="text-2xl font-bold">Configurações</h1>
+        <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">Configurações</h1>
         <p className="text-muted-foreground mt-1">Configure seus workspaces do Notion e o mapeamento de campos.</p>
       </div>
 

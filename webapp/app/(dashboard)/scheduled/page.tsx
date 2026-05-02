@@ -122,10 +122,10 @@ export default function ScheduledPage() {
     <div className="p-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Posts agendados</h1>
+          <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">Posts agendados</h1>
           <p className="text-muted-foreground">
             {willPublishPosts.length} prontos para publicar
-            {needsAttention.length > 0 && <span className="text-amber-600"> · {needsAttention.length} precisam de ajustes</span>}
+            {needsAttention.length > 0 && <span className="text-warning"> · {needsAttention.length} precisam de ajustes</span>}
           </p>
         </div>
         <Button variant="outline" size="sm" onClick={load} disabled={loading}>
@@ -148,7 +148,7 @@ export default function ScheduledPage() {
       )}
 
       {error && (
-        <div className="mb-6 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-800 dark:bg-red-950 dark:text-red-300">
+        <div className="mb-6 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           Erro ao buscar posts: {error}
         </div>
       )}
@@ -174,8 +174,8 @@ export default function ScheduledPage() {
           {readyNow.length > 0 && (
             <section>
               <div className="mb-4 flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-emerald-500" />
-                <h2 className="text-sm font-semibold text-emerald-600">
+                <CheckCircle2 className="h-4 w-4 text-success" />
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-success">
                   Prontos para publicar agora ({readyNow.length})
                 </h2>
               </div>
@@ -192,7 +192,7 @@ export default function ScheduledPage() {
             <section>
               <div className="mb-4 flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <h2 className="text-sm font-semibold text-muted-foreground">
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                   Próximas publicações ({upcoming.length})
                 </h2>
               </div>
@@ -208,8 +208,8 @@ export default function ScheduledPage() {
           {needsAttention.length > 0 && (
             <section>
               <div className="mb-4 flex items-center gap-2">
-                <AlertTriangle className="h-4 w-4 text-amber-500" />
-                <h2 className="text-sm font-semibold text-amber-600">
+                <AlertTriangle className="h-4 w-4 text-warning" />
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-warning">
                   Não vão publicar — precisam de ajustes ({needsAttention.length})
                 </h2>
               </div>
@@ -258,7 +258,7 @@ function TargetBadge({ check }: { check: TargetCheck }) {
         : `Nenhuma conta de ${check.platform} encontrada para esta conta`}
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
-        ok ? platformClass(check.platform) : "bg-amber-100 text-amber-700 dark:bg-amber-900 dark:text-amber-300"
+        ok ? platformClass(check.platform) : "bg-warning/15 text-warning"
       )}
     >
       {ok ? <CheckCircle2 className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
@@ -305,7 +305,7 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
   return (
     <div className={cn(
       "rounded-lg border bg-card p-4",
-      hasIssues ? "border-amber-300 bg-amber-50/50 dark:border-amber-700 dark:bg-amber-950/20" : hasIssue && "border-amber-300 dark:border-amber-700"
+      hasIssues ? "border-warning/40 bg-warning/5" : hasIssue && "border-warning/40"
     )}>
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
@@ -314,7 +314,7 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
         <div className="text-right shrink-0">
           <p className="text-sm text-muted-foreground">{formatDate(post.scheduledDate)}</p>
           {post.scheduledDate && (
-            <p className={cn("text-xs font-medium", isPast ? "text-emerald-600" : "text-muted-foreground")}>
+            <p className={cn("text-xs font-medium", isPast ? "text-success" : "text-muted-foreground")}>
               {label}
             </p>
           )}
@@ -324,7 +324,7 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
       {issues && issues.length > 0 && (
         <ul className="mt-3 space-y-1">
           {issues.map((issue) => (
-            <li key={issue} className="flex items-start gap-2 text-xs text-amber-800 dark:text-amber-200">
+            <li key={issue} className="flex items-start gap-2 text-xs text-warning">
               <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
               <span>{issue}</span>
             </li>
@@ -334,7 +334,7 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
         <span className="text-xs text-muted-foreground">Publicar em:</span>
         {noTargets ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-700 dark:bg-amber-900 dark:text-amber-300">
+          <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
             <AlertTriangle className="h-3 w-3" />
             Campo vazio
           </span>
@@ -342,7 +342,7 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
           checks.map((c) => <TargetBadge key={c.raw} check={c} />)
         )}
         {hasIssue && !noTargets && (
-          <Link href="/accounts" className="ml-1 text-xs text-amber-700 underline dark:text-amber-300">
+          <Link href="/accounts" className="ml-1 text-xs text-warning underline">
             Configurar conta
           </Link>
         )}

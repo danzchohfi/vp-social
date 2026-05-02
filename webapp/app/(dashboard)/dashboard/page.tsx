@@ -62,7 +62,7 @@ export default async function DashboardPage() {
     <div className="p-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold">Dashboard</h1>
+          <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">Dashboard</h1>
           <p className="text-muted-foreground">
             {activeClient.name} · Olá, {session!.user.name} 👋
           </p>
@@ -71,7 +71,7 @@ export default async function DashboardPage() {
       </div>
 
       {!isReady && (
-        <div className="mb-8 rounded-xl border border-primary/20 bg-primary/5 p-6">
+        <div className="mb-8 rounded-xl border border-primary/20 border-l-4 border-l-primary bg-gradient-to-br from-primary/5 to-transparent p-6">
           <div className="flex items-start gap-4">
             <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
               <Zap className="h-5 w-5 text-primary" />
@@ -113,7 +113,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Publicados</CardDescription>
-            <CardTitle className="text-3xl text-emerald-600">{totalPublished}</CardTitle>
+            <CardTitle className="font-[family-name:var(--font-display)] text-4xl font-normal text-success">{totalPublished}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">total deste cliente</p>
@@ -122,7 +122,7 @@ export default async function DashboardPage() {
         <Card>
           <CardHeader className="pb-2">
             <CardDescription>Com erro</CardDescription>
-            <CardTitle className="text-3xl text-red-500">{totalFailed}</CardTitle>
+            <CardTitle className="font-[family-name:var(--font-display)] text-4xl font-normal text-destructive">{totalFailed}</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-xs text-muted-foreground">total deste cliente</p>
@@ -156,7 +156,7 @@ export default async function DashboardPage() {
                 return (
                   <div
                     key={p.platform}
-                    className={`flex items-center justify-between rounded-lg border px-3 py-2.5 ${isActive ? "border-emerald-200 bg-emerald-50/30 dark:border-emerald-800 dark:bg-emerald-950/20" : "bg-muted/20"}`}
+                    className={`flex items-center justify-between rounded-lg border px-3 py-2.5 ${isActive ? "border-success/30 bg-success/5" : "bg-muted/20"}`}
                   >
                     <div className="flex items-center gap-2.5">
                       {Icon ? (
@@ -166,7 +166,7 @@ export default async function DashboardPage() {
                       )}
                       <span className="text-sm font-medium">{p.label}</span>
                     </div>
-                    <span className={isActive ? "text-sm font-semibold text-emerald-600" : "text-sm text-muted-foreground"}>
+                    <span className={isActive ? "text-sm font-semibold text-success" : "text-sm text-muted-foreground"}>
                       {p.active} ativa{p.active === 1 ? "" : "s"}
                       {p.total !== p.active && <span className="ml-1 text-xs text-muted-foreground">/ {p.total}</span>}
                     </span>
@@ -203,8 +203,8 @@ export default async function DashboardPage() {
                 <div key={log.id} className="rounded-lg border p-3">
                   <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3 min-w-0">
-                      {log.status === "published" && <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-500" />}
-                      {log.status === "failed" && <XCircle className="h-5 w-5 shrink-0 text-red-500" />}
+                      {log.status === "published" && <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />}
+                      {log.status === "failed" && <XCircle className="h-5 w-5 shrink-0 text-destructive" />}
                       {log.status === "skipped" && <Clock className="h-5 w-5 shrink-0 text-muted-foreground" />}
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{log.postTitle || "Post sem título"}</p>
@@ -216,7 +216,7 @@ export default async function DashboardPage() {
                     </Badge>
                   </div>
                   {log.status === "failed" && log.error && (
-                    <p className="mt-2 rounded bg-red-50 px-3 py-1.5 text-xs text-red-700 dark:bg-red-950 dark:text-red-300">
+                    <p className="mt-2 rounded bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
                       {log.error}
                     </p>
                   )}

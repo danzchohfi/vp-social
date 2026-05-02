@@ -14,7 +14,10 @@ export default async function OnboardingLayout({ children }: { children: React.R
           <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
             <Zap className="h-4 w-4 text-primary-foreground" />
           </div>
-          <span className="text-xl font-semibold">VP Social</span>
+          <span className="text-xl tracking-tight">
+            <span className="font-semibold">VP</span>
+            <span className="ml-1 italic font-[family-name:var(--font-display)]">Social</span>
+          </span>
         </div>
       </header>
       <main className="flex flex-1 items-center justify-center p-6">

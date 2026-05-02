@@ -33,7 +33,10 @@ export function Sidebar() {
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
           <Zap className="h-4 w-4 text-primary-foreground" />
         </div>
-        <span className="font-semibold">VP Social</span>
+        <span className="text-lg tracking-tight">
+          <span className="font-semibold">VP</span>
+          <span className="ml-1 italic font-[family-name:var(--font-display)]">Social</span>
+        </span>
       </div>
 
       <div className="border-b p-3">
@@ -48,9 +51,9 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 active
-                  ? "bg-primary/10 text-primary"
+                  ? "bg-primary/10 text-primary before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
             >
