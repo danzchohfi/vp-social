@@ -51,8 +51,10 @@ export async function GET() {
             pageName: account?.pageName ?? null,
           }
         })
+        const contaKey = p.conta?.toLowerCase() ?? ""
+        const contaConnected = contaKey ? accounts.some((a) => a.active && a.conta.toLowerCase() === contaKey) : false
         const belongsToClient = !!p.conta && clientContas.has(p.conta.toLowerCase())
-        return { ...p, workspaceName: connection.workspaceName, connectionId: connection.id, targetChecks, belongsToClient }
+        return { ...p, workspaceName: connection.workspaceName, connectionId: connection.id, targetChecks, belongsToClient, contaConnected }
       })
     })
   )

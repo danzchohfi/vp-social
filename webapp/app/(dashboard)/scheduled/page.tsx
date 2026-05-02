@@ -25,6 +25,7 @@ type ScheduledPost = {
   connectionId?: string
   targetChecks?: TargetCheck[]
   belongsToClient?: boolean
+  contaConnected?: boolean
 }
 
 const PLATFORM_COLORS: Record<string, string> = {
@@ -93,13 +94,27 @@ export default function ScheduledPage() {
     const issues: string[] = []
     if (!p.scheduledDate) issues.push('Sem data de publicação')
     const checks = p.targetChecks ?? []
-    if (checks.length === 0) issues.push('Campo "Publicar em" vazio')
-    else if (checks.every((c) => !c.configured)) issues.push(`Conta "${p.conta || "—"}" não conectada em nenhuma plataforma`)
+    if (checks.length === 0) {
+      issues.push('Campo "Publicar em" vazio')
+      if (p.conta && p.contaConnected === false) {
+        issues.push(`Conta "${p.conta}" não encontrada nas contas conectadas`)
+      }
+    } else if (checks.every((c) => !c.configured)) {
+      issues.push(`Conta "${p.conta || "—"}" não conectada em nenhuma plataforma selecionada`)
+    } else {
+      const unconfigured = checks.filter((c) => !c.configured)
+      if (unconfigured.length > 0) {
+        issues.push(`${unconfigured.length} plataforma(s) sem conta conectada: ${unconfigured.map((c) => c.raw).join(", ")}`)
+      }
+    }
     return issues
   }
 
   function willPublish(p: ScheduledPost): boolean {
-    return postIssues(p).length === 0
+    const issues = postIssues(p)
+    if (issues.length > 0) return false
+    const checks = p.targetChecks ?? []
+    return checks.length > 0 && checks.some((c) => c.configured)
   }
 
   const clientPosts = allPosts.filter((p) => p.belongsToClient)
@@ -183,7 +198,7 @@ export default function ScheduledPage() {
             <CalendarClock className="mb-3 h-10 w-10 text-muted-foreground/40" />
             <p className="font-medium">Nenhum post agendado</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Mude o status de um post para "{" "}
+              Mude o status de um post para "{"\ "}
               <span className="font-mono">Agendamento</span>" no Notion para ele aparecer aqui.
             </p>
           </CardContent>
@@ -273,16 +288,19 @@ function TargetBadge({ check }: { check: TargetCheck }) {
   const ok = check.configured
   return (
     <span
-      title={ok
-        ? `${check.platform} conectada${check.pageName ? ` — ${check.pageName}` : ""}`
-        : `Nenhuma conta de ${check.platform} encontrada para esta conta`}
       className={cn(
         "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
         ok ? platformClass(check.platform) : "bg-warning/15 text-warning"
       )}
     >
-      {ok ? <CheckCircle2 className="h-3 w-3" /> : <AlertTriangle className="h-3 w-3" />}
-      {check.raw}
+      {ok ? <CheckCircle2 className="h-3 w-3 shrink-0" /> : <AlertTriangle className="h-3 w-3 shrink-0" />}
+      <span>{check.raw}</span>
+      {ok && check.pageName && (
+        <span className="opacity-60 before:mr-0.5 before:content-['·']">{check.pageName}</span>
+      )}
+      {!ok && (
+        <span className="opacity-70">— sem conta</span>
+      )}
     </span>
   )
 }
