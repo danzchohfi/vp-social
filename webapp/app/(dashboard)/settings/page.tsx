@@ -145,6 +145,10 @@ export default function SettingsPage() {
     ? props.map(p => p.name)
     : [mapping.statusField, mapping.dateField, mapping.captionField, mapping.publicarEmField, mapping.accountField, mapping.feedImageUrlsField, mapping.verticalUrlsField, mapping.horizontalUrlsField, mapping.thumbnailUrlField].filter(Boolean)
 
+  const selectPropNames = props.length
+    ? props.filter(p => p.type === "select" || p.type === "status").map(p => p.name)
+    : [mapping.statusField].filter(Boolean)
+
   const statusOptions = props.find(p => p.name === mapping.statusField)?.options ?? []
 
   function setField(key: keyof FieldMapping, value: string) {
@@ -274,7 +278,7 @@ export default function SettingsPage() {
                   Recomendamos um campo de Publicação separado do seu Status editorial. O Status fica para o workflow da equipe (ideia / em produção / concluído); a Publicação fica para o sistema (agendado / publicado / erro). Assim o app nunca sobrescreve o estado editorial.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <SelectField label="Campo de status de publicação" value={mapping.statusField} options={propNames} onChange={(v) => setField("statusField", v)} hint="Crie um campo separado do seu workflow editorial" />
+                  <SelectField label="Campo de status de publicação" value={mapping.statusField} options={selectPropNames} onChange={(v) => setField("statusField", v)} hint="Apenas campos do tipo Select aparecem aqui" />
                   <StatusValueSelect label='Valor "Pronto para publicar"' value={mapping.statusReadyValue} options={statusOptions} onChange={(v) => setField("statusReadyValue", v)} />
                   <StatusValueSelect label='Valor "Publicado"' value={mapping.statusPublishedValue} options={statusOptions} onChange={(v) => setField("statusPublishedValue", v)} />
                   <StatusValueSelect label='Valor "Erro"' value={mapping.statusErrorValue} options={statusOptions} onChange={(v) => setField("statusErrorValue", v)} />
