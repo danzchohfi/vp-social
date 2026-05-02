@@ -88,5 +88,27 @@ export async function publishTikTokVideo(
     throw new Error(`TikTok [${code}] ${message} (privacy=${privacyLevel}, allowed=[${privacyLevels.join(",")}], log=${logId})`)
   }
 
-  return result.data?.publish_id ?? result.data?.video_id ?? "ok"
+  const publishId = result.data?.publish_id ?? result.data?.video_id
+  if (!publishId) return "ok"
+
+  for (let i = 0; i < 10; i++) {
+    await new Promise((r) => setTimeout(r, 3000))
+    const statusRes = await fetch(`${TIKTOK_API}/post/publish/status/fetch/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json; charset=UTF-8",
+      },
+      body: JSON.stringify({ publish_id: publishId }),
+    })
+    const statusData = await statusRes.json()
+    const status = statusData.data?.status
+    if (status === "PUBLISH_COMPLETE") return publishId
+    if (status === "FAILED") {
+      const reason = statusData.data?.fail_reason ?? "unknown"
+      throw new Error(`TikTok publish FAILED: ${reason} (publish_id=${publishId})`)
+    }
+  }
+
+  throw new Error(`TikTok publish timeout — still processing after 30s (publish_id=${publishId})`)
 }
