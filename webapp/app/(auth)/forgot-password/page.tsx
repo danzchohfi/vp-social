@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { forgetPassword } from "@/lib/auth-client"
+import { authClient } from "@/lib/auth-client"
 import { Loader2, CheckCircle2 } from "lucide-react"
 
 export default function ForgotPasswordPage() {
@@ -17,7 +17,7 @@ export default function ForgotPasswordPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    const { error } = await forgetPassword({
+    const { error } = await authClient.forgetPassword({
       email,
       redirectTo: "/reset-password",
     })
