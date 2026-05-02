@@ -48,6 +48,7 @@ export interface NotionPost {
   scheduledDate: string | null
   // Caption final usada nas publicações (hashtags entram direto na legenda)
   fullCaption: string
+  notionUrl: string
 }
 
 export interface FieldMapping {
@@ -196,6 +197,7 @@ async function parsePage(page: any, m: FieldMapping, client: Client): Promise<No
     thumbnailUrl: getFiles(p[m.thumbnailField])[0] ?? null,
     scheduledDate: getDate(p[m.dateField]),
     fullCaption: caption,
+    notionUrl: page.url,
   }
 }
 

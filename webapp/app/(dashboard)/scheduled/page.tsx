@@ -3,7 +3,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { CalendarClock, Loader2, RefreshCw, Zap, Clock, CheckCircle2, AlertTriangle } from "lucide-react"
+import { CalendarClock, Loader2, RefreshCw, Zap, Clock, CheckCircle2, AlertTriangle, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -26,6 +26,7 @@ type ScheduledPost = {
   targetChecks?: TargetCheck[]
   belongsToClient?: boolean
   contaConnected?: boolean
+  notionUrl?: string
 }
 
 const PLATFORM_COLORS: Record<string, string> = {
@@ -407,8 +408,16 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
             Configurar conta
           </Link>
         )}
-        {canPublishNow && (
-          <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-2">
+          {post.notionUrl && (
+            <Button asChild size="sm" variant="outline">
+              <a href={post.notionUrl} target="_blank" rel="noopener noreferrer" title="Abrir no Notion">
+                <ExternalLink className="h-3.5 w-3.5" />
+                Ver no Notion
+              </a>
+            </Button>
+          )}
+          {canPublishNow && (
             <Button
               size="sm"
               onClick={publishNow}
@@ -424,8 +433,8 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
               {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
               {publishing ? "Publicando..." : "Publicar agora"}
             </Button>
-          </div>
-        )}
+          )}
+        </div>
       </div>
     </div>
   )
