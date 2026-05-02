@@ -24,6 +24,7 @@ type ScheduledPost = {
   workspaceName?: string
   connectionId?: string
   targetChecks?: TargetCheck[]
+  belongsToClient?: boolean
 }
 
 const PLATFORM_COLORS: Record<string, string> = {
@@ -62,10 +63,11 @@ function timeUntil(iso: string | null): { label: string; isPast: boolean } {
 }
 
 export default function ScheduledPage() {
-  const [posts, setPosts] = useState<ScheduledPost[]>([])
+  const [allPosts, setAllPosts] = useState<ScheduledPost[]>([])
   const [loading, setLoading] = useState(true)
   const [configured, setConfigured] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showOthers, setShowOthers] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -74,7 +76,7 @@ export default function ScheduledPage() {
       const res = await fetch("/api/notion/scheduled")
       const data = await res.json()
       if (data.error) throw new Error(data.error)
-      setPosts(data.posts ?? [])
+      setAllPosts(data.posts ?? [])
       setConfigured(data.configured ?? true)
     } catch (e) {
       setError(String(e))
@@ -100,6 +102,10 @@ export default function ScheduledPage() {
     return postIssues(p).length === 0
   }
 
+  const clientPosts = allPosts.filter((p) => p.belongsToClient)
+  const otherPosts = allPosts.filter((p) => !p.belongsToClient)
+  const posts = showOthers ? allPosts : clientPosts
+
   const willPublishPosts = posts.filter(willPublish)
   const needsAttention = posts.filter((p) => !willPublish(p))
   const readyNow = willPublishPosts.filter((p) => p.scheduledDate && new Date(p.scheduledDate) <= now)
@@ -119,8 +125,8 @@ export default function ScheduledPage() {
   }
 
   return (
-    <div className="p-8">
-      <div className="mb-8 flex items-center justify-between">
+    <div className="p-4 sm:p-8">
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-[family-name:var(--font-display)] text-3xl tracking-tight sm:text-4xl">Posts agendados</h1>
           <p className="text-muted-foreground">
@@ -133,6 +139,20 @@ export default function ScheduledPage() {
           Atualizar
         </Button>
       </div>
+
+      {otherPosts.length > 0 && (
+        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3">
+          <p className="text-sm text-muted-foreground">
+            {showOthers
+              ? <>Mostrando posts de <strong className="text-foreground">todos os clientes</strong> deste workspace</>
+              : <><strong className="text-foreground">{otherPosts.length}</strong> {otherPosts.length === 1 ? "post pertence" : "posts pertencem"} a outras contas/clientes neste workspace</>
+            }
+          </p>
+          <Button variant="ghost" size="sm" onClick={() => setShowOthers((v) => !v)}>
+            {showOthers ? "Ocultar de outros clientes" : "Ver todos do workspace"}
+          </Button>
+        </div>
+      )}
 
       {!configured && (
         <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-6 text-center">
@@ -302,14 +322,23 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
     }
   }
 
+  const isOtherClient = post.belongsToClient === false
   return (
     <div className={cn(
       "rounded-lg border bg-card p-4",
-      hasIssues ? "border-warning/40 bg-warning/5" : hasIssue && "border-warning/40"
+      hasIssues ? "border-warning/40 bg-warning/5" : hasIssue && "border-warning/40",
+      isOtherClient && "opacity-70"
     )}>
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
-          <p className="font-medium truncate">{post.title || "Sem título"}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-medium truncate">{post.title || "Sem título"}</p>
+            {isOtherClient && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                Outro cliente
+              </span>
+            )}
+          </div>
         </div>
         <div className="text-right shrink-0">
           <p className="text-sm text-muted-foreground">{formatDate(post.scheduledDate)}</p>

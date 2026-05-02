@@ -27,6 +27,8 @@ export async function GET() {
     accounts.filter((a) => a.active).map((a) => [`${a.platform.toLowerCase()}:${a.conta.toLowerCase()}`, a])
   )
 
+  const clientContas = new Set(accounts.filter((a) => a.active).map((a) => a.conta.toLowerCase()))
+
   const allPosts = await Promise.allSettled(
     configured.map(async (connection) => {
       const [mappingRow] = await db
@@ -49,7 +51,8 @@ export async function GET() {
             pageName: account?.pageName ?? null,
           }
         })
-        return { ...p, workspaceName: connection.workspaceName, connectionId: connection.id, targetChecks }
+        const belongsToClient = !!p.conta && clientContas.has(p.conta.toLowerCase())
+        return { ...p, workspaceName: connection.workspaceName, connectionId: connection.id, targetChecks, belongsToClient }
       })
     })
   )
