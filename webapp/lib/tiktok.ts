@@ -82,7 +82,10 @@ export async function publishTikTokVideo(
   }
 
   if (result.error?.code !== "ok") {
-    throw new Error(result.error?.message ?? "TikTok publish failed")
+    const code = result.error?.code ?? "unknown"
+    const message = result.error?.message ?? "TikTok publish failed"
+    const logId = result.error?.log_id ?? ""
+    throw new Error(`TikTok [${code}] ${message} (privacy=${privacyLevel}, allowed=[${privacyLevels.join(",")}], log=${logId})`)
   }
 
   return result.data?.publish_id ?? result.data?.video_id ?? "ok"
