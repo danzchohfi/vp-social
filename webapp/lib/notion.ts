@@ -1,41 +1,59 @@
 import { Client } from "@notionhq/client"
 
-// ─── Tipos de conteúdo suportados ─────────────────────────────────────────
+// ─── Publish targets ─────────────────────────────────────────────────
 
-export type ContentType =
-  | "Feed"        // imagem única no feed
-  | "Carrossel"   // múltiplas imagens no feed
-  | "Reel"        // vídeo vertical (até 90s) — aparece no feed e Reels
-  | "Story"       // vídeo ou imagem vertical (some em 24h)
-  | "YouTube"     // vídeo horizontal longo
-  | "YouTube Short" // vídeo vertical curto (até 60s)
+export interface PublishTarget {
+  platform: string  // "instagram" | "facebook" | "youtube" | "tiktok" | "linkedin"
+  tipo: string      // "feed" | "carrossel" | "reel" | "story" | "youtube" | "youtube short"
+  raw: string       // valor original do Notion (ex.: "Instagram Reels")
+}
 
-export type Platform = "Instagram" | "Facebook" | "YouTube"
+export const PUBLISH_OPTIONS = [
+  { raw: "Instagram Feed",      platform: "instagram", tipo: "feed" },
+  { raw: "Instagram Carrossel", platform: "instagram", tipo: "carrossel" },
+  { raw: "Instagram Reels",     platform: "instagram", tipo: "reel" },
+  { raw: "Instagram Story",     platform: "instagram", tipo: "story" },
+  { raw: "Facebook",            platform: "facebook",  tipo: "feed" },
+  { raw: "YouTube",             platform: "youtube",   tipo: "youtube" },
+  { raw: "YouTube Shorts",      platform: "youtube",   tipo: "youtube short" },
+  { raw: "TikTok",              platform: "tiktok",    tipo: "feed" },
+  { raw: "LinkedIn",            platform: "linkedin",  tipo: "feed" },
+] as const
+
+export function parsePublishTarget(value: string): PublishTarget | null {
+  const v = value.toLowerCase().trim()
+  if (v === "instagram feed" || v === "instagram post") return { platform: "instagram", tipo: "feed", raw: value }
+  if (v === "instagram carrossel" || v === "instagram carousel") return { platform: "instagram", tipo: "carrossel", raw: value }
+  if (v === "instagram reels" || v === "instagram reel") return { platform: "instagram", tipo: "reel", raw: value }
+  if (v === "instagram story" || v === "instagram stories") return { platform: "instagram", tipo: "story", raw: value }
+  if (v === "facebook") return { platform: "facebook", tipo: "feed", raw: value }
+  if (v === "youtube" || v === "youtube long") return { platform: "youtube", tipo: "youtube", raw: value }
+  if (v === "youtube shorts" || v === "youtube short") return { platform: "youtube", tipo: "youtube short", raw: value }
+  if (v === "tiktok") return { platform: "tiktok", tipo: "feed", raw: value }
+  if (v === "linkedin") return { platform: "linkedin", tipo: "feed", raw: value }
+  return null
+}
 
 export interface NotionPost {
   pageId: string
   title: string
   conta: string
   caption: string
-  hashtags: string
-  tipo: ContentType | string
-  plataformas: Platform[]
+  publishTargets: PublishTarget[]
   // Mídias
   verticalUrls: string[]     // 9:16 → Reels, Stories, YouTube Shorts
   horizontalUrls: string[]   // 16:9 → YouTube
   feedImageUrls: string[]    // 1:1 ou 4:5 → Feed e Carrossel
   thumbnailUrl: string | null // capa do Reel / YouTube
   scheduledDate: string | null
-  // Campo completo para caption + hashtags
+  // Caption final usada nas publicações (hashtags entram direto na legenda)
   fullCaption: string
 }
 
 export interface FieldMapping {
   titleField: string
   captionField: string
-  hashtagsField: string
-  tipoField: string
-  plataformasField: string
+  publicarEmField: string
   mediaVerticalField: string
   mediaHorizontalField: string
   mediaFeedField: string
@@ -56,9 +74,7 @@ export interface FieldMapping {
 export const DEFAULT_MAPPING: FieldMapping = {
   titleField: "Produção",
   captionField: "Legenda",
-  hashtagsField: "Hashtags",
-  tipoField: "Tipo",
-  plataformasField: "Plataformas",
+  publicarEmField: "Publicar em",
   mediaVerticalField: "Mídia Vertical",
   mediaHorizontalField: "Mídia Horizontal",
   mediaFeedField: "Imagens Feed",
@@ -160,25 +176,26 @@ export function createNotionClient(accessToken: string) {
 async function parsePage(page: any, m: FieldMapping, client: Client): Promise<NotionPost> {
   const p = page.properties
   const caption = getRichText(p[m.captionField], "rich_text")
-  const hashtags = getRichText(p[m.hashtagsField], "rich_text")
 
-  // Resolve account: supports select, status, rich_text, title, and relation types
   const conta = await resolveAccount(p[m.accountField], client)
+
+  const rawTargets = getMultiSelect(p[m.publicarEmField])
+  const publishTargets = rawTargets
+    .map(parsePublishTarget)
+    .filter((t): t is PublishTarget => t !== null)
 
   return {
     pageId: page.id,
     title: getRichText(p[m.titleField], "title"),
     conta,
     caption,
-    hashtags,
-    tipo: getSelect(p[m.tipoField]) || "Feed",
-    plataformas: getMultiSelect(p[m.plataformasField]) as Platform[],
+    publishTargets,
     verticalUrls: getFiles(p[m.mediaVerticalField]),
     horizontalUrls: getFiles(p[m.mediaHorizontalField]),
     feedImageUrls: getFiles(p[m.mediaFeedField]),
     thumbnailUrl: getFiles(p[m.thumbnailField])[0] ?? null,
     scheduledDate: getDate(p[m.dateField]),
-    fullCaption: [caption, hashtags].filter(Boolean).join("\n\n"),
+    fullCaption: caption,
   }
 }
 
@@ -212,11 +229,6 @@ async function resolveAccount(prop: any, client: Client): Promise<string> {
 function getRichText(prop: any, type: "title" | "rich_text"): string {
   if (!prop) return ""
   return (prop[type] ?? []).map((t: any) => t.plain_text ?? "").join("")
-}
-
-function getSelect(prop: any): string {
-  if (!prop) return ""
-  return prop.select?.name ?? prop.status?.name ?? ""
 }
 
 function getMultiSelect(prop: any): string[] {

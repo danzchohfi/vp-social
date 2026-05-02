@@ -5,7 +5,7 @@ import { eq, and } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING } from "@/lib/notion"
-import { publishToPlatform, saveLog, normalizePlatformForLookup } from "@/lib/publisher"
+import { publishToPlatform, saveLog } from "@/lib/publisher"
 
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -57,30 +57,36 @@ export async function POST(req: Request) {
     accounts.filter((a) => a.active).map((a) => [`${a.platform.toLowerCase()}:${a.conta.toLowerCase()}`, a])
   )
 
-  const plataformas = post.plataformas?.length ? post.plataformas : ["instagram"]
   const results: Array<{ platform: string; status: "published" | "failed" | "skipped"; postId?: string; error?: string }> = []
   let anyPublished = false
 
-  for (const plataforma of plataformas) {
-    const key = `${normalizePlatformForLookup(plataforma)}:${post.conta.toLowerCase()}`
+  if (!post.publishTargets.length) {
+    return NextResponse.json(
+      { error: 'O campo "Publicar em" está vazio neste post' },
+      { status: 400 }
+    )
+  }
+
+  for (const target of post.publishTargets) {
+    const key = `${target.platform}:${post.conta.toLowerCase()}`
     const account = accountMap.get(key)
 
     if (!account) {
-      const msg = `Conta "${post.conta}" não configurada para ${plataforma}`
-      await saveLog(db, userId, connectionId, post, null, plataforma, "skipped", msg, connection.clientId)
-      results.push({ platform: plataforma, status: "skipped", error: msg })
+      const msg = `Conta "${post.conta}" não configurada para ${target.platform}`
+      await saveLog(db, userId, connectionId, post, null, target.raw, "skipped", msg, connection.clientId)
+      results.push({ platform: target.raw, status: "skipped", error: msg })
       continue
     }
 
     try {
-      const postId = await publishToPlatform(plataforma, account, post)
-      await saveLog(db, userId, connectionId, post, postId, plataforma, "published", null, connection.clientId)
-      results.push({ platform: plataforma, status: "published", postId })
+      const postId = await publishToPlatform(target.platform, target.tipo, account, post)
+      await saveLog(db, userId, connectionId, post, postId, target.raw, "published", null, connection.clientId)
+      results.push({ platform: target.raw, status: "published", postId })
       anyPublished = true
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      await saveLog(db, userId, connectionId, post, null, plataforma, "failed", message, connection.clientId)
-      results.push({ platform: plataforma, status: "failed", error: message })
+      await saveLog(db, userId, connectionId, post, null, target.raw, "failed", message, connection.clientId)
+      results.push({ platform: target.raw, status: "failed", error: message })
     }
   }
 

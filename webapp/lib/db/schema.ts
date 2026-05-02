@@ -138,10 +138,8 @@ export const fieldMapping = pgTable("field_mapping", {
   // Campos de identificação
   titleField: text("title_field").notNull().default("Produção"),
   captionField: text("caption_field").notNull().default("Legenda"),
-  hashtagsField: text("hashtags_field").notNull().default("Hashtags"),
-  // Tipo de conteúdo e plataformas
-  tipoField: text("tipo_field").notNull().default("Tipo"),
-  plataformasField: text("plataformas_field").notNull().default("Plataformas"),
+  // Onde publicar (multi-select com plataforma + formato combinados)
+  publicarEmField: text("publicar_em_field").notNull().default("Publicar em"),
   // Mídias
   mediaVerticalField: text("media_vertical_field").notNull().default("Mídia Vertical"),
   mediaHorizontalField: text("media_horizontal_field").notNull().default("Mídia Horizontal"),

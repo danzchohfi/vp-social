@@ -7,7 +7,7 @@ import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING } from "@/lib/notion"
 import { getActiveClientId } from "@/lib/active-client"
 
-type PlatformCheck = { platform: string; configured: boolean; pageName?: string | null }
+type TargetCheck = { raw: string; platform: string; tipo: string; configured: boolean; pageName?: string | null }
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -38,13 +38,18 @@ export async function GET() {
       const notion = createNotionClient(connection.accessToken)
       const posts = await notion.getScheduledPosts(connection.databaseId!, mapping)
       return posts.map((p) => {
-        const plataformas = p.plataformas?.length ? p.plataformas : ["instagram"]
-        const accountChecks: PlatformCheck[] = plataformas.map((plat) => {
-          const key = `${plat.toLowerCase()}:${p.conta?.toLowerCase() ?? ""}`
+        const targetChecks: TargetCheck[] = p.publishTargets.map((t) => {
+          const key = `${t.platform}:${p.conta?.toLowerCase() ?? ""}`
           const account = accountMap.get(key)
-          return { platform: plat, configured: !!account, pageName: account?.pageName ?? null }
+          return {
+            raw: t.raw,
+            platform: t.platform,
+            tipo: t.tipo,
+            configured: !!account,
+            pageName: account?.pageName ?? null,
+          }
         })
-        return { ...p, workspaceName: connection.workspaceName, connectionId: connection.id, accountChecks }
+        return { ...p, workspaceName: connection.workspaceName, connectionId: connection.id, targetChecks }
       })
     })
   )

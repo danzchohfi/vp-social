@@ -13,30 +13,20 @@ export function isVideo(url: string): boolean {
   return /\.(mp4|mov|avi|mkv|webm)(\?|$)/i.test(url)
 }
 
-export function normalizePlatformForLookup(plataforma: string): string {
-  const p = plataforma.toLowerCase().trim()
-  if (p === "youtube short" || p === "youtube shorts") return "youtube"
-  return p
-}
-
-export function normalizeTipo(raw: string): string {
-  const t = raw.toLowerCase().trim()
-  if (t.includes("story") || t.includes("storie")) return "story"
-  if (t.includes("reel")) return "reel"
-  if (t.includes("carrossel") || t.includes("carousel")) return "carrossel"
-  if (t.includes("vídeo") || t.includes("video")) return "feed vídeo"
-  return "feed"
-}
-
 export async function publishToPlatform(
-  plataforma: string,
+  platform: string,
+  tipo: string,
   account: Account,
   post: NotionPost
 ): Promise<string> {
-  const p = plataforma.toLowerCase()
+  const p = platform.toLowerCase()
 
   if (p === "instagram") {
-    return publishInstagram(account, post)
+    const publisher = createInstagramPublisher(
+      account.instagramBusinessAccountId,
+      account.pageAccessToken
+    )
+    return publishInstagramPost(publisher, tipo, post)
   }
 
   if (p === "facebook") {
@@ -50,10 +40,10 @@ export async function publishToPlatform(
     return fb.publishFeedPost(post.fullCaption)
   }
 
-  if (p === "youtube" || p === "youtube short" || p === "youtube shorts") {
+  if (p === "youtube") {
     const videoUrl = post.verticalUrls[0] ?? post.horizontalUrls[0]
     if (!videoUrl) throw new Error("YouTube requer um vídeo em Mídia Vertical ou Mídia Horizontal")
-    const isShort = p.includes("short")
+    const isShort = tipo.toLowerCase().includes("short")
     return uploadYouTubeVideo(
       account.pageAccessToken,
       account.refreshToken!,
@@ -88,24 +78,17 @@ export async function publishToPlatform(
     )
   }
 
-  throw new Error(`Plataforma "${plataforma}" não suportada`)
-}
-
-async function publishInstagram(account: Account, post: NotionPost): Promise<string> {
-  const publisher = createInstagramPublisher(
-    account.instagramBusinessAccountId,
-    account.pageAccessToken
-  )
-  return publishInstagramPost(publisher, post)
+  throw new Error(`Plataforma "${platform}" não suportada`)
 }
 
 async function publishInstagramPost(
   publisher: ReturnType<typeof createInstagramPublisher>,
+  tipo: string,
   post: NotionPost
 ): Promise<string> {
-  const tipo = normalizeTipo(post.tipo)
+  const t = tipo.toLowerCase().trim()
 
-  if (tipo === "story") {
+  if (t === "story") {
     const videoUrl = post.verticalUrls[0]
     const imageUrl = post.feedImageUrls[0] ?? post.verticalUrls[0]
     if (videoUrl && isVideo(videoUrl)) return publisher.publishStoryVideo(videoUrl)
@@ -113,24 +96,19 @@ async function publishInstagramPost(
     throw new Error("Story requer Mídia Vertical (vídeo) ou Imagens Feed (imagem)")
   }
 
-  if (tipo === "reel") {
+  if (t === "reel") {
     const videoUrl = post.verticalUrls[0]
     if (!videoUrl) throw new Error("Reel requer um vídeo em Mídia Vertical")
     return publisher.publishReel(videoUrl, post.fullCaption, post.thumbnailUrl)
   }
 
-  if (tipo === "carrossel") {
+  if (t === "carrossel") {
     const images = post.feedImageUrls.length > 0 ? post.feedImageUrls : post.verticalUrls
     if (images.length < 2) throw new Error("Carrossel requer pelo menos 2 imagens em Imagens Feed")
     return publisher.publishCarousel(images, post.fullCaption)
   }
 
-  if (tipo === "feed vídeo") {
-    const videoUrl = post.feedImageUrls[0] ?? post.verticalUrls[0]
-    if (!videoUrl) throw new Error("Feed Vídeo requer mídia em Imagens Feed ou Mídia Vertical")
-    return publisher.publishFeedVideo(videoUrl, post.fullCaption, post.thumbnailUrl)
-  }
-
+  // tipo "feed" — imagem única ou múltiplas
   const images = post.feedImageUrls.length > 0 ? post.feedImageUrls : post.verticalUrls
   if (!images.length) throw new Error("Feed requer ao menos uma imagem em Imagens Feed ou Mídia Vertical")
   if (images.length > 1) return publisher.publishCarousel(images, post.fullCaption)

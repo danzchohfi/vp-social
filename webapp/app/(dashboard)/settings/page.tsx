@@ -21,8 +21,8 @@ type PropInfo = { name: string; type: string; options: string[] }
 
 type FieldMapping = {
   statusField: string; statusReadyValue: string; statusPublishedValue: string; statusErrorValue: string
-  dateField: string; captionField: string; hashtagsField: string
-  tipoField: string; plataformasField: string
+  dateField: string; captionField: string
+  publicarEmField: string
   accountField: string
   feedImageUrlsField: string; verticalUrlsField: string; horizontalUrlsField: string; thumbnailUrlField: string
   likesField: string; commentsField: string; reachField: string; savesField: string; impressionsField: string
@@ -30,8 +30,8 @@ type FieldMapping = {
 
 const DEFAULT_MAPPING: FieldMapping = {
   statusField: "Status", statusReadyValue: "Pronto", statusPublishedValue: "Publicado", statusErrorValue: "Erro",
-  dateField: "Data", captionField: "Legenda", hashtagsField: "Hashtags",
-  tipoField: "Tipo", plataformasField: "Plataformas",
+  dateField: "Data", captionField: "Legenda",
+  publicarEmField: "Publicar em",
   accountField: "Conta",
   feedImageUrlsField: "Imagens Feed", verticalUrlsField: "Mídia Vertical", horizontalUrlsField: "Mídia Horizontal", thumbnailUrlField: "Thumbnail",
   likesField: "", commentsField: "", reachField: "", savesField: "", impressionsField: "",
@@ -143,7 +143,7 @@ export default function SettingsPage() {
 
   const propNames = props.length
     ? props.map(p => p.name)
-    : [mapping.statusField, mapping.dateField, mapping.captionField, mapping.hashtagsField, mapping.tipoField, mapping.plataformasField, mapping.accountField, mapping.feedImageUrlsField, mapping.verticalUrlsField, mapping.horizontalUrlsField, mapping.thumbnailUrlField].filter(Boolean)
+    : [mapping.statusField, mapping.dateField, mapping.captionField, mapping.publicarEmField, mapping.accountField, mapping.feedImageUrlsField, mapping.verticalUrlsField, mapping.horizontalUrlsField, mapping.thumbnailUrlField].filter(Boolean)
 
   const statusOptions = props.find(p => p.name === mapping.statusField)?.options ?? []
 
@@ -289,10 +289,8 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Conteúdo</p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <SelectField label="Legenda" value={mapping.captionField} options={propNames} onChange={(v) => setField("captionField", v)} />
-                  <SelectField label="Hashtags" value={mapping.hashtagsField} options={propNames} onChange={(v) => setField("hashtagsField", v)} />
-                  <SelectField label="Publicar em" value={mapping.tipoField} options={propNames} onChange={(v) => setField("tipoField", v)} hint="IG Reels, IG Story, IG Feed…" />
-                  <SelectField label="Plataformas" value={mapping.plataformasField} options={propNames} onChange={(v) => setField("plataformasField", v)} />
+                  <SelectField label="Legenda" value={mapping.captionField} options={propNames} onChange={(v) => setField("captionField", v)} hint="Inclua hashtags direto na legenda" />
+                  <SelectField label="Publicar em" value={mapping.publicarEmField} options={propNames} onChange={(v) => setField("publicarEmField", v)} hint="Multi-select: Instagram Reels, YouTube Shorts, TikTok…" />
                 </div>
               </div>
 

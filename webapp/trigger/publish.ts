@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/neon-http"
 import { and, eq } from "drizzle-orm"
 import * as schema from "../lib/db/schema"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "../lib/notion"
-import { publishToPlatform, saveLog, normalizePlatformForLookup } from "../lib/publisher"
+import { publishToPlatform, saveLog } from "../lib/publisher"
 
 function getDb() {
   const sql = neon(process.env.DATABASE_URL!)
@@ -97,28 +97,33 @@ export const publishForConnection = task({
     const results = { published: 0, failed: 0, skipped: 0 }
 
     for (const post of posts) {
-      const plataformas = post.plataformas?.length ? post.plataformas : ["instagram"]
+      if (!post.publishTargets.length) {
+        logger.warn(`Post "${post.title}" sem "Publicar em" definido — ignorado.`)
+        await saveLog(db, userId, connectionId, post, null, "—", "skipped", `Campo "Publicar em" vazio`, connection.clientId)
+        results.skipped++
+        continue
+      }
 
-      for (const plataforma of plataformas) {
-        const key = `${normalizePlatformForLookup(plataforma)}:${post.conta.toLowerCase()}`
+      for (const target of post.publishTargets) {
+        const key = `${target.platform}:${post.conta.toLowerCase()}`
         const account = accountMap.get(key)
 
         if (!account) {
-          logger.warn(`[${plataforma}] Conta "${post.conta}" não configurada — "${post.title}" ignorado.`)
-          await saveLog(db, userId, connectionId, post, null, plataforma, "skipped", `Conta "${post.conta}" não encontrada para ${plataforma}`, connection.clientId)
+          logger.warn(`[${target.raw}] Conta "${post.conta}" não configurada — "${post.title}" ignorado.`)
+          await saveLog(db, userId, connectionId, post, null, target.raw, "skipped", `Conta "${post.conta}" não encontrada para ${target.platform}`, connection.clientId)
           results.skipped++
           continue
         }
 
         try {
-          const postId = await publishToPlatform(plataforma, account, post)
-          await saveLog(db, userId, connectionId, post, postId, plataforma, "published", null, connection.clientId)
-          logger.info(`[${plataforma}/${post.conta}] ✓ "${post.title}" publicado! ID: ${postId}`)
+          const postId = await publishToPlatform(target.platform, target.tipo, account, post)
+          await saveLog(db, userId, connectionId, post, postId, target.raw, "published", null, connection.clientId)
+          logger.info(`[${target.raw}/${post.conta}] ✓ "${post.title}" publicado! ID: ${postId}`)
           results.published++
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
-          logger.error(`[${plataforma}/${post.conta}] ✗ "${post.title}": ${message}`)
-          await saveLog(db, userId, connectionId, post, null, plataforma, "failed", message, connection.clientId)
+          logger.error(`[${target.raw}/${post.conta}] ✗ "${post.title}": ${message}`)
+          await saveLog(db, userId, connectionId, post, null, target.raw, "failed", message, connection.clientId)
           results.failed++
         }
       }
