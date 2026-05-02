@@ -92,7 +92,6 @@
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans: var(--font-geist);
   --font-mono: var(--font-geist-mono);
-  --font-display: var(--font-display);
 }
 
 * {
