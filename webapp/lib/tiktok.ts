@@ -1,3 +1,5 @@
+import { signProxyUrl } from "./tiktok-proxy"
+
 const TIKTOK_API = "https://open.tiktokapis.com/v2"
 const TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 
@@ -24,6 +26,8 @@ export async function publishTikTokVideo(
   videoUrl: string,
   caption: string
 ): Promise<string> {
+  const proxiedUrl = signProxyUrl(videoUrl)
+
   async function initUpload(token: string) {
     const res = await fetch(`${TIKTOK_API}/post/publish/video/init/`, {
       method: "POST",
@@ -39,7 +43,7 @@ export async function publishTikTokVideo(
           disable_comment: false,
           disable_stitch: false,
         },
-        source_info: { source: "PULL_FROM_URL", video_url: videoUrl },
+        source_info: { source: "PULL_FROM_URL", video_url: proxiedUrl },
       }),
     })
     return res.json()
