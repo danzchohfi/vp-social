@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { authClient } from "@/lib/auth-client"
 import { Loader2 } from "lucide-react"
 
 export default function ResetPasswordPage() {
@@ -33,14 +32,24 @@ export default function ResetPasswordPage() {
       return
     }
     setLoading(true)
-    const { error } = await authClient.resetPassword({ newPassword: password, token })
-    setLoading(false)
-    if (error) {
-      toast.error(error.message ?? "Erro ao redefinir senha. O link pode ter expirado.")
-      return
+    try {
+      const res = await fetch("/api/auth/reset-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ newPassword: password, token }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.message ?? "Erro ao redefinir senha. O link pode ter expirado.")
+        return
+      }
+      toast.success("Senha redefinida — entre com a nova senha.")
+      router.push("/login")
+    } catch {
+      toast.error("Erro de conexão. Tente novamente.")
+    } finally {
+      setLoading(false)
     }
-    toast.success("Senha redefinida — entre com a nova senha.")
-    router.push("/login")
   }
 
   if (!token) {

@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
-import { authClient } from "@/lib/auth-client"
 import { Loader2, CheckCircle2 } from "lucide-react"
 
 export default function ForgotPasswordPage() {
@@ -17,16 +16,23 @@ export default function ForgotPasswordPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    const { error } = await authClient.forgetPassword({
-      email,
-      redirectTo: "/reset-password",
-    })
-    setLoading(false)
-    if (error) {
-      toast.error(error.message ?? "Erro ao solicitar reset")
-      return
+    try {
+      const res = await fetch("/api/auth/forget-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, redirectTo: "/reset-password" }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.message ?? "Erro ao solicitar reset")
+        return
+      }
+      setSent(true)
+    } catch {
+      toast.error("Erro de conexão. Tente novamente.")
+    } finally {
+      setLoading(false)
     }
-    setSent(true)
   }
 
   if (sent) {
