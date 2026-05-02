@@ -92,7 +92,6 @@ export const notionConnection = pgTable("notion_connection", {
   workspaceName: text("workspace_name").notNull(),
   workspaceIcon: text("workspace_icon"),
   accessToken: text("access_token").notNull(),
-  botId: text("bot_id"),
   databaseId: text("database_id"),
   databaseName: text("database_name"),
   createdAt: timestamp("created_at").notNull().defaultNow(),

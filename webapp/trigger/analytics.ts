@@ -44,7 +44,7 @@ export const syncAnalyticsScheduled = schedules.task({
   },
 })
 
-// ─── Task por post ──────────────────────────────────────────────────────
+// ─── Task por post ───────────────────────────────────────────────────────
 
 export const syncPostAnalytics = task({
   id: "sync-post-analytics",
@@ -115,7 +115,7 @@ export const syncPostAnalytics = task({
     // Mark analytics as updated
     await db
       .update(schema.publishLog)
-      .set({ analyticsUpdatedAt: new Date() })
+      .set({ metricsLastSyncedAt: new Date() })
       .where(eq(schema.publishLog.id, logId))
 
     logger.info(
