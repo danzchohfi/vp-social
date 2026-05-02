@@ -122,7 +122,7 @@ export default function InviteAcceptPage() {
               </div>
               <CardDescription>
                 <strong>{invite.invitedByName}</strong> ({invite.invitedByEmail}) está convidando você
-                para acessar o cliente <strong>{invite.clientName}</strong> no Publify.
+                para acessar o cliente <strong>{invite.clientName}</strong> no VP Social.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">

@@ -40,7 +40,7 @@ export async function uploadYouTubeVideo(
   }
 
   async function doUpload(token: string): Promise<Response> {
-    const boundary = "publify_boundary"
+    const boundary = "vpsocial_boundary"
     const metaPart = JSON.stringify(metadata)
     const bodyParts = [
       `--${boundary}\r\nContent-Type: application/json; charset=UTF-8\r\n\r\n${metaPart}\r\n`,

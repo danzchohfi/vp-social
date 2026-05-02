@@ -41,7 +41,7 @@ export default function SignupPage() {
     if (error) {
       toast.error(error.message || "Erro ao criar conta.")
     } else {
-      toast.success("Conta criada! Bem-vindo ao Publify.")
+      toast.success("Conta criada! Bem-vindo ao VP Social.")
       router.push("/dashboard")
     }
     setLoading(false)

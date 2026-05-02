@@ -4,7 +4,7 @@ import * as schema from "./db/schema"
 import { eq, and, isNull, inArray } from "drizzle-orm"
 import { generateId } from "./utils"
 
-const COOKIE_NAME = "publify_client_id"
+const COOKIE_NAME = "vpsocial_client_id"
 
 export type Client = typeof schema.client.$inferSelect
 

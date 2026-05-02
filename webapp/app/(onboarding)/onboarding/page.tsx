@@ -292,7 +292,7 @@ export default function OnboardingPage() {
         <StepCard
           icon={<BookOpen className="h-6 w-6 text-primary" />}
           title="Conectar ao Notion"
-          description="Autorize o Publify a acessar seus workspaces no Notion para buscar seus posts agendados."
+          description="Autorize o VP Social a acessar seus workspaces no Notion para buscar seus posts agendados."
         >
           <Button onClick={connectNotion} disabled={loading} className="w-full" size="lg">
             {loading ? (
@@ -409,7 +409,7 @@ export default function OnboardingPage() {
         <StepCard
           icon={<Zap className="h-6 w-6 text-primary" />}
           title="Tudo pronto!"
-          description="Suas conexões foram configuradas com sucesso. O Publify vai publicar seus posts automaticamente."
+          description="Suas conexões foram configuradas com sucesso. O VP Social vai publicar seus posts automaticamente."
         >
           <div className="space-y-3">
             <SuccessItem label="Notion conectado" />

@@ -16,7 +16,7 @@ export default function LandingPage() {
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
               <Zap className="h-4 w-4 text-primary-foreground" />
             </div>
-            <span className="text-lg font-semibold">Publify</span>
+            <span className="text-lg font-semibold">VP Social</span>
           </div>
           <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
             <Link href="#features" className="hover:text-foreground transition-colors">Funcionalidades</Link>
@@ -180,9 +180,9 @@ export default function LandingPage() {
             <div className="flex h-6 w-6 items-center justify-center rounded bg-primary">
               <Zap className="h-3 w-3 text-primary-foreground" />
             </div>
-            <span>Publify</span>
+            <span>VP Social</span>
           </div>
-          <p>© 2026 Publify. Todos os direitos reservados.</p>
+          <p>© 2026 VP Social. Todos os direitos reservados.</p>
         </div>
       </footer>
     </div>
@@ -192,7 +192,7 @@ export default function LandingPage() {
 const features = [
   { icon: Link2, title: "Conecte o Notion", description: "Vincule seu banco de dados do Notion em segundos. Suporte a qualquer estrutura de database." },
   { icon: Instagram, title: "Multi-conta Instagram", description: "Gerencie múltiplos clientes e contas Instagram em uma única plataforma." },
-  { icon: Zap, title: "Publicação automática", description: "Defina o status como 'Agendamento' no Notion e o Publify publica automaticamente." },
+  { icon: Zap, title: "Publicação automática", description: "Defina o status como 'Agendamento' no Notion e o VP Social publica automaticamente." },
   { icon: LayoutDashboard, title: "Dashboard completo", description: "Visualize todos os posts agendados, publicados e com erro em tempo real." },
   { icon: Users, title: "Feito para agências", description: "Estrutura multi-cliente. Cada cliente com suas próprias contas e configurações." },
   { icon: BarChart3, title: "Histórico completo", description: "Registro detalhado de todas as publicações com status e mensagens de erro." },
@@ -203,7 +203,7 @@ const steps = [
   { title: "Conecte o Notion", description: "Autorize o acesso ao seu workspace e selecione o banco de dados de conteúdo." },
   { title: "Conecte o Instagram", description: "Faça login com o Facebook e selecione as contas Instagram dos seus clientes." },
   { title: "Configure os campos", description: "Mapeie as colunas do Notion para legenda, imagem, data e conta." },
-  { title: "Publique automaticamente", description: "Mude o status para 'Agendamento' no Notion e o Publify faz o resto." },
+  { title: "Publique automaticamente", description: "Mude o status para 'Agendamento' no Notion e o VP Social faz o resto." },
 ]
 
 const plans = [

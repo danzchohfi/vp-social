@@ -7,7 +7,7 @@ const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
 const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
 
 export const metadata: Metadata = {
-  title: "Publify — Publique do Notion para o Instagram",
+  title: "VP Social — Publique do Notion para as redes sociais",
   description: "Gerencie e publique conteúdo das suas redes sociais diretamente do Notion.",
 }
 
