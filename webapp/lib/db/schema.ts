@@ -140,6 +140,10 @@ export const fieldMapping = pgTable("field_mapping", {
   captionField: text("caption_field").notNull().default("Legenda"),
   // Onde publicar (multi-select com plataforma + formato combinados)
   publicarEmField: text("publicar_em_field").notNull().default("Publicar em"),
+  // Legado: mantidos como nullable até migração ser aplicada (não usados pelo app)
+  hashtagsField: text("hashtags_field"),
+  tipoField: text("tipo_field"),
+  plataformasField: text("plataformas_field"),
   // Mídias
   mediaVerticalField: text("media_vertical_field").notNull().default("Mídia Vertical"),
   mediaHorizontalField: text("media_horizontal_field").notNull().default("Mídia Horizontal"),
