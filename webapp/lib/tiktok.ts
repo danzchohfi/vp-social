@@ -69,10 +69,10 @@ export async function publishTikTokVideo(
     privacyLevels = await queryPrivacyLevels(token)
   }
 
-  const privacyLevel =
-    privacyLevels.find((p) => p === "PUBLIC_TO_EVERYONE") ??
-    privacyLevels[0] ??
-    "SELF_ONLY"
+  const audited = process.env.TIKTOK_AUDITED === "true"
+  const privacyLevel = audited
+    ? (privacyLevels.find((p) => p === "PUBLIC_TO_EVERYONE") ?? privacyLevels[0] ?? "SELF_ONLY")
+    : "SELF_ONLY"
 
   let result = await initUpload(token, privacyLevel)
 
