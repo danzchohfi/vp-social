@@ -28,12 +28,12 @@ export function Sidebar() {
   const user = session?.user
 
   return (
-    <aside className="flex h-full w-60 flex-col border-r bg-card">
+    <aside className="hidden md:flex h-full w-60 flex-col border-r bg-card">
       <div className="flex h-16 items-center gap-2 border-b px-5">
         <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
           <Zap className="h-4 w-4 text-primary-foreground" />
         </div>
-        <span className="font-semibold">Publify</span>
+        <span className="font-semibold">VP Social</span>
       </div>
 
       <div className="border-b p-3">
