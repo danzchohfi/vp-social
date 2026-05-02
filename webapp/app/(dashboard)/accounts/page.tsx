@@ -183,9 +183,9 @@ export default function AccountsPage() {
   const byPlatform = (p: Platform) => accounts.filter((a) => a.platform === p)
 
   return (
-    <div className="p-8">
+    <div className="p-4 sm:p-8">
       <div className="mb-6">
-        <div className="flex items-baseline gap-2">
+        <div className="flex flex-wrap items-baseline gap-2">
           <h1 className="text-2xl font-bold">Contas conectadas</h1>
           {activeClient && (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
@@ -237,9 +237,9 @@ export default function AccountsPage() {
             return (
               <Card key={platform}>
                 <CardHeader className="pb-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                      <div className={cn("flex h-9 w-9 items-center justify-center rounded-lg", config.iconBg)}>
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div className="flex items-center gap-3 min-w-0">
+                      <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-lg", config.iconBg)}>
                         <Icon className="h-4 w-4 text-white" />
                       </div>
                       <CardTitle className="text-base">{config.label}</CardTitle>
@@ -253,13 +253,14 @@ export default function AccountsPage() {
                       onClick={() => handleConnect(platform)}
                       disabled={connecting === platform || isUnavailable}
                       title={isUnavailable ? "Credenciais não configuradas" : undefined}
+                      className="max-w-full whitespace-normal text-left"
                     >
                       {connecting === platform ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <Loader2 className="h-3.5 w-3.5 shrink-0 animate-spin" />
                       ) : (
-                        <Icon className="h-3.5 w-3.5" />
+                        <Icon className="h-3.5 w-3.5 shrink-0" />
                       )}
-                      {isUnavailable ? "Aguardando credenciais" : config.connectLabel}
+                      <span className="truncate">{isUnavailable ? "Aguardando credenciais" : config.connectLabel}</span>
                     </Button>
                   </div>
                 </CardHeader>
@@ -272,12 +273,12 @@ export default function AccountsPage() {
                   ) : (
                     <div className="space-y-2">
                       {platformAccounts.map((account) => (
-                        <div key={account.id} className="flex items-center justify-between rounded-lg border px-4 py-3">
+                        <div key={account.id} className="flex flex-col gap-3 rounded-lg border px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                           <div className="flex items-center gap-3 min-w-0">
                             <div className={cn("flex h-8 w-8 shrink-0 items-center justify-center rounded-lg", config.iconBg)}>
                               <Icon className="h-3.5 w-3.5 text-white" />
                             </div>
-                            <div className="min-w-0">
+                            <div className="min-w-0 flex-1">
                               {editingId === account.id ? (
                                 <div className="flex items-center gap-2">
                                   <Input
@@ -298,8 +299,8 @@ export default function AccountsPage() {
                                   </Button>
                                 </div>
                               ) : (
-                                <div className="flex items-center gap-2">
-                                  <span className="font-medium text-sm truncate">{account.conta}</span>
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="font-medium text-sm truncate max-w-full">{account.conta}</span>
                                   <Badge variant={account.active ? "success" : "secondary"} className="text-xs">
                                     {account.active ? "Ativa" : "Inativa"}
                                   </Badge>
@@ -311,7 +312,7 @@ export default function AccountsPage() {
                               <p className="text-xs text-muted-foreground truncate">{account.pageName}</p>
                             </div>
                           </div>
-                          <div className="flex items-center gap-2 shrink-0">
+                          <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
                             {platformAccounts.length > 1 && (
                               <Button variant="outline" size="sm" onClick={() => handleKeepOnly(account)} title="Manter apenas esta para este cliente (remove as outras de mesma plataforma)">
                                 <Star className="h-3.5 w-3.5" />
