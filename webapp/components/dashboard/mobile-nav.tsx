@@ -53,7 +53,7 @@ export function MobileNav() {
       </header>
 
       {/* Bottom tab bar — mobile only */}
-      <nav className="fixed bottom-0 left-0 right-0 z-40 flex border-t bg-card md:hidden">
+      <nav className="fixed bottom-0 left-0 right-0 z-40 flex border-t bg-card pb-[env(safe-area-inset-bottom)] md:hidden">
         {nav.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/")
           return (
