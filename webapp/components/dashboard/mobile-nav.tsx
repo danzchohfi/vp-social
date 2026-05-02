@@ -40,7 +40,7 @@ export function MobileNav() {
               <span className="font-semibold">VP</span>
               <span className="ml-1 italic font-display">Social</span>
             </span>
-            <span className="text-[9px] font-mono text-primary/70">r3</span>
+            <span className="text-[9px] font-mono text-primary/70">r4</span>
           </div>
         </div>
         <button
