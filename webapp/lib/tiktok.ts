@@ -28,7 +28,19 @@ export async function publishTikTokVideo(
 ): Promise<string> {
   const proxiedUrl = signProxyUrl(videoUrl)
 
-  async function initUpload(token: string) {
+  async function queryPrivacyLevels(token: string): Promise<string[]> {
+    const res = await fetch(`${TIKTOK_API}/post/publish/creator_info/query/`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json; charset=UTF-8",
+      },
+    })
+    const data = await res.json()
+    return data.data?.privacy_level_options ?? []
+  }
+
+  async function initUpload(token: string, privacyLevel: string) {
     const res = await fetch(`${TIKTOK_API}/post/publish/video/init/`, {
       method: "POST",
       headers: {
@@ -38,7 +50,7 @@ export async function publishTikTokVideo(
       body: JSON.stringify({
         post_info: {
           title: caption.slice(0, 2200),
-          privacy_level: "PUBLIC_TO_EVERYONE",
+          privacy_level: privacyLevel,
           disable_duet: false,
           disable_comment: false,
           disable_stitch: false,
@@ -49,11 +61,24 @@ export async function publishTikTokVideo(
     return res.json()
   }
 
-  let result = await initUpload(accessToken)
+  let token = accessToken
+  let privacyLevels = await queryPrivacyLevels(token)
+
+  if (!privacyLevels.length) {
+    token = await refreshAccessToken(refreshToken)
+    privacyLevels = await queryPrivacyLevels(token)
+  }
+
+  const privacyLevel =
+    privacyLevels.find((p) => p === "PUBLIC_TO_EVERYONE") ??
+    privacyLevels[0] ??
+    "SELF_ONLY"
+
+  let result = await initUpload(token, privacyLevel)
 
   if (result.error?.code === "access_token_invalid") {
-    const newToken = await refreshAccessToken(refreshToken)
-    result = await initUpload(newToken)
+    token = await refreshAccessToken(refreshToken)
+    result = await initUpload(token, privacyLevel)
   }
 
   if (result.error?.code !== "ok") {
