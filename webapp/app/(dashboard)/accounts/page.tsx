@@ -265,6 +265,16 @@ export default function AccountsPage() {
                   </div>
                 </CardHeader>
                 <CardContent className="pt-0">
+                  {platform === "tiktok" && (
+                    <div className="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+                      <strong>TikTok em aprovação.</strong>{" "}
+                      Enquanto a review do TikTok não termina, agende manualmente em{" "}
+                      <a href="https://studio.tiktok.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">
+                        studio.tiktok.com
+                      </a>
+                      . Instagram, Facebook, YouTube e LinkedIn seguem automáticos.
+                    </div>
+                  )}
                   {platformAccounts.length === 0 ? (
                     <p className="text-sm text-muted-foreground py-2">
                       Nenhuma conta {config.label} conectada.

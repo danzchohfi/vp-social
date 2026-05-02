@@ -121,6 +121,10 @@ export default function ScheduledPage() {
   const otherPosts = allPosts.filter((p) => !p.belongsToClient)
   const posts = showOthers ? allPosts : clientPosts
 
+  const hasTikTokTarget = posts.some((p) =>
+    (p.targetChecks ?? []).some((c) => c.raw?.toLowerCase().includes("tiktok"))
+  )
+
   const willPublishPosts = posts.filter(willPublish)
   const needsAttention = posts.filter((p) => !willPublish(p))
   const readyNow = willPublishPosts.filter((p) => p.scheduledDate && new Date(p.scheduledDate) <= now)
@@ -188,6 +192,17 @@ export default function ScheduledPage() {
         </div>
       )}
 
+      {hasTikTokTarget && (
+        <div className="mb-6 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+          <strong>TikTok em aprovação.</strong>{" "}
+          Posts com TikTok não publicam automaticamente. Agende manualmente em{" "}
+          <a href="https://studio.tiktok.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">
+            studio.tiktok.com
+          </a>
+          {" "}até o app ser aprovado.
+        </div>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-20">
           <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
@@ -198,8 +213,8 @@ export default function ScheduledPage() {
             <CalendarClock className="mb-3 h-10 w-10 text-muted-foreground/40" />
             <p className="font-medium">Nenhum post agendado</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Mude o status de um post para "{"\ "}
-              <span className="font-mono">Agendamento</span>" no Notion para ele aparecer aqui.
+              Mude o status de um post para \"{"\\ "}
+              <span className="font-mono">Agendamento</span>\" no Notion para ele aparecer aqui.
             </p>
           </CardContent>
         </Card>
