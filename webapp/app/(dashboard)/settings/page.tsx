@@ -269,9 +269,12 @@ export default function SettingsPage() {
           {dbName && (
             <div className="space-y-6">
               <div className="space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status de Publicação</p>
+                <p className="text-xs text-muted-foreground">
+                  Recomendamos um campo de Publicação separado do seu Status editorial. O Status fica para o workflow da equipe (ideia / em produção / concluído); a Publicação fica para o sistema (agendado / publicado / erro). Assim o app nunca sobrescreve o estado editorial.
+                </p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <SelectField label="Campo de Status" value={mapping.statusField} options={propNames} onChange={(v) => setField("statusField", v)} />
+                  <SelectField label="Campo de status de publicação" value={mapping.statusField} options={propNames} onChange={(v) => setField("statusField", v)} hint="Crie um campo separado do seu workflow editorial" />
                   <StatusValueSelect label='Valor "Pronto para publicar"' value={mapping.statusReadyValue} options={statusOptions} onChange={(v) => setField("statusReadyValue", v)} />
                   <StatusValueSelect label='Valor "Publicado"' value={mapping.statusPublishedValue} options={statusOptions} onChange={(v) => setField("statusPublishedValue", v)} />
                   <StatusValueSelect label='Valor "Erro"' value={mapping.statusErrorValue} options={statusOptions} onChange={(v) => setField("statusErrorValue", v)} />
