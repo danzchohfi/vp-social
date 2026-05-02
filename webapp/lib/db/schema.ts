@@ -1,6 +1,6 @@
-import { pgTable, text, timestamp, boolean, uniqueIndex } from "drizzle-orm/pg-core"
+import { pgTable, text, timestamp, boolean, uniqueIndex, integer } from "drizzle-orm/pg-core"
 
-// ─── Better Auth tables ───────────────────────────────
+// ─── Better Auth tables (matches Better Auth schema) ─────────
 
 export const user = pgTable("user", {
   id: text("id").primaryKey(),
@@ -16,11 +16,11 @@ export const session = pgTable("session", {
   id: text("id").primaryKey(),
   expiresAt: timestamp("expires_at").notNull(),
   token: text("token").notNull().unique(),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
   ipAddress: text("ip_address"),
   userAgent: text("user_agent"),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-  createdAt: timestamp("created_at").notNull().defaultNow(),
-  updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
 
 export const account = pgTable("account", {
@@ -48,7 +48,7 @@ export const verification = pgTable("verification", {
   updatedAt: timestamp("updated_at").defaultNow(),
 })
 
-// ─── Client (perfil de cliente da agência) ───────────────────────
+// ─── Cliente (perfis multi-tenant) ───────────────────────────────────
 
 export const client = pgTable("client", {
   id: text("id").primaryKey(),
@@ -59,21 +59,17 @@ export const client = pgTable("client", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
 
-// Quem tem acesso a um cliente (owner | admin | member)
-export const clientMember = pgTable(
-  "client_member",
-  {
-    id: text("id").primaryKey(),
-    clientId: text("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
-    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-    role: text("role").notNull().default("member"),
-    invitedByUserId: text("invited_by_user_id").references(() => user.id, { onDelete: "set null" }),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-  },
-  (t) => [uniqueIndex("client_member_client_user").on(t.clientId, t.userId)]
-)
+export const clientMember = pgTable("client_member", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  role: text("role").notNull().default("member"),
+  invitedByUserId: text("invited_by_user_id").references(() => user.id, { onDelete: "set null" }),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => ({
+  uniqClientUser: uniqueIndex("client_member_client_user_uniq").on(t.clientId, t.userId),
+}))
 
-// Convites pendentes — link compartilhado por token
 export const clientInvite = pgTable("client_invite", {
   id: text("id").primaryKey(),
   clientId: text("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
@@ -86,50 +82,47 @@ export const clientInvite = pgTable("client_invite", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 
-// ─── Notion connections ───────────────────────────────────────
+// ─── Notion connections ────────────────────────────────────────
 
-export const notionConnection = pgTable(
-  "notion_connection",
-  {
-    id: text("id").primaryKey(),
-    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-    clientId: text("client_id").references(() => client.id, { onDelete: "cascade" }),
-    accessToken: text("access_token").notNull(),
-    workspaceId: text("workspace_id").notNull(),
-    workspaceName: text("workspace_name").notNull(),
-    workspaceIcon: text("workspace_icon"),
-    databaseId: text("database_id"),
-    databaseName: text("database_name"),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
-  (t) => [uniqueIndex("notion_connection_client_workspace").on(t.userId, t.clientId, t.workspaceId)]
-)
+export const notionConnection = pgTable("notion_connection", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  clientId: text("client_id").references(() => client.id, { onDelete: "set null" }),
+  workspaceId: text("workspace_id").notNull(),
+  workspaceName: text("workspace_name").notNull(),
+  workspaceIcon: text("workspace_icon"),
+  accessToken: text("access_token").notNull(),
+  botId: text("bot_id").notNull(),
+  databaseId: text("database_id"),
+  databaseName: text("database_name"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => ({
+  uniqUserClientWorkspace: uniqueIndex("notion_connection_user_client_workspace_uniq").on(t.userId, t.clientId, t.workspaceId),
+}))
 
-// ─── Social accounts (Instagram, Facebook, YouTube, TikTok, LinkedIn) ─────
+// ─── Instagram / multi-platform accounts ────────────────────────
 
-export const instagramAccount = pgTable(
-  "instagram_account",
-  {
-    id: text("id").primaryKey(),
-    userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-    clientId: text("client_id").references(() => client.id, { onDelete: "cascade" }),
-    platform: text("platform").notNull().default("instagram"),
-    conta: text("conta").notNull(),
-    pageName: text("page_name").notNull(),
-    pageId: text("page_id").notNull(),
-    instagramBusinessAccountId: text("instagram_business_account_id").notNull().default(""),
-    platformAccountId: text("platform_account_id"),
-    pageAccessToken: text("page_access_token").notNull(),
-    refreshToken: text("refresh_token"),
-    active: boolean("active").notNull().default(true),
-    createdAt: timestamp("created_at").notNull().defaultNow(),
-    updatedAt: timestamp("updated_at").notNull().defaultNow(),
-  },
-  (t) => [uniqueIndex("instagram_account_client_platform_page").on(t.userId, t.clientId, t.platform, t.pageId)]
-)
+export const instagramAccount = pgTable("instagram_account", {
+  id: text("id").primaryKey(),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  clientId: text("client_id").references(() => client.id, { onDelete: "set null" }),
+  platform: text("platform").notNull().default("instagram"),
+  platformAccountId: text("platform_account_id"),
+  conta: text("conta").notNull(),
+  pageId: text("page_id").notNull(),
+  pageName: text("page_name").notNull(),
+  pageAccessToken: text("page_access_token").notNull(),
+  refreshToken: text("refresh_token"),
+  instagramBusinessAccountId: text("instagram_business_account_id").notNull().default(""),
+  active: boolean("active").notNull().default(true),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => ({
+  uniqUserClientPlatformPage: uniqueIndex("instagram_account_user_client_platform_page_uniq").on(t.userId, t.clientId, t.platform, t.pageId),
+}))
 
-// ─── Field mapping ─────────────────────────────────────────────
+// ─── Field mapping ────────────────────────────────
 
 export const fieldMapping = pgTable("field_mapping", {
   id: text("id").primaryKey(),
@@ -167,21 +160,26 @@ export const fieldMapping = pgTable("field_mapping", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
 
-// ─── Publish log ────────────────────────────────────────────────
+// ─── Publish log ──────────────────────────────────────
 
 export const publishLog = pgTable("publish_log", {
   id: text("id").primaryKey(),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
-  clientId: text("client_id").references(() => client.id, { onDelete: "cascade" }),
+  clientId: text("client_id").references(() => client.id, { onDelete: "set null" }),
   connectionId: text("connection_id").references(() => notionConnection.id, { onDelete: "set null" }),
   notionPageId: text("notion_page_id").notNull(),
-  postTitle: text("post_title"),
-  conta: text("conta"),
+  postTitle: text("post_title").notNull(),
+  conta: text("conta").notNull(),
   platform: text("platform"),
   instagramPostId: text("instagram_post_id"),
   platformPostId: text("platform_post_id"),
   status: text("status").notNull(),
   error: text("error"),
-  analyticsUpdatedAt: timestamp("analytics_updated_at"),
   publishedAt: timestamp("published_at").notNull().defaultNow(),
+  metricsLastSyncedAt: timestamp("metrics_last_synced_at"),
+  metricsLikes: integer("metrics_likes"),
+  metricsComments: integer("metrics_comments"),
+  metricsReach: integer("metrics_reach"),
+  metricsSaves: integer("metrics_saves"),
+  metricsImpressions: integer("metrics_impressions"),
 })
