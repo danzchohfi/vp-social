@@ -95,7 +95,7 @@ export function Sidebar() {
           Sair
         </button>
         <p className="px-3 pt-2 text-[10px] font-mono text-muted-foreground/60">
-          build r2 · serif+tokens
+          build r3 · serif+tokens
         </p>
       </div>
     </aside>
