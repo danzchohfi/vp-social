@@ -94,9 +94,6 @@ export function Sidebar() {
           <LogOut className="h-4 w-4" />
           Sair
         </button>
-        <p className="px-3 pt-2 text-[10px] font-mono text-muted-foreground/60">
-          build r4 · serif+tokens
-        </p>
       </div>
     </aside>
   )

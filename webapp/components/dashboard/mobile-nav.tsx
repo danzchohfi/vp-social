@@ -35,13 +35,10 @@ export function MobileNav() {
           <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
             <Zap className="h-4 w-4 text-primary-foreground" />
           </div>
-          <div className="flex flex-col leading-none">
-            <span className="text-base tracking-tight">
-              <span className="font-semibold">VP</span>
-              <span className="ml-1 italic font-display">Social</span>
-            </span>
-            <span className="text-[9px] font-mono text-primary/70">r4</span>
-          </div>
+          <span className="text-base tracking-tight">
+            <span className="font-semibold">VP</span>
+            <span className="ml-1 italic font-display">Social</span>
+          </span>
         </div>
         <button
           onClick={() => setMenuOpen(true)}
