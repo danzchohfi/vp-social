@@ -49,6 +49,7 @@ export async function GET(req: Request) {
         workspaceId: data.workspace_id,
         workspaceName: data.workspace_name,
         workspaceIcon: data.workspace_icon ?? null,
+        botId: data.bot_id ?? null,
       })
       .onConflictDoUpdate({
         target: [notionConnection.userId, notionConnection.clientId, notionConnection.workspaceId],
@@ -57,6 +58,7 @@ export async function GET(req: Request) {
           accessToken: data.access_token,
           workspaceName: data.workspace_name,
           workspaceIcon: data.workspace_icon ?? null,
+          botId: data.bot_id ?? null,
           updatedAt: new Date(),
         },
       })
