@@ -19,6 +19,35 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
     requireEmailVerification: false,
+    sendResetPassword: async ({ user, url }) => {
+      console.log(`[PASSWORD RESET] email=${user.email} url=${url}`)
+      if (!process.env.RESEND_API_KEY) return
+      try {
+        const from = process.env.RESEND_FROM ?? "VP Social <noreply@posts.vitaminapublicitaria.com.br>"
+        const res = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            from,
+            to: user.email,
+            subject: "Redefinir sua senha — VP Social",
+            html: `<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;padding:24px">
+              <h2 style="margin:0 0 16px">Redefinir senha</h2>
+              <p>Recebemos um pedido para redefinir a sua senha. Clique no botão abaixo:</p>
+              <p style="margin:24px 0"><a href="${url}" style="background:#5b3df5;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block">Redefinir senha</a></p>
+              <p style="color:#666;font-size:13px">Ou cole este link no navegador:<br/><a href="${url}">${url}</a></p>
+              <p style="color:#999;font-size:12px;margin-top:32px">Se você não pediu este reset, ignore este email — sua senha continua a mesma.</p>
+            </div>`,
+          }),
+        })
+        if (!res.ok) console.error("Resend error:", await res.text())
+      } catch (e) {
+        console.error("sendResetPassword error:", e)
+      }
+    },
   },
   socialProviders: {
     ...(process.env.GOOGLE_CLIENT_ID && process.env.GOOGLE_CLIENT_SECRET ? {
