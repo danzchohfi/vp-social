@@ -213,8 +213,7 @@ export default function ScheduledPage() {
             <CalendarClock className="mb-3 h-10 w-10 text-muted-foreground/40" />
             <p className="font-medium">Nenhum post agendado</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Mude o status de um post para \"{"\\ "}
-              <span className="font-mono">Agendamento</span>\" no Notion para ele aparecer aqui.
+              Mude o status de um post para &quot;<span className="font-mono">Agendamento</span>&quot; no Notion para ele aparecer aqui.
             </p>
           </CardContent>
         </Card>
