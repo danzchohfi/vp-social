@@ -84,13 +84,65 @@ export default function AccountsPage() {
   const [unavailable, setUnavailable] = useState<Set<Platform>>(new Set())
   const [activeClient, setActiveClient] = useState<{ name: string; logoUrl: string | null } | null>(null)
 
+  // Pending = pages saved by Facebook callback as active=false in the last
+  // 30 min, awaiting per-client confirmation. Shown as a banner + checklist
+  // at the top of /accounts.
+  const [pendingAccounts, setPendingAccounts] = useState<Account[]>([])
+  const [keptPending, setKeptPending] = useState<Set<string>>(new Set())
+  const [confirmingPending, setConfirmingPending] = useState(false)
+
   useEffect(() => {
     fetchAccounts()
+    fetchPending()
     fetchActiveClient()
     checkPlatformAvailability()
     const connected = searchParams.get("connected")
     if (connected) toast.success(`Conta conectada com sucesso!`)
   }, [searchParams])
+
+  async function fetchPending() {
+    try {
+      const res = await fetch("/api/accounts/pending")
+      const data = await res.json()
+      const list: Account[] = data.accounts ?? []
+      setPendingAccounts(list)
+      setKeptPending(new Set())
+    } catch {
+      // ignore — banner just won't show
+    }
+  }
+
+  function togglePending(id: string) {
+    setKeptPending((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  async function confirmPending() {
+    setConfirmingPending(true)
+    try {
+      const res = await fetch("/api/accounts/pending", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keep: Array.from(keptPending) }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? "Erro ao confirmar páginas")
+        return
+      }
+      toast.success(
+        `${data.activated ?? 0} ativada(s)${data.deleted ? `, ${data.deleted} removida(s)` : ""}.`
+      )
+      setPendingAccounts([])
+      setKeptPending(new Set())
+      fetchAccounts()
+    } finally {
+      setConfirmingPending(false)
+    }
+  }
 
   async function fetchActiveClient() {
     const res = await fetch("/api/clients")
@@ -202,6 +254,68 @@ export default function AccountsPage() {
           Apenas as contas deste cliente. Para conectar outro, troque o cliente na barra lateral.
         </p>
       </div>
+
+      {pendingAccounts.length > 0 && (
+        <div className="mb-6 rounded-xl border-2 border-primary/40 bg-primary/5 p-4 sm:p-5">
+          <div className="mb-3 space-y-1">
+            <p className="text-sm font-semibold text-foreground">
+              {pendingAccounts.length} {pendingAccounts.length === 1 ? "página aguardando confirmação" : "páginas aguardando confirmação"}
+            </p>
+            <p className="text-xs text-muted-foreground">
+              O Facebook devolveu todas as páginas que você compartilhou com a integração. Marque só as que pertencem a este cliente — as outras são removidas.
+            </p>
+          </div>
+          <div className="space-y-2">
+            {pendingAccounts.map((acc) => {
+              const checked = keptPending.has(acc.id)
+              return (
+                <label
+                  key={acc.id}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-3 rounded-lg border bg-card p-3 transition-colors",
+                    checked ? "border-primary bg-primary/5" : "hover:bg-accent"
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => togglePending(acc.id)}
+                    className="h-4 w-4 shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{acc.pageName}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{acc.platform}</p>
+                  </div>
+                </label>
+              )
+            })}
+          </div>
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+            <button
+              type="button"
+              onClick={() => setKeptPending(new Set(pendingAccounts.map((a) => a.id)))}
+              className="underline hover:text-foreground"
+            >
+              Marcar todas
+            </button>
+            <span>·</span>
+            <button
+              type="button"
+              onClick={() => setKeptPending(new Set())}
+              className="underline hover:text-foreground"
+            >
+              Limpar
+            </button>
+            <span className="ml-auto">{keptPending.size} de {pendingAccounts.length} selecionada(s)</span>
+          </div>
+          <Button onClick={confirmPending} disabled={confirmingPending} className="mt-3 w-full">
+            {confirmingPending && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+            {keptPending.size === 0
+              ? `Continuar sem ativar nenhuma (${pendingAccounts.length} serão removidas)`
+              : `Confirmar ${keptPending.size} página(s)`}
+          </Button>
+        </div>
+      )}
 
       {accounts.length > 0 && (() => {
         const hasMultiplePerPlatform = PLATFORMS.some((p) => byPlatform(p).length > 1)
