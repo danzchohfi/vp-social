@@ -12,6 +12,7 @@ import {
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { RequiresSingleClient } from "@/components/dashboard/requires-single-client"
 
 type Step = 0 | 1 | 2 | 3 | 4 | 5
 
@@ -305,6 +306,7 @@ export default function OnboardingPage() {
 
   return (
     <div className="w-full max-w-lg space-y-8">
+      <RequiresSingleClient message="O onboarding configura um cliente específico. Saia da visão agência selecionando um cliente no menu lateral." />
       <div className="flex items-center justify-center gap-0">
         {STEPS.map((s, i) => (
           <div key={s.num} className="flex items-center">
