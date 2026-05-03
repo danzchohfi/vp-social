@@ -3,15 +3,14 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Instagram, Settings, History, CalendarClock, Zap, LogOut, X } from "lucide-react"
+import { LayoutDashboard, Instagram, Settings, CalendarClock, Zap, LogOut, X } from "lucide-react"
 import { signOut, useSession } from "@/lib/auth-client"
 import { ClientSwitcher } from "./client-switcher"
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/accounts", label: "Contas", icon: Instagram },
-  { href: "/scheduled", label: "Agendados", icon: CalendarClock },
-  { href: "/history", label: "Histórico", icon: History },
+  { href: "/scheduled", label: "Publicações", icon: CalendarClock },
   { href: "/settings", label: "Config", icon: Settings },
 ]
 
@@ -68,8 +67,8 @@ export function MobileNav() {
                 active ? "text-primary" : "text-muted-foreground"
               )}
             >
-              <item.icon className="h-5 w-5" />
-              {item.label}
+              <item.icon className="h-5 w-5 shrink-0" />
+              <span className="truncate max-w-full">{item.label}</span>
             </Link>
           )
         })}
@@ -101,7 +100,7 @@ export function MobileNav() {
                 className="flex items-center gap-3 rounded-lg px-3 py-2.5 transition-colors hover:bg-accent"
               >
                 {user?.image ? (
-                  <img src={user.image} alt={user?.name ?? ""} className="h-8 w-8 rounded-full object-cover" />
+                  <img src={user.image} alt={user?.name ?? ""} className="h-8 w-8 shrink-0 rounded-full object-cover" />
                 ) : (
                   <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
                     {user?.name?.charAt(0).toUpperCase() ?? "?"}
@@ -119,8 +118,8 @@ export function MobileNav() {
                 onClick={handleSignOut}
                 className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
-                <LogOut className="h-4 w-4" />
-                Sair
+                <LogOut className="h-4 w-4 shrink-0" />
+                <span className="truncate">Sair</span>
               </button>
             </div>
           </div>
