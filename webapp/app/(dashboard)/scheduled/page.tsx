@@ -697,7 +697,7 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
             <Button asChild size="sm" variant="outline">
               <a href={post.notionUrl} target="_blank" rel="noopener noreferrer" title="Abrir no Notion">
                 <ExternalLink className="h-3.5 w-3.5" />
-                Ver no Notion
+                Notion
               </a>
             </Button>
           )}
