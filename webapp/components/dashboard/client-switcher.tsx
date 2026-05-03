@@ -62,14 +62,18 @@ export function ClientSwitcher() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Erro ao criar")
-      toast.success(`Cliente "${data.client.name}" criado`)
-      setNewName("")
-      setShowCreate(false)
-      await load()
-      await selectClient(data.client.id)
+      // Set active and route through onboarding so the new client is fully
+      // configured (Notion + Contas + Mapeamento) before landing in the
+      // dashboard.
+      await fetch("/api/clients/active", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: data.client.id }),
+      })
+      toast.success(`Cliente "${data.client.name}" criado — configurando…`)
+      window.location.href = "/onboarding"
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro")
-    } finally {
       setCreating(false)
     }
   }
