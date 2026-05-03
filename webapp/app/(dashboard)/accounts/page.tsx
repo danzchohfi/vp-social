@@ -8,6 +8,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Instagram, Trash2, Loader2, Facebook, Pencil, Check, X, Youtube, Linkedin, Building2, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { RequiresSingleClient } from "@/components/dashboard/requires-single-client"
 
 function TikTokIcon({ className }: { className?: string }) {
   return (
@@ -236,6 +237,7 @@ export default function AccountsPage() {
 
   return (
     <div className="p-4 sm:p-8">
+      <RequiresSingleClient message="As contas conectadas pertencem a um cliente específico. Selecione um cliente no menu lateral para gerenciar contas." />
       <div className="mb-6">
         <div className="flex flex-wrap items-baseline gap-2">
           <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Contas conectadas</h1>
