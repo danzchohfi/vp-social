@@ -124,14 +124,44 @@ export default function OnboardingPage() {
   }, [searchParams, loadConnection])
 
   const saveClient = async () => {
-    if (!clientId || !clientName.trim()) return
+    if (!clientName.trim()) return
     setSavingClient(true)
     try {
-      await fetch(`/api/clients/${clientId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: clientName.trim(), logoUrl: clientLogo.trim() || null }),
-      })
+      let activeId = clientId
+      if (activeId) {
+        // Typical case: rename whatever active client we have
+        // (e.g. the auto-created "Cliente padrão" on first signup).
+        const res = await fetch(`/api/clients/${activeId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: clientName.trim(), logoUrl: clientLogo.trim() || null }),
+        })
+        if (!res.ok) {
+          toast.error("Erro ao salvar cliente")
+          return
+        }
+      } else {
+        // Defensive fallback: there's no active client (rare race condition
+        // when /api/clients hasn't loaded yet). Create one and make it
+        // active so we don't silently swallow the click.
+        const createRes = await fetch("/api/clients", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: clientName.trim(), logoUrl: clientLogo.trim() || null }),
+        })
+        const data = await createRes.json()
+        if (!createRes.ok || !data.client?.id) {
+          toast.error(data.error ?? "Erro ao criar cliente")
+          return
+        }
+        activeId = data.client.id
+        await fetch("/api/clients/active", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ clientId: activeId }),
+        })
+        setClientId(activeId)
+      }
       setStep(1)
     } finally {
       setSavingClient(false)
