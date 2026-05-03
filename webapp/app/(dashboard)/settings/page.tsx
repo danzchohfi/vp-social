@@ -252,16 +252,29 @@ export default function SettingsPage() {
                     </Select>
                   </div>
                 ) : (
-                  <div className="space-y-3 rounded-lg border border-dashed bg-muted/30 p-4">
+                  <div className="space-y-3 rounded-lg border border-warning/40 bg-warning/5 p-4">
                     <div className="space-y-1">
-                      <p className="text-sm font-medium">Nenhuma página compartilhada com este cliente.</p>
+                      <p className="text-sm font-medium">Nenhuma página acessível para este cliente.</p>
                       <p className="text-xs text-muted-foreground">
-                        Cada cliente tem sua própria autorização do Notion. Reabra a tela do Notion e marque a página/banco que quer usar aqui.
+                        Cada cliente tem sua própria autorização do Notion. Páginas compartilhadas com outros clientes não vêm junto automaticamente. Você tem 2 caminhos:
                       </p>
                     </div>
-                    <Button onClick={reauthNotion} variant="outline" size="sm" className="w-full">
-                      Selecionar páginas no Notion
-                    </Button>
+                    <div className="space-y-2 rounded border bg-background/50 p-3 text-xs">
+                      <p className="font-semibold">Opção 1 — No Notion, adicione esta integração ao banco</p>
+                      <ol className="list-decimal space-y-0.5 pl-4 text-muted-foreground">
+                        <li>Abra o banco/página no Notion</li>
+                        <li>Clique em <strong>⋯</strong> (canto superior direito) → <strong>Conexões</strong></li>
+                        <li>Procure pela integração e clique em <strong>Adicionar</strong></li>
+                        <li>Volte aqui e cole a URL do banco abaixo</li>
+                      </ol>
+                    </div>
+                    <div className="space-y-2 rounded border bg-background/50 p-3 text-xs">
+                      <p className="font-semibold">Opção 2 — Reabrir autorização e marcar a página</p>
+                      <p className="text-muted-foreground">Na tela do Notion, marque o checkbox da página antes de confirmar.</p>
+                      <Button onClick={reauthNotion} variant="outline" size="sm" className="w-full">
+                        Reabrir autorização do Notion
+                      </Button>
+                    </div>
                   </div>
                 )}
 

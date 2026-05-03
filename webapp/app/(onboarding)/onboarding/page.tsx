@@ -11,6 +11,7 @@ import {
   ArrowRight, Database, Zap, Building2,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 
 type Step = 0 | 1 | 2 | 3 | 4
 
@@ -164,11 +165,20 @@ export default function OnboardingPage() {
     if (!connection || !effectiveDbId) return
     setDbSaving(true)
     try {
-      await fetch("/api/notion/connection", {
-        method: "PATCH",
+      // Use the validating endpoint: it calls notion.databases.retrieve to
+      // confirm this client's bot actually has access before saving the ID.
+      const res = await fetch(`/api/notion/workspaces/${connection.id}/database`, {
+        method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ connectionId: connection.id, databaseId: effectiveDbId }),
+        body: JSON.stringify({ url: effectiveDbId }),
       })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(
+          "O bot deste cliente não tem acesso a este banco. Compartilhe o banco com a integração no Notion (abra o banco → ⋯ → Conexões → adicionar) ou reabra a autorização e marque a página."
+        )
+        return
+      }
       setStep(3)
     } finally {
       setDbSaving(false)
@@ -335,32 +345,45 @@ export default function OnboardingPage() {
                 </div>
               )}
               {databases.length === 0 && (
-                <div className="space-y-3 rounded-lg border border-dashed bg-muted/30 p-4">
+                <div className="space-y-3 rounded-lg border border-warning/40 bg-warning/5 p-4">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium">Nenhuma página compartilhada com este cliente.</p>
+                    <p className="text-sm font-medium">Nenhuma página acessível para este cliente.</p>
                     <p className="text-xs text-muted-foreground">
-                      Cada cliente tem sua própria autorização do Notion. Reabra a tela do Notion e marque a página/banco que quer usar aqui.
+                      Cada cliente que você cria tem sua própria autorização do Notion. Páginas compartilhadas com outros clientes não vêm junto automaticamente. Você tem 2 caminhos:
                     </p>
                   </div>
-                  <Button onClick={connectNotion} disabled={loading} variant="outline" size="sm" className="w-full">
-                    {loading ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <ExternalLink className="mr-2 h-4 w-4" />
-                    )}
-                    Selecionar páginas no Notion
-                  </Button>
+                  <div className="space-y-2 rounded border bg-background/50 p-3 text-xs">
+                    <p className="font-semibold">Opção 1 — No Notion, adicione esta integração ao banco</p>
+                    <ol className="list-decimal space-y-0.5 pl-4 text-muted-foreground">
+                      <li>Abra o banco/página no Notion</li>
+                      <li>Clique em <strong>⋯</strong> (canto superior direito) → <strong>Conexões</strong></li>
+                      <li>Procure pela integração e clique em <strong>Adicionar</strong></li>
+                      <li>Volte aqui e cole a URL do banco abaixo</li>
+                    </ol>
+                  </div>
+                  <div className="space-y-2 rounded border bg-background/50 p-3 text-xs">
+                    <p className="font-semibold">Opção 2 — Reabrir autorização e marcar a página</p>
+                    <p className="text-muted-foreground">Na tela do Notion, marque o checkbox da página que quer usar antes de confirmar.</p>
+                    <Button onClick={connectNotion} disabled={loading} variant="outline" size="sm" className="w-full">
+                      {loading ? (
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      ) : (
+                        <ExternalLink className="mr-2 h-4 w-4" />
+                      )}
+                      Reabrir autorização do Notion
+                    </Button>
+                  </div>
                 </div>
               )}
               <div className="space-y-1.5">
-                <Label>Ou cole o link do banco diretamente</Label>
+                <Label>{databases.length > 0 ? "Ou cole o link do banco diretamente" : "Cole a URL do banco aqui"}</Label>
                 <Input
                   placeholder="https://notion.so/workspace/Titulo-xxxxxxxx"
                   value={manualUrl}
                   onChange={(e) => { setManualUrl(e.target.value); setSelectedDbId("") }}
                 />
                 <p className="text-xs text-muted-foreground">
-                  Abra o banco no Notion, copie a URL e cole aqui.
+                  No banco do Notion, clique em ⋯ → <strong>Copiar link</strong> e cole aqui. Vamos validar o acesso antes de salvar.
                 </p>
               </div>
               <Button
