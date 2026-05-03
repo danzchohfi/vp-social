@@ -36,6 +36,14 @@ Default branch is `main`. Vercel deploys production from `main` automatically.
 - The user then runs `git pull origin main` on their Mac
 - Never rely on local `git push` alone — it won't reach GitHub
 
+**Local `git push` can fail with HTTP 503.** The local proxy at `127.0.0.1:<port>/git/...` is sometimes flaky on `git-receive-pack` (push), even when fetch works fine. This is a local infra issue, not a stale-branch issue. When this happens:
+- DON'T spend cycles retrying `git push` — it can fail repeatedly without the agent noticing.
+- INSTEAD, push the changed files via `mcp__github__create_or_update_file` / `push_files` / `delete_file` directly to GitHub.
+- Then resync local: `git fetch origin main && git reset --hard origin/main` so subsequent `git status` is clean.
+- Treat the stop hook's "unpushed commit" warning as a signal to switch to MCP, not to keep retrying git.
+
+If a local branch was also deleted upstream, prune it: `git remote prune origin && git branch -D <stale>`.
+
 ## Architecture
 
 **Request path:** Browser → Vercel (Next.js API routes) → Neon (PostgreSQL via Drizzle ORM)
