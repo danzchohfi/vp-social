@@ -32,3 +32,5 @@ npm run trigger:dev          # worker Trigger.dev
 ```
 
 Ver `webapp/DEPLOY.md` para deploy e `CLAUDE.md` para arquitetura detalhada.
+
+<!-- deploy-trigger: 2026-05-03T20:30 -->
