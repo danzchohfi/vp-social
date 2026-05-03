@@ -63,18 +63,29 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<Step>(0)
   const [loading, setLoading] = useState(false)
 
+  // Step 0 — Client name
   const [clientId, setClientId] = useState<string | null>(null)
   const [clientName, setClientName] = useState("")
   const [clientLogo, setClientLogo] = useState("")
   const [savingClient, setSavingClient] = useState(false)
 
+  // Step 1 — Notion connection
   const [connection, setConnection] = useState<Connection | null>(null)
 
+  // Step 2 — Database selection
   const [databases, setDatabases] = useState<NotionDatabase[]>([])
   const [selectedDbId, setSelectedDbId] = useState("")
   const [manualUrl, setManualUrl] = useState("")
   const [dbLoading, setDbLoading] = useState(false)
   const [dbSaving, setDbSaving] = useState(false)
+
+  // Step 3 — Facebook page confirmation (post-OAuth)
+  type PendingAccount = { id: string; platform: string; pageName: string; conta: string }
+  const [pendingAccounts, setPendingAccounts] = useState<PendingAccount[] | null>(null)
+  const [keptAccountIds, setKeptAccountIds] = useState<Set<string>>(new Set())
+  const [confirmingPending, setConfirmingPending] = useState(false)
+
+  // ─── Load existing connection ──────────────────────────────────────────
 
   const loadConnection = useCallback(async () => {
     setLoading(true)
@@ -95,7 +106,7 @@ export default function OnboardingPage() {
         const conn = list[0]
         setConnection(conn)
         if (conn.databaseId) {
-          setStep(3)
+          setStep(3) // database already picked → Instagram step
         } else {
           setStep(2)
           loadDatabases(conn.id)
@@ -107,6 +118,8 @@ export default function OnboardingPage() {
       setLoading(false)
     }
   }, [])
+
+  // ─── Detect OAuth redirects + load existing connection ─────────────
 
   useEffect(() => {
     const igConnected = searchParams.get("instagram_connected")
@@ -129,15 +142,18 @@ export default function OnboardingPage() {
     }
 
     if (igConnected === "true") {
-      // Returning from Facebook OAuth. Force step 4 (Mapeamento) but ALSO
-      // refresh the connection from the DB — without this, MappingForm
-      // never renders because the gate `step === 4 && connection` fails
-      // (connection state is null on a fresh page load).
+      // Returning from Facebook OAuth. Three things to do in parallel:
+      // 1. Load client info (for the wizard header / saveClient fallback)
+      // 2. Load notion connection (for MappingForm in step 4)
+      // 3. Load pending Facebook pages (active=false, recently created) so
+      //    we can show the per-client page picker BEFORE proceeding to
+      //    Mapeamento. The picker lives inside step 3.
       ;(async () => {
         try {
-          const [clientsRes, connRes] = await Promise.all([
+          const [clientsRes, connRes, pendingRes] = await Promise.all([
             fetch("/api/clients").then((r) => r.json()),
             fetch("/api/notion/connection").then((r) => r.json()),
+            fetch("/api/accounts/pending").then((r) => r.json()),
           ])
           const activeClient = (clientsRes.clients ?? []).find((c: any) => c.id === clientsRes.activeClientId)
           setClientId(activeClient?.id ?? null)
@@ -145,8 +161,21 @@ export default function OnboardingPage() {
           setClientLogo(activeClient?.logoUrl ?? "")
           const list: Connection[] = connRes.connections ?? []
           if (list.length > 0) setConnection(list[0])
+
+          const pending: PendingAccount[] = pendingRes.accounts ?? []
+          if (pending.length > 0) {
+            // Stay on step 3 and show the page picker. Default selection
+            // is none — user explicitly picks the pages that belong to
+            // THIS client.
+            setPendingAccounts(pending)
+            setKeptAccountIds(new Set())
+            setStep(3)
+          } else {
+            // No pending pages (nothing new added in OAuth, or the user is
+            // testing). Skip straight to Mapeamento.
+            setStep(4)
+          }
         } finally {
-          setStep(4)
           setLoading(false)
         }
       })()
@@ -156,15 +185,15 @@ export default function OnboardingPage() {
     loadConnection()
   }, [searchParams, loadConnection])
 
+  // ─── Save client (step 0) ────────────────────────────────────────────────
+
   const saveClient = async () => {
     if (!clientName.trim()) return
     setSavingClient(true)
     try {
-      let activeId = clientId
-      if (activeId) {
-        // Typical case: rename whatever active client we have
-        // (e.g. the auto-created "Cliente padrão" on first signup).
-        const res = await fetch(`/api/clients/${activeId}`, {
+      if (clientId) {
+        // Rename the active client (typical case: "Cliente padrão" → real name).
+        const res = await fetch(`/api/clients/${clientId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: clientName.trim(), logoUrl: clientLogo.trim() || null }),
@@ -174,32 +203,31 @@ export default function OnboardingPage() {
           return
         }
       } else {
-        // Defensive fallback: there's no active client (rare race condition
-        // when /api/clients hasn't loaded yet). Create one and make it
-        // active so we don't silently swallow the click.
-        const createRes = await fetch("/api/clients", {
+        // No active client yet (rare race condition). Create one.
+        const res = await fetch("/api/clients", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ name: clientName.trim(), logoUrl: clientLogo.trim() || null }),
         })
-        const data = await createRes.json()
-        if (!createRes.ok || !data.client?.id) {
+        const data = await res.json()
+        if (!res.ok || !data.client?.id) {
           toast.error(data.error ?? "Erro ao criar cliente")
           return
         }
-        activeId = data.client.id
         await fetch("/api/clients/active", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ clientId: activeId }),
+          body: JSON.stringify({ clientId: data.client.id }),
         })
-        setClientId(activeId)
+        setClientId(data.client.id)
       }
       setStep(1)
     } finally {
       setSavingClient(false)
     }
   }
+
+  // ─── Load databases ──────────────────────────────────────────────────────────
 
   const loadDatabases = useCallback(async (connectionId: string) => {
     setDbLoading(true)
@@ -267,10 +295,42 @@ export default function OnboardingPage() {
     }
   }
 
+  const togglePending = (id: string) => {
+    setKeptAccountIds((prev) => {
+      const next = new Set(prev)
+      if (next.has(id)) next.delete(id); else next.add(id)
+      return next
+    })
+  }
+
+  const confirmPending = async () => {
+    setConfirmingPending(true)
+    try {
+      const res = await fetch("/api/accounts/pending", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ keep: Array.from(keptAccountIds) }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? "Erro ao confirmar páginas")
+        return
+      }
+      toast.success(
+        `${data.activated ?? 0} ativada(s)${data.deleted ? `, ${data.deleted} removida(s)` : ""}.`
+      )
+      setPendingAccounts(null)
+      setStep(4)
+    } finally {
+      setConfirmingPending(false)
+    }
+  }
+
   const finish = () => router.push("/dashboard")
 
   return (
     <div className="w-full max-w-lg space-y-8">
+      {/* Step indicators */}
       <div className="flex items-center justify-center gap-0">
         {STEPS.map((s, i) => (
           <div key={s.num} className="flex items-center">
@@ -440,7 +500,76 @@ export default function OnboardingPage() {
         </StepCard>
       )}
 
-      {step === 3 && (
+      {step === 3 && pendingAccounts && pendingAccounts.length > 0 && (
+        <StepCard
+          icon={<Instagram className="h-6 w-6 text-primary" />}
+          title="Quais páginas pertencem a este cliente?"
+          description="O Facebook devolveu todas as páginas que você compartilhou com a integração. Marque só as que pertencem a este cliente — as outras são removidas."
+        >
+          <div className="space-y-2">
+            {pendingAccounts.map((acc) => {
+              const checked = keptAccountIds.has(acc.id)
+              return (
+                <label
+                  key={acc.id}
+                  className={cn(
+                    "flex cursor-pointer items-center gap-3 rounded-lg border bg-card p-3 transition-colors",
+                    checked ? "border-primary bg-primary/5" : "hover:bg-accent"
+                  )}
+                >
+                  <input
+                    type="checkbox"
+                    checked={checked}
+                    onChange={() => togglePending(acc.id)}
+                    className="h-4 w-4 shrink-0"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-sm font-medium">{acc.pageName}</p>
+                    <p className="text-xs text-muted-foreground capitalize">{acc.platform}</p>
+                  </div>
+                </label>
+              )
+            })}
+          </div>
+
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <button
+              type="button"
+              onClick={() => setKeptAccountIds(new Set(pendingAccounts.map((a) => a.id)))}
+              className="underline hover:text-foreground"
+            >
+              Marcar todas
+            </button>
+            <span>·</span>
+            <button
+              type="button"
+              onClick={() => setKeptAccountIds(new Set())}
+              className="underline hover:text-foreground"
+            >
+              Limpar
+            </button>
+            <span className="ml-auto">{keptAccountIds.size} de {pendingAccounts.length} selecionada(s)</span>
+          </div>
+
+          <Button
+            onClick={confirmPending}
+            disabled={confirmingPending}
+            className="w-full"
+            size="lg"
+          >
+            {confirmingPending ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <ArrowRight className="mr-2 h-4 w-4" />
+            )}
+            {keptAccountIds.size === 0
+              ? `Continuar sem conectar nenhuma página (${pendingAccounts.length} serão removidas)`
+              : `Confirmar ${keptAccountIds.size} página(s) e continuar`}
+          </Button>
+        </StepCard>
+      )}
+
+      {step === 3 && !(pendingAccounts && pendingAccounts.length > 0) && (
         <StepCard
           icon={<Instagram className="h-6 w-6 text-primary" />}
           title="Conectar contas sociais"
@@ -535,6 +664,8 @@ export default function OnboardingPage() {
     </div>
   )
 }
+
+// ─── Mapping form (used in step 4) ───────────────────────────────────────
 
 function MappingForm({
   connectionId,
