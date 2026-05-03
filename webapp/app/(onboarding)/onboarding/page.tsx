@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import {
   BookOpen, Instagram, CheckCircle2, Loader2, ExternalLink,
-  ArrowRight, Database, Zap, Building2, Settings,
+  ArrowRight, ArrowLeft, Database, Zap, Building2, Settings,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -299,15 +299,22 @@ export default function OnboardingPage() {
 
   const finish = () => router.push("/dashboard")
 
+  const goToStep = (target: Step) => setStep(target)
+
   return (
     <div className="w-full max-w-lg space-y-8">
       <div className="flex items-center justify-center gap-0">
         {STEPS.map((s, i) => (
           <div key={s.num} className="flex items-center">
-            <div className="flex flex-col items-center gap-1.5">
+            <button
+              type="button"
+              onClick={() => goToStep(s.num as Step)}
+              className="flex flex-col items-center gap-1.5 focus:outline-none"
+              aria-label={`Ir para passo ${s.num + 1}: ${s.label}`}
+            >
               <div
                 className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors",
+                  "flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors hover:ring-2 hover:ring-primary/30",
                   step > s.num
                     ? "bg-primary text-primary-foreground"
                     : step === s.num
@@ -318,7 +325,7 @@ export default function OnboardingPage() {
                 {step > s.num ? <CheckCircle2 className="h-4 w-4" /> : s.num}
               </div>
               <span className={cn("text-[10px] sm:text-xs", step === s.num ? "font-medium text-foreground" : "text-muted-foreground")}>{s.label}</span>
-            </div>
+            </button>
             {i < STEPS.length - 1 && <div className={cn("mx-1 sm:mx-2 mb-5 h-0.5 w-6 sm:w-10 transition-colors", step > s.num ? "bg-primary" : "bg-muted")} />}
           </div>
         ))}
@@ -493,6 +500,27 @@ export default function OnboardingPage() {
           <Button onClick={finish} className="w-full" size="lg">Ir para o Dashboard <ArrowRight className="ml-2 h-4 w-4" /></Button>
         </StepCard>
       )}
+
+      <div className="flex items-center justify-between">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => goToStep(Math.max(0, step - 1) as Step)}
+          disabled={step === 0}
+        >
+          <ArrowLeft className="mr-1 h-3.5 w-3.5" />
+          Voltar
+        </Button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => goToStep(Math.min(5, step + 1) as Step)}
+          disabled={step === 5}
+        >
+          Avançar
+          <ArrowRight className="ml-1 h-3.5 w-3.5" />
+        </Button>
+      </div>
     </div>
   )
 }
@@ -509,36 +537,46 @@ function MappingForm({
   onSkip: () => void
 }) {
   const [props, setProps] = useState<PropInfo[]>([])
+  const [propsError, setPropsError] = useState<string | null>(null)
   const [mapping, setMapping] = useState<FieldMapping>(DEFAULT_MAPPING)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
     async function load() {
       setLoading(true)
+      setPropsError(null)
       try {
-        const [mapRes, propsRes] = await Promise.all([
-          fetch(`/api/notion/workspaces/${connectionId}/mapping`).then(r => r.json()),
-          fetch(`/api/notion/workspaces/${connectionId}/props`).then(r => r.json()),
+        const [mapResp, propsResp] = await Promise.all([
+          fetch(`/api/notion/workspaces/${connectionId}/mapping`),
+          fetch(`/api/notion/workspaces/${connectionId}/props`),
         ])
+        const mapRes = await mapResp.json().catch(() => ({}))
+        const propsRes = await propsResp.json().catch(() => ({}))
         if (cancelled) return
         setMapping((prev) => ({ ...prev, ...DEFAULT_MAPPING, ...mapRes }))
-        const list: PropInfo[] = Array.isArray(propsRes)
-          ? propsRes.map((p: any) =>
-              typeof p === "string"
-                ? { name: p, type: "unknown", options: [] as string[] }
-                : { name: p.name, type: p.type ?? "unknown", options: Array.isArray(p.options) ? p.options : [] }
-            )
-          : []
-        setProps(list)
+        if (!propsResp.ok) {
+          setProps([])
+          setPropsError(propsRes?.error ?? "Falha ao carregar propriedades do Notion")
+        } else {
+          const list: PropInfo[] = Array.isArray(propsRes)
+            ? propsRes.map((p: any) =>
+                typeof p === "string"
+                  ? { name: p, type: "unknown", options: [] as string[] }
+                  : { name: p.name, type: p.type ?? "unknown", options: Array.isArray(p.options) ? p.options : [] }
+              )
+            : []
+          setProps(list)
+        }
       } finally {
         if (!cancelled) setLoading(false)
       }
     }
     load()
     return () => { cancelled = true }
-  }, [connectionId])
+  }, [connectionId, reloadKey])
 
   function setField(key: keyof FieldMapping, value: string) {
     setMapping(prev => ({ ...prev, [key]: value }))
@@ -572,14 +610,6 @@ function MappingForm({
     )
   }
 
-  // Filter Notion props by type per field. Three rules:
-  // - If we couldn't load props at all (network/auth failure), fall back to
-  //   `current` so the form isn't completely empty.
-  // - If props loaded AND `current` is a real prop with a wrong type (rare),
-  //   preserve it so the user doesn't lose their intentional choice.
-  // - If `current` is set but doesn't match any real prop (typical: stale
-  //   default like "Status" pointing at a property the user removed), DROP
-  //   it — surfacing a phantom prop would let the user save a broken mapping.
   function namesByTypes(types: string[], current?: string): string[] {
     if (!props.length) return current ? [current] : []
     const matching = props.filter((p) => types.includes(p.type)).map((p) => p.name)
@@ -597,6 +627,21 @@ function MappingForm({
       {wasCloned && (
         <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">
           <strong>Mapeamento copiado de outro cliente.</strong> Como o banco é o mesmo, geralmente as colunas batem — confira abaixo e ajuste se precisar.
+        </div>
+      )}
+
+      {propsError && (
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-foreground space-y-2">
+          <div>
+            <strong>Não consegui carregar as propriedades do Notion:</strong> {propsError}
+          </div>
+          <button
+            type="button"
+            onClick={() => setReloadKey((k) => k + 1)}
+            className="text-xs underline hover:text-foreground/80"
+          >
+            Tentar novamente
+          </button>
         </div>
       )}
 
@@ -703,8 +748,6 @@ function Section({ label, children }: { label: string; children: React.ReactNode
 }
 
 function SelectField({ label, value, options, onChange, hint }: { label: string; value: string; options: string[]; onChange: (v: string) => void; hint?: string }) {
-  // Only show the current value if it's actually in `options`. Otherwise the
-  // dropdown shows a stale default that doesn't exist in the database.
   const hasValue = value && options.includes(value)
   return (
     <div className="space-y-1">
@@ -722,9 +765,6 @@ function SelectField({ label, value, options, onChange, hint }: { label: string;
 }
 
 function StatusValueSelect({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
-  // Always a Select — never a free text input. A typeable Input here let
-  // users save values that didn't actually exist as Notion options, and
-  // the cron would never match them.
   if (!options.length) {
     return (
       <div className="space-y-1">
@@ -740,9 +780,6 @@ function StatusValueSelect({ label, value, options, onChange }: { label: string;
       </div>
     )
   }
-  // Same defensive rule: only show the current value if it matches one of
-  // the real options. Otherwise the user sees a stale default ("Pronto")
-  // that won't match any real status in Notion when the cron runs.
   const hasValue = value && options.includes(value)
   return (
     <div className="space-y-1">
