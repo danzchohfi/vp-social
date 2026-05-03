@@ -26,6 +26,7 @@ type FieldMapping = {
   accountField: string
   feedImageUrlsField: string; verticalUrlsField: string; horizontalUrlsField: string; thumbnailUrlField: string
   likesField: string; commentsField: string; reachField: string; savesField: string; impressionsField: string
+  postUrlField: string
 }
 
 const DEFAULT_MAPPING: FieldMapping = {
@@ -35,6 +36,7 @@ const DEFAULT_MAPPING: FieldMapping = {
   accountField: "Conta",
   feedImageUrlsField: "Imagens Feed", verticalUrlsField: "Mídia Vertical", horizontalUrlsField: "Mídia Horizontal", thumbnailUrlField: "Thumbnail",
   likesField: "", commentsField: "", reachField: "", savesField: "", impressionsField: "",
+  postUrlField: "",
 }
 
 const NONE_VALUE = "__none__"
@@ -337,6 +339,14 @@ export default function SettingsPage() {
                   <SelectField label="Mídia Vertical" value={mapping.verticalUrlsField} options={propNames} onChange={(v) => setField("verticalUrlsField", v)} hint="Stories, Reels" />
                   <SelectField label="Mídia Horizontal" value={mapping.horizontalUrlsField} options={propNames} onChange={(v) => setField("horizontalUrlsField", v)} />
                   <SelectField label="Thumbnail" value={mapping.thumbnailUrlField} options={propNames} onChange={(v) => setField("thumbnailUrlField", v)} />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pós-publicação</p>
+                <p className="text-xs text-muted-foreground">Crie uma propriedade do tipo URL no Notion e mapeie aqui para receber o link público do post após cada publicação.</p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <SelectField label="Link do post publicado" value={mapping.postUrlField} options={propNames} onChange={(v) => setField("postUrlField", v)} />
                 </div>
               </div>
 
