@@ -20,8 +20,14 @@ export const auth = betterAuth({
     enabled: true,
     requireEmailVerification: false,
     sendResetPassword: async ({ user, url }) => {
-      console.log(`[PASSWORD RESET] email=${user.email} url=${url}`)
-      if (!process.env.RESEND_API_KEY) return
+      // Only log the URL when Resend isn't configured (dev fallback so the
+      // engineer can grab the link from terminal). NEVER log it in production
+      // — Vercel persists function logs and anyone with dashboard read access
+      // could capture a valid reset link and hijack the account.
+      if (!process.env.RESEND_API_KEY) {
+        console.log(`[PASSWORD RESET — dev only] email=${user.email} url=${url}`)
+        return
+      }
       try {
         const from = process.env.RESEND_FROM ?? "VP Social <noreply@posts.vitaminapublicitaria.com.br>"
         const res = await fetch("https://api.resend.com/emails", {
@@ -43,9 +49,12 @@ export const auth = betterAuth({
             </div>`,
           }),
         })
-        if (!res.ok) console.error("Resend error:", await res.text())
+        if (!res.ok) {
+          // Log failure WITHOUT the URL — just enough to debug Resend issues.
+          console.error(`[sendResetPassword] Resend rejected for ${user.email}: ${res.status} ${await res.text()}`)
+        }
       } catch (e) {
-        console.error("sendResetPassword error:", e)
+        console.error(`[sendResetPassword] error for ${user.email}:`, e)
       }
     },
   },
