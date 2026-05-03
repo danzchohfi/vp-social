@@ -5,13 +5,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Repository layout
 
 ```
-/                   Python CLI prototype (legacy, kept as reference)
-  src/              notion_client.py, instagram_client.py, publisher.py
-  clients/          per-client JSON credentials (legacy)
-webapp/             Next.js 15 SaaS application — all active development happens here
+webapp/             Next.js 15 SaaS application — the entire codebase
 ```
 
-All new work goes inside `webapp/`.
+All code lives in `webapp/`. The repo previously had a Python CLI prototype at the root (`main.py`, `src/`, `clients/`) — it was deleted in commit 74d18b1's neighborhood once the webapp reached feature parity.
 
 ## Commands (run from `webapp/`)
 
@@ -32,10 +29,12 @@ Schema changes require `db:push` to take effect. Vercel runs `db:push && build` 
 
 ## Git workflow
 
+Default branch is `main`. Vercel deploys production from `main` automatically.
+
 **IMPORTANT:** Edits made by Claude Code in this environment push to a local git server, NOT directly to GitHub. To sync changes to the user's machine:
-- Use `mcp__github__push_files` to push files directly to GitHub
-- The user then runs `git pull origin claude/notion-instagram-integration-RoecP` on their Mac
-- Never rely on local `git push` alone — it won’t reach the user
+- Use `mcp__github__push_files` (or `create_or_update_file` / `delete_file`) to push directly to GitHub `main`
+- The user then runs `git pull origin main` on their Mac
+- Never rely on local `git push` alone — it won't reach GitHub
 
 ## Architecture
 
@@ -52,15 +51,15 @@ Schema changes require `db:push` to take effect. Vercel runs `db:push && build` 
 | File | Role |
 |---|---|
 | `lib/db/schema.ts` | Single source of truth for all tables. Edit here, then `db:push`. |
-| `lib/notion.ts` | Notion API client: `getReadyPosts`, `getScheduledPosts`, `markPublished`, `markFailed`, `updateAnalytics` |
-| `lib/instagram.ts` | Instagram Graph API: all publish methods + `getPostMetrics` for analytics |
+| `lib/notion.ts` | Notion API client: `getReadyPosts`, `getScheduledPosts`, `markPublished`, `markFailed`, `updateAnalytics`, `setPostUrls` (multi-platform link writeback) |
+| `lib/instagram.ts` | Instagram Graph API: all publish methods + `fetchInstagramPermalink` + `getPostMetrics` for analytics |
 | `lib/facebook.ts` | Facebook Pages publisher: `publishSingleImage`, `publishCarousel`, `publishVideo` |
 | `lib/youtube.ts` | YouTube Data API v3 upload with token refresh |
 | `lib/tiktok.ts` | TikTok Content Posting API v2 with token refresh |
 | `lib/linkedin.ts` | LinkedIn UGC Posts with image upload and token refresh |
 | `lib/auth.ts` | Better Auth config (email+password + Google + Facebook OAuth). Server-side. |
 | `lib/auth-client.ts` | Better Auth client (`useSession`, `signOut`). Client components only. |
-| `trigger/publish.ts` | `publishForConnection` task — the core multi-platform publish loop |
+| `trigger/publish.ts` | `publishForConnection` task — the core multi-platform publish loop. Calls `markPublished`/`markFailed` after each post + `setPostUrls` to write public links back. |
 | `trigger/analytics.ts` | `syncPostAnalytics` task — writes Instagram metrics back to Notion |
 
 ## Data model (key relationships)
@@ -82,8 +81,10 @@ user
 3. For each platform in `post.plataformas[]`:
    - Looks up account via Map key `"{platform}:{conta}"` (case-insensitive)
    - Routes by `tipo` field to the appropriate publisher lib
-4. On success: Notion page status → `statusPublishedValue`; `publishLog` row saved
-5. On failure: Notion page status → `statusErrorValue`; error message saved to log
+   - Collects the returned `{id, url}` into a per-post array
+4. After all platforms attempted: write the collected URLs to `mapping.postUrlField` as a rich_text block (one clickable link per platform)
+5. On success: Notion page status → `statusPublishedValue`; `publishLog` row saved with `platformPostUrl`
+6. On failure: Notion page status → `statusErrorValue`; error message saved to log
 
 ## Account matching
 
