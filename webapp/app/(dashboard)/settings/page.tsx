@@ -344,9 +344,9 @@ export default function SettingsPage() {
 
               <div className="space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pós-publicação</p>
-                <p className="text-xs text-muted-foreground">Crie uma propriedade do tipo URL no Notion e mapeie aqui para receber o link público do post após cada publicação.</p>
+                <p className="text-xs text-muted-foreground">Crie uma propriedade do tipo <strong>Texto</strong> no Notion e mapeie aqui. Após publicar, vamos escrever um link clicável por plataforma (ex.: &quot;Instagram: https://...&quot;) — assim você não perde os links anteriores quando publicar em várias plataformas.</p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <SelectField label="Link do post publicado" value={mapping.postUrlField} options={propNames} onChange={(v) => setField("postUrlField", v)} />
+                  <SelectField label="Links publicados" value={mapping.postUrlField} options={propNames} onChange={(v) => setField("postUrlField", v)} />
                 </div>
               </div>
 
