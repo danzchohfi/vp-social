@@ -81,18 +81,27 @@ export async function POST(
     updatedAt: new Date(),
   }
 
-  await db
-    .insert(fieldMapping)
-    .values({
-      id: generateId(),
-      userId: session.user.id,
-      connectionId,
-      ...dbFields,
-    })
-    .onConflictDoUpdate({
-      target: fieldMapping.connectionId,
-      set: dbFields,
-    })
+  try {
+    await db
+      .insert(fieldMapping)
+      .values({
+        id: generateId(),
+        userId: session.user.id,
+        connectionId,
+        ...dbFields,
+      })
+      .onConflictDoUpdate({
+        target: fieldMapping.connectionId,
+        set: dbFields,
+      })
 
-  return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true })
+  } catch (e) {
+    // Surface the actual DB error to the client so the user knows WHY the
+    // save failed (most common: a notNull column got "" because the user
+    // picked "— Não usar —" on a required field).
+    console.error("Mapping save error:", e)
+    const message = e instanceof Error ? e.message : "Falha ao salvar mapeamento"
+    return NextResponse.json({ error: message }, { status: 500 })
+  }
 }
