@@ -25,6 +25,7 @@ function dbToUi(row: any) {
     reachField: row.reachField ?? "",
     savesField: row.savesField ?? "",
     impressionsField: row.impressionsField ?? "",
+    postUrlField: row.postUrlField ?? "",
   }
 }
 
@@ -78,6 +79,7 @@ export async function POST(
     reachField: ui.reachField || null,
     savesField: ui.savesField || null,
     impressionsField: ui.impressionsField || null,
+    postUrlField: ui.postUrlField || null,
     updatedAt: new Date(),
   }
 

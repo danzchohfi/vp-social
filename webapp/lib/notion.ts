@@ -1,6 +1,6 @@
 import { Client } from "@notionhq/client"
 
-// ─── Publish targets ─────────────────────────────────────────────────
+// ─── Publish targets ──────────────────────────────────────
 
 export interface PublishTarget {
   platform: string  // "instagram" | "facebook" | "youtube" | "tiktok" | "linkedin"
@@ -72,6 +72,7 @@ export interface FieldMapping {
   savesField?: string | null
   impressionsField?: string | null
   socialVpField?: string | null
+  postUrlField?: string | null
 }
 
 export const DEFAULT_MAPPING: FieldMapping = {
@@ -89,9 +90,10 @@ export const DEFAULT_MAPPING: FieldMapping = {
   dateField: "Dia para fazer",
   accountField: "Conta",
   socialVpField: "Social VP",
+  postUrlField: "Link do Post",
 }
 
-// ─── Cliente Notion ──────────────────────────────────────────────────
+// ─── Cliente Notion ────────────────────────────────────────
 
 export function createNotionClient(accessToken: string) {
   const client = new Client({ auth: accessToken })
@@ -186,10 +188,24 @@ export function createNotionClient(accessToken: string) {
         // Field may not exist on the user's database — fail silently
       }
     },
+
+    async setPostUrl(pageId: string, mapping: FieldMapping, url: string): Promise<void> {
+      if (!mapping.postUrlField) return
+      try {
+        await client.pages.update({
+          page_id: pageId,
+          properties: {
+            [mapping.postUrlField]: { url },
+          } as any,
+        })
+      } catch {
+        // Field may not exist on the user's database — fail silently
+      }
+    },
   }
 }
 
-// ─── Parsing ───────────────────────────────────────────────────────────
+// ─── Parsing ───────────────────────────────────────────────
 
 async function parsePage(page: any, m: FieldMapping, client: Client): Promise<NotionPost> {
   const p = page.properties

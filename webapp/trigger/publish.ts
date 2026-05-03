@@ -11,30 +11,28 @@ function getDb() {
   return drizzle(sql, { schema })
 }
 
-// ─── Scheduled: roda a cada 5 minutos para todos os workspaces ──────
+// ─── Scheduled: roda a cada 5 minutos para todos os workspaces ──────────
 
 export const publishScheduled = schedules.task({
   id: "publish-scheduled-posts",
-  cron: { pattern: "*/5 * * * *", timezone: "America/Sao_Paulo" },
+  cron: "*/5 * * * *",
   run: async () => {
     const db = getDb()
     const connections = await db.select().from(schema.notionConnection)
     const ready = connections.filter((c) => c.databaseId)
     logger.info(`Verificando ${ready.length} workspaces com banco configurado...`)
 
-    if (!ready.length) return
-
-    const result = await publishForConnection.batchTriggerAndWait(
-      ready.map((c) => ({ payload: { connectionId: c.id } }))
+    const results = await Promise.allSettled(
+      ready.map((c) => publishForConnection.triggerAndWait({ connectionId: c.id }))
     )
 
-    const ok = result.runs.filter((r) => r.ok).length
-    const err = result.runs.filter((r) => !r.ok).length
+    const ok = results.filter((r) => r.status === "fulfilled").length
+    const err = results.filter((r) => r.status === "rejected").length
     logger.info(`Finalizado: ${ok} workspaces OK, ${err} com erro.`)
   },
 })
 
-// ─── Task por workspace/conexão ───────────────────────────────
+// ─── Task por workspace/conexão ──────────────────────────────────
 
 export const publishForConnection = task({
   id: "publish-for-connection",
@@ -101,13 +99,16 @@ export const publishForConnection = task({
     for (const post of posts) {
       if (!post.publishTargets.length) {
         logger.warn(`Post "${post.title}" sem "Publicar em" definido — ignorado.`)
-        await saveLog(db, userId, connectionId, post, null, "—", "skipped", `Campo "Publicar em" vazio`, connection.clientId)
+        await saveLog(db, userId, connectionId, post, null, null, "—", "skipped", `Campo "Publicar em" vazio`, connection.clientId)
         results.skipped++
-        await markNotionStatus(notion, post.pageId, mapping, "failed", post.title)
         continue
       }
 
-      let postSuccess = 0
+      // Track per-post outcome so we can flip the Notion page status to
+      // Publicado/Erro at the end. Without this, the cron republishes the
+      // same post every 5 minutes because the filter still matches.
+      let anyPublished = false
+      let anyFailed = false
 
       for (const target of post.publishTargets) {
         const key = `${target.platform}:${post.conta.toLowerCase()}`
@@ -115,49 +116,41 @@ export const publishForConnection = task({
 
         if (!account) {
           logger.warn(`[${target.raw}] Conta "${post.conta}" não configurada — "${post.title}" ignorado.`)
-          await saveLog(db, userId, connectionId, post, null, target.raw, "skipped", `Conta "${post.conta}" não encontrada para ${target.platform}`, connection.clientId)
+          await saveLog(db, userId, connectionId, post, null, null, target.raw, "skipped", `Conta "${post.conta}" não encontrada para ${target.platform}`, connection.clientId)
           results.skipped++
           continue
         }
 
         try {
-          const postId = await publishToPlatform(target.platform, target.tipo, account, post)
-          await saveLog(db, userId, connectionId, post, postId, target.raw, "published", null, connection.clientId)
-          logger.info(`[${target.raw}/${post.conta}] ✓ "${post.title}" publicado! ID: ${postId}`)
+          const { id: postId, url: postUrl } = await publishToPlatform(target.platform, target.tipo, account, post)
+          await saveLog(db, userId, connectionId, post, postId, postUrl, target.raw, "published", null, connection.clientId)
+          if (postUrl) {
+            await notion.setPostUrl(post.pageId, mapping, postUrl).catch(() => {})
+          }
+          logger.info(`[${target.raw}/${post.conta}] ✓ "${post.title}" publicado! ID: ${postId}${postUrl ? ` URL: ${postUrl}` : ""}`)
           results.published++
-          postSuccess++
+          anyPublished = true
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
           logger.error(`[${target.raw}/${post.conta}] ✗ "${post.title}": ${message}`)
-          await saveLog(db, userId, connectionId, post, null, target.raw, "failed", message, connection.clientId)
+          await saveLog(db, userId, connectionId, post, null, null, target.raw, "failed", message, connection.clientId)
           results.failed++
+          anyFailed = true
         }
       }
 
-      // Sai do filtro "Agendamento" para impedir reprocessamento na próxima execução do cron.
-      // Qualquer sucesso conta como publicado; só marca erro se nenhum target deu certo.
-      await markNotionStatus(
-        notion, post.pageId, mapping,
-        postSuccess > 0 ? "published" : "failed",
-        post.title
-      )
+      // Update the Notion page status so the post leaves the "ready" filter.
+      // If at least one platform published, mark Publicado. Otherwise if any
+      // attempt failed, mark Erro. Pure skipped (no targets matched) leaves
+      // status untouched so the user can fix the account mapping and retry.
+      try {
+        if (anyPublished) await notion.markPublished(post.pageId, mapping)
+        else if (anyFailed) await notion.markFailed(post.pageId, mapping)
+      } catch (e) {
+        logger.warn(`Falha ao atualizar status no Notion para "${post.title}": ${e}`)
+      }
     }
 
     return results
   },
 })
-
-async function markNotionStatus(
-  notion: ReturnType<typeof createNotionClient>,
-  pageId: string,
-  mapping: FieldMapping,
-  status: "published" | "failed",
-  title: string
-) {
-  try {
-    if (status === "published") await notion.markPublished(pageId, mapping)
-    else await notion.markFailed(pageId, mapping)
-  } catch (e) {
-    logger.error(`Falha ao atualizar status do Notion para "${title}" (${status}): ${e}`)
-  }
-}

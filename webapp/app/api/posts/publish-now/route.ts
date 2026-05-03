@@ -57,7 +57,7 @@ export async function POST(req: Request) {
     accounts.filter((a) => a.active).map((a) => [`${a.platform.toLowerCase()}:${a.conta.toLowerCase()}`, a])
   )
 
-  const results: Array<{ platform: string; status: "published" | "failed" | "skipped"; postId?: string; error?: string }> = []
+  const results: Array<{ platform: string; status: "published" | "failed" | "skipped"; postId?: string; postUrl?: string | null; error?: string }> = []
   let anyPublished = false
 
   if (!post.publishTargets.length) {
@@ -73,19 +73,22 @@ export async function POST(req: Request) {
 
     if (!account) {
       const msg = `Conta "${post.conta}" não configurada para ${target.platform}`
-      await saveLog(db, userId, connectionId, post, null, target.raw, "skipped", msg, connection.clientId)
+      await saveLog(db, userId, connectionId, post, null, null, target.raw, "skipped", msg, connection.clientId)
       results.push({ platform: target.raw, status: "skipped", error: msg })
       continue
     }
 
     try {
-      const postId = await publishToPlatform(target.platform, target.tipo, account, post)
-      await saveLog(db, userId, connectionId, post, postId, target.raw, "published", null, connection.clientId)
-      results.push({ platform: target.raw, status: "published", postId })
+      const { id: postId, url: postUrl } = await publishToPlatform(target.platform, target.tipo, account, post)
+      await saveLog(db, userId, connectionId, post, postId, postUrl, target.raw, "published", null, connection.clientId)
+      if (postUrl) {
+        await notion.setPostUrl(post.pageId, mapping, postUrl).catch(() => {})
+      }
+      results.push({ platform: target.raw, status: "published", postId, postUrl })
       anyPublished = true
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      await saveLog(db, userId, connectionId, post, null, target.raw, "failed", message, connection.clientId)
+      await saveLog(db, userId, connectionId, post, null, null, target.raw, "failed", message, connection.clientId)
       results.push({ platform: target.raw, status: "failed", error: message })
     }
   }

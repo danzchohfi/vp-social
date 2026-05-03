@@ -1,5 +1,5 @@
 import * as schema from "./db/schema"
-import { createInstagramPublisher } from "./instagram"
+import { createInstagramPublisher, fetchInstagramPermalink } from "./instagram"
 import { createFacebookPublisher } from "./facebook"
 import { uploadYouTubeVideo } from "./youtube"
 import { publishTikTokVideo } from "./tiktok"
@@ -8,6 +8,8 @@ import { generateId } from "./utils"
 import type { NotionPost } from "./notion"
 
 type Account = typeof schema.instagramAccount.$inferSelect
+
+export type PublishResult = { id: string; url: string | null }
 
 export function isVideo(url: string): boolean {
   return /\.(mp4|mov|avi|mkv|webm)(\?|$)/i.test(url)
@@ -18,7 +20,7 @@ export async function publishToPlatform(
   tipo: string,
   account: Account,
   post: NotionPost
-): Promise<string> {
+): Promise<PublishResult> {
   const p = platform.toLowerCase()
 
   if (p === "instagram") {
@@ -26,25 +28,34 @@ export async function publishToPlatform(
       account.instagramBusinessAccountId,
       account.pageAccessToken
     )
-    return publishInstagramPost(publisher, tipo, post)
+    const id = await publishInstagramPost(publisher, tipo, post)
+    const url = await fetchInstagramPermalink(id, account.pageAccessToken)
+    return { id, url }
   }
 
   if (p === "facebook") {
     const fb = createFacebookPublisher(account.pageId, account.pageAccessToken)
     const images = post.feedImageUrls.length > 0 ? post.feedImageUrls : post.verticalUrls
+    let id: string
     if (post.verticalUrls[0] && isVideo(post.verticalUrls[0])) {
-      return fb.publishVideo(post.verticalUrls[0], post.fullCaption, post.title)
+      id = await fb.publishVideo(post.verticalUrls[0], post.fullCaption, post.title)
+    } else if (images.length > 1) {
+      id = await fb.publishCarousel(images, post.fullCaption)
+    } else if (images.length === 1) {
+      id = await fb.publishSingleImage(images[0], post.fullCaption)
+    } else {
+      id = await fb.publishFeedPost(post.fullCaption)
     }
-    if (images.length > 1) return fb.publishCarousel(images, post.fullCaption)
-    if (images.length === 1) return fb.publishSingleImage(images[0], post.fullCaption)
-    return fb.publishFeedPost(post.fullCaption)
+    // Facebook returns "{pageId}_{postId}". Both forms work as redirects to
+    // the public post URL.
+    return { id, url: `https://www.facebook.com/${id}` }
   }
 
   if (p === "youtube") {
     const videoUrl = post.verticalUrls[0] ?? post.horizontalUrls[0]
     if (!videoUrl) throw new Error("YouTube requer um vídeo em Mídia Vertical ou Mídia Horizontal")
     const isShort = tipo.toLowerCase().includes("short")
-    return uploadYouTubeVideo(
+    const id = await uploadYouTubeVideo(
       account.pageAccessToken,
       account.refreshToken!,
       videoUrl,
@@ -52,30 +63,40 @@ export async function publishToPlatform(
       post.fullCaption,
       isShort
     )
+    const url = isShort
+      ? `https://www.youtube.com/shorts/${id}`
+      : `https://www.youtube.com/watch?v=${id}`
+    return { id, url }
   }
 
   if (p === "tiktok") {
     const videoUrl = post.verticalUrls[0]
     if (!videoUrl) throw new Error("TikTok requer um vídeo em Mídia Vertical")
-    return publishTikTokVideo(
+    const id = await publishTikTokVideo(
       account.platformAccountId ?? account.pageId,
       account.pageAccessToken,
       account.refreshToken!,
       videoUrl,
       post.fullCaption
     )
+    // TikTok's publish_id isn't a public URL — actual video URL needs
+    // polling the publish status. Skip URL writeback for now.
+    return { id, url: null }
   }
 
   if (p === "linkedin") {
     const personUrn = account.platformAccountId ?? `urn:li:person:${account.pageId}`
     const imageUrl = post.feedImageUrls[0] ?? post.horizontalUrls[0]
-    return publishLinkedInPost(
+    const id = await publishLinkedInPost(
       personUrn,
       account.pageAccessToken,
       account.refreshToken!,
       post.fullCaption,
       imageUrl
     )
+    // LinkedIn returns a URN like "urn:li:share:7234..." — the public URL
+    // accepts the URN directly.
+    return { id, url: `https://www.linkedin.com/feed/update/${id}` }
   }
 
   throw new Error(`Plataforma "${platform}" não suportada`)
@@ -121,6 +142,7 @@ export async function saveLog(
   connectionId: string,
   post: NotionPost,
   postId: string | null,
+  postUrl: string | null,
   platform: string,
   status: "published" | "failed" | "skipped",
   error: string | null,
@@ -137,6 +159,7 @@ export async function saveLog(
     platform,
     instagramPostId: platform === "instagram" ? postId : null,
     platformPostId: postId,
+    platformPostUrl: postUrl,
     status,
     error,
   })

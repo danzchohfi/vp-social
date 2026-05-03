@@ -100,7 +100,7 @@ export function createInstagramPublisher(accountId: string, accessToken: string)
   }
 }
 
-// ─── Helpers ───────────────────────────────────────────────────────────────
+// ─── Helpers ──────────────────────────────────────────────────
 
 async function createContainer(
   accountId: string,
@@ -154,7 +154,18 @@ async function postGraph(
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
 
-// ─── Analytics ─────────────────────────────────────────────────────────────
+/** Fetch the public permalink for a published IG media. */
+export async function fetchInstagramPermalink(mediaId: string, token: string): Promise<string | null> {
+  try {
+    const res = await fetch(`${GRAPH}/${mediaId}?fields=permalink&access_token=${token}`)
+    const data = await res.json()
+    return typeof data.permalink === "string" ? data.permalink : null
+  } catch {
+    return null
+  }
+}
+
+// ─── Analytics ─────────────────────────────────────────────────
 
 export interface PostMetrics {
   likes: number | null
