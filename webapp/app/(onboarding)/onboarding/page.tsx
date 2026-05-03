@@ -63,23 +63,19 @@ export default function OnboardingPage() {
   const [step, setStep] = useState<Step>(0)
   const [loading, setLoading] = useState(false)
 
-  // Step 0 — Client name
   const [clientId, setClientId] = useState<string | null>(null)
   const [clientName, setClientName] = useState("")
   const [clientLogo, setClientLogo] = useState("")
   const [savingClient, setSavingClient] = useState(false)
 
-  // Step 1 — Notion connection
   const [connection, setConnection] = useState<Connection | null>(null)
 
-  // Step 2 — Database selection
   const [databases, setDatabases] = useState<NotionDatabase[]>([])
   const [selectedDbId, setSelectedDbId] = useState("")
   const [manualUrl, setManualUrl] = useState("")
   const [dbLoading, setDbLoading] = useState(false)
   const [dbSaving, setDbSaving] = useState(false)
 
-  // Step 3 — Facebook page confirmation (post-OAuth)
   type PendingAccount = { id: string; platform: string; pageName: string; conta: string }
   const [pendingAccounts, setPendingAccounts] = useState<PendingAccount[] | null>(null)
   const [keptAccountIds, setKeptAccountIds] = useState<Set<string>>(new Set())
@@ -576,14 +572,20 @@ function MappingForm({
     )
   }
 
-  // Filter Notion props by type per field. We always include the currently-
-  // mapped value as a fallback so editing a pre-filled mapping doesn't silently
-  // hide a wrong-type column the user already had configured.
+  // Filter Notion props by type per field. Three rules:
+  // - If we couldn't load props at all (network/auth failure), fall back to
+  //   `current` so the form isn't completely empty.
+  // - If props loaded AND `current` is a real prop with a wrong type (rare),
+  //   preserve it so the user doesn't lose their intentional choice.
+  // - If `current` is set but doesn't match any real prop (typical: stale
+  //   default like "Status" pointing at a property the user removed), DROP
+  //   it — surfacing a phantom prop would let the user save a broken mapping.
   function namesByTypes(types: string[], current?: string): string[] {
     if (!props.length) return current ? [current] : []
     const matching = props.filter((p) => types.includes(p.type)).map((p) => p.name)
     if (current && current.length > 0 && !matching.includes(current)) {
-      return [current, ...matching]
+      const existsAsAnyType = props.some((p) => p.name === current)
+      if (existsAsAnyType) return [current, ...matching]
     }
     return matching
   }
@@ -701,11 +703,14 @@ function Section({ label, children }: { label: string; children: React.ReactNode
 }
 
 function SelectField({ label, value, options, onChange, hint }: { label: string; value: string; options: string[]; onChange: (v: string) => void; hint?: string }) {
+  // Only show the current value if it's actually in `options`. Otherwise the
+  // dropdown shows a stale default that doesn't exist in the database.
+  const hasValue = value && options.includes(value)
   return (
     <div className="space-y-1">
       <Label className="text-sm">{label}</Label>
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
-      <Select value={value || NONE_VALUE} onValueChange={(v) => onChange(v === NONE_VALUE ? "" : v)}>
+      <Select value={hasValue ? value : NONE_VALUE} onValueChange={(v) => onChange(v === NONE_VALUE ? "" : v)}>
         <SelectTrigger className="w-full"><SelectValue placeholder="Selecionar campo..." /></SelectTrigger>
         <SelectContent>
           <SelectItem value={NONE_VALUE}>— Não usar —</SelectItem>
@@ -717,18 +722,32 @@ function SelectField({ label, value, options, onChange, hint }: { label: string;
 }
 
 function StatusValueSelect({ label, value, options, onChange }: { label: string; value: string; options: string[]; onChange: (v: string) => void }) {
+  // Always a Select — never a free text input. A typeable Input here let
+  // users save values that didn't actually exist as Notion options, and
+  // the cron would never match them.
   if (!options.length) {
     return (
       <div className="space-y-1">
         <Label className="text-sm">{label}</Label>
-        <Input value={value} onChange={e => onChange(e.target.value)} placeholder="Selecione um campo de Status acima" />
+        <Select disabled value={NONE_VALUE}>
+          <SelectTrigger className="w-full">
+            <SelectValue placeholder="Selecione o campo de status acima primeiro" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value={NONE_VALUE}>—</SelectItem>
+          </SelectContent>
+        </Select>
       </div>
     )
   }
+  // Same defensive rule: only show the current value if it matches one of
+  // the real options. Otherwise the user sees a stale default ("Pronto")
+  // that won't match any real status in Notion when the cron runs.
+  const hasValue = value && options.includes(value)
   return (
     <div className="space-y-1">
       <Label className="text-sm">{label}</Label>
-      <Select value={value || NONE_VALUE} onValueChange={(v) => onChange(v === NONE_VALUE ? "" : v)}>
+      <Select value={hasValue ? value : NONE_VALUE} onValueChange={(v) => onChange(v === NONE_VALUE ? "" : v)}>
         <SelectTrigger className="w-full"><SelectValue placeholder="Selecionar valor..." /></SelectTrigger>
         <SelectContent>
           <SelectItem value={NONE_VALUE}>— Não usar —</SelectItem>
