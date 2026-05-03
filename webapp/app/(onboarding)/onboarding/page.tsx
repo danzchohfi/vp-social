@@ -33,6 +33,7 @@ type FieldMapping = {
   accountField: string
   feedImageUrlsField: string; verticalUrlsField: string; horizontalUrlsField: string; thumbnailUrlField: string
   likesField: string; commentsField: string; reachField: string; savesField: string; impressionsField: string
+  postUrlField: string
 }
 
 const DEFAULT_MAPPING: FieldMapping = {
@@ -42,6 +43,7 @@ const DEFAULT_MAPPING: FieldMapping = {
   accountField: "Conta",
   feedImageUrlsField: "Imagens Feed", verticalUrlsField: "Mídia Vertical", horizontalUrlsField: "Mídia Horizontal", thumbnailUrlField: "Thumbnail",
   likesField: "", commentsField: "", reachField: "", savesField: "", impressionsField: "",
+  postUrlField: "",
 }
 
 const NONE_VALUE = "__none__"
@@ -502,21 +504,11 @@ export default function OnboardingPage() {
       )}
 
       <div className="flex items-center justify-between">
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => goToStep(Math.max(0, step - 1) as Step)}
-          disabled={step === 0}
-        >
+        <Button variant="ghost" size="sm" onClick={() => goToStep(Math.max(0, step - 1) as Step)} disabled={step === 0}>
           <ArrowLeft className="mr-1 h-3.5 w-3.5" />
           Voltar
         </Button>
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={() => goToStep(Math.min(5, step + 1) as Step)}
-          disabled={step === 5}
-        >
+        <Button variant="ghost" size="sm" onClick={() => goToStep(Math.min(5, step + 1) as Step)} disabled={step === 5}>
           Avançar
           <ArrowRight className="ml-1 h-3.5 w-3.5" />
         </Button>
@@ -635,11 +627,7 @@ function MappingForm({
           <div>
             <strong>Não consegui carregar as propriedades do Notion:</strong> {propsError}
           </div>
-          <button
-            type="button"
-            onClick={() => setReloadKey((k) => k + 1)}
-            className="text-xs underline hover:text-foreground/80"
-          >
+          <button type="button" onClick={() => setReloadKey((k) => k + 1)} className="text-xs underline hover:text-foreground/80">
             Tentar novamente
           </button>
         </div>
@@ -659,68 +647,24 @@ function MappingForm({
       </Section>
 
       <Section label="Agendamento">
-        <SelectField
-          label="Data de publicação"
-          value={mapping.dateField}
-          options={namesByTypes(["date"], mapping.dateField)}
-          onChange={(v) => setField("dateField", v)}
-          hint="Apenas Date"
-        />
-        <SelectField
-          label="Conta"
-          value={mapping.accountField}
-          options={namesByTypes(["select", "status", "rich_text", "title", "relation"], mapping.accountField)}
-          onChange={(v) => setField("accountField", v)}
-          hint="Texto, select ou relação"
-        />
+        <SelectField label="Data de publicação" value={mapping.dateField} options={namesByTypes(["date"], mapping.dateField)} onChange={(v) => setField("dateField", v)} hint="Apenas Date" />
+        <SelectField label="Conta" value={mapping.accountField} options={namesByTypes(["select", "status", "rich_text", "title", "relation"], mapping.accountField)} onChange={(v) => setField("accountField", v)} hint="Texto, select ou relação" />
       </Section>
 
       <Section label="Conteúdo">
-        <SelectField
-          label="Legenda"
-          value={mapping.captionField}
-          options={namesByTypes(["rich_text", "title"], mapping.captionField)}
-          onChange={(v) => setField("captionField", v)}
-          hint="Texto longo (rich_text) ou título"
-        />
-        <SelectField
-          label="Publicar em"
-          value={mapping.publicarEmField}
-          options={namesByTypes(["multi_select"], mapping.publicarEmField)}
-          onChange={(v) => setField("publicarEmField", v)}
-          hint="Apenas Multi-select"
-        />
+        <SelectField label="Legenda" value={mapping.captionField} options={namesByTypes(["rich_text", "title"], mapping.captionField)} onChange={(v) => setField("captionField", v)} hint="Texto longo (rich_text) ou título" />
+        <SelectField label="Publicar em" value={mapping.publicarEmField} options={namesByTypes(["multi_select"], mapping.publicarEmField)} onChange={(v) => setField("publicarEmField", v)} hint="Apenas Multi-select" />
       </Section>
 
       <Section label="Mídia">
-        <SelectField
-          label="Imagens Feed"
-          value={mapping.feedImageUrlsField}
-          options={namesByTypes(["files"], mapping.feedImageUrlsField)}
-          onChange={(v) => setField("feedImageUrlsField", v)}
-          hint="Apenas Files"
-        />
-        <SelectField
-          label="Mídia Vertical"
-          value={mapping.verticalUrlsField}
-          options={namesByTypes(["files"], mapping.verticalUrlsField)}
-          onChange={(v) => setField("verticalUrlsField", v)}
-          hint="Stories, Reels (Files)"
-        />
-        <SelectField
-          label="Mídia Horizontal"
-          value={mapping.horizontalUrlsField}
-          options={namesByTypes(["files"], mapping.horizontalUrlsField)}
-          onChange={(v) => setField("horizontalUrlsField", v)}
-          hint="Apenas Files"
-        />
-        <SelectField
-          label="Thumbnail"
-          value={mapping.thumbnailUrlField}
-          options={namesByTypes(["files"], mapping.thumbnailUrlField)}
-          onChange={(v) => setField("thumbnailUrlField", v)}
-          hint="Apenas Files"
-        />
+        <SelectField label="Imagens Feed" value={mapping.feedImageUrlsField} options={namesByTypes(["files"], mapping.feedImageUrlsField)} onChange={(v) => setField("feedImageUrlsField", v)} hint="Apenas Files" />
+        <SelectField label="Mídia Vertical" value={mapping.verticalUrlsField} options={namesByTypes(["files"], mapping.verticalUrlsField)} onChange={(v) => setField("verticalUrlsField", v)} hint="Stories, Reels (Files)" />
+        <SelectField label="Mídia Horizontal" value={mapping.horizontalUrlsField} options={namesByTypes(["files"], mapping.horizontalUrlsField)} onChange={(v) => setField("horizontalUrlsField", v)} hint="Apenas Files" />
+        <SelectField label="Thumbnail" value={mapping.thumbnailUrlField} options={namesByTypes(["files"], mapping.thumbnailUrlField)} onChange={(v) => setField("thumbnailUrlField", v)} hint="Apenas Files" />
+      </Section>
+
+      <Section label="Pós-publicação">
+        <SelectField label="Link do post publicado" value={mapping.postUrlField} options={namesByTypes(["url"], mapping.postUrlField)} onChange={(v) => setField("postUrlField", v)} hint="Apenas URL — preenchido após publicar" />
       </Section>
 
       <p className="text-xs text-muted-foreground">
@@ -770,12 +714,8 @@ function StatusValueSelect({ label, value, options, onChange }: { label: string;
       <div className="space-y-1">
         <Label className="text-sm">{label}</Label>
         <Select disabled value={NONE_VALUE}>
-          <SelectTrigger className="w-full">
-            <SelectValue placeholder="Selecione o campo de status acima primeiro" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value={NONE_VALUE}>—</SelectItem>
-          </SelectContent>
+          <SelectTrigger className="w-full"><SelectValue placeholder="Selecione o campo de status acima primeiro" /></SelectTrigger>
+          <SelectContent><SelectItem value={NONE_VALUE}>—</SelectItem></SelectContent>
         </Select>
       </div>
     )
