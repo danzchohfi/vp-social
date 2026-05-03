@@ -78,6 +78,11 @@ export async function GET(req: Request) {
 
     const clientId = await getActiveClientId(userId)
     let connected = 0
+    // Save new pages as inactive ("pending"). The frontend then prompts the
+    // user to pick which of these pages actually belong to this client; the
+    // unselected ones are deleted via /api/accounts/pending. The upsert's
+    // set clause intentionally doesn't touch `active`, so previously-
+    // confirmed pages on this client keep their active state on re-OAuth.
     for (const page of pages) {
       const ig = page.instagram_business_account
 
@@ -92,7 +97,7 @@ export async function GET(req: Request) {
           pageName: page.name,
           pageId: page.id,
           pageAccessToken: page.access_token,
-          active: true,
+          active: false,
         })
         .onConflictDoUpdate({
           target: [instagramAccount.userId, instagramAccount.clientId, instagramAccount.platform, instagramAccount.pageId],
@@ -118,7 +123,7 @@ export async function GET(req: Request) {
             instagramBusinessAccountId: ig.id,
             platformAccountId: ig.id,
             pageAccessToken: page.access_token,
-            active: true,
+            active: false,
           })
           .onConflictDoUpdate({
             target: [instagramAccount.userId, instagramAccount.clientId, instagramAccount.platform, instagramAccount.pageId],
