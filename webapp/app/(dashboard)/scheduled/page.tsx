@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useMemo, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -98,6 +99,9 @@ function timeUntil(iso: string | null): { label: string; isPast: boolean } {
 }
 
 export default function ScheduledPage() {
+  const searchParams = useSearchParams()
+  const focusedPostId = searchParams.get("postId")
+
   const [upcomingAll, setUpcomingAll] = useState<ScheduledPost[]>([])
   const [pastAll, setPastAll] = useState<PastPost[]>([])
   const [loading, setLoading] = useState(true)
@@ -125,6 +129,22 @@ export default function ScheduledPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  // Deep-link: when arriving via Notion's Social VP URL (?postId=X), force
+  // list view (calendar wouldn't show a single highlighted card) and scroll
+  // to that post's card once it has rendered.
+  useEffect(() => {
+    if (!focusedPostId || loading) return
+    setView("list")
+    const el = document.getElementById(`post-${focusedPostId}`)
+    if (!el) return
+    el.scrollIntoView({ behavior: "smooth", block: "center" })
+    el.classList.add("ring-2", "ring-primary", "ring-offset-2")
+    const timeout = setTimeout(() => {
+      el.classList.remove("ring-2", "ring-primary", "ring-offset-2")
+    }, 2400)
+    return () => clearTimeout(timeout)
+  }, [focusedPostId, loading, upcomingAll, pastAll])
 
   const now = new Date()
 
@@ -407,6 +427,19 @@ export default function ScheduledPage() {
           )}
         </div>
       )}
+
+      {/* Footer link — /history is no longer in the sidebar; this is the
+          way to reach the verbose log view (full 200-row table with raw
+          IDs and per-platform error messages) when the 90-day grouped
+          history above isn't enough. */}
+      <div className="mt-12 flex justify-center border-t pt-6">
+        <Link
+          href="/history"
+          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+        >
+          Ver histórico completo (todas as publicações, com IDs e erros) →
+        </Link>
+      </div>
     </div>
   )
 }
@@ -418,10 +451,13 @@ function PastPostRow({ post }: { post: PastPost }) {
   const errorPlatforms = post.platforms.filter((pl) => pl.status === "failed" && pl.error)
 
   return (
-    <div className={cn(
-      "rounded-lg border bg-card p-4",
-      allFailed ? "border-destructive/40 bg-destructive/5" : hasFailure ? "border-warning/40 bg-warning/5" : ""
-    )}>
+    <div
+      id={`post-${post.pageId}`}
+      className={cn(
+        "rounded-lg border bg-card p-4 transition-shadow",
+        allFailed ? "border-destructive/40 bg-destructive/5" : hasFailure ? "border-warning/40 bg-warning/5" : ""
+      )}
+    >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <p className="font-medium truncate">{post.title || "Sem título"}</p>
@@ -568,11 +604,14 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
 
   const isOtherClient = post.belongsToClient === false
   return (
-    <div className={cn(
-      "rounded-lg border bg-card p-4",
-      hasIssues ? "border-warning/40 bg-warning/5" : hasIssue && "border-warning/40",
-      isOtherClient && "opacity-70"
-    )}>
+    <div
+      id={`post-${post.pageId}`}
+      className={cn(
+        "rounded-lg border bg-card p-4 transition-shadow",
+        hasIssues ? "border-warning/40 bg-warning/5" : hasIssue && "border-warning/40",
+        isOtherClient && "opacity-70"
+      )}
+    >
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
@@ -651,7 +690,7 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
   )
 }
 
-// ─── Calendar view ───────────────────────────────────
+// ─── Calendar view ────────────────────────────────
 
 const WEEKDAYS_PT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
 const MONTHS_PT = [
