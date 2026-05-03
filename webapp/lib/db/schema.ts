@@ -48,7 +48,7 @@ export const verification = pgTable("verification", {
   updatedAt: timestamp("updated_at").defaultNow(),
 })
 
-// ─── Cliente (perfis multi-tenant) ────────────────────────────────────────
+// ─── Cliente (perfis multi-tenant) ───────────────────────────────────
 
 export const client = pgTable("client", {
   id: text("id").primaryKey(),
@@ -82,7 +82,7 @@ export const clientInvite = pgTable("client_invite", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 
-// ─── Notion connections ───────────────────────────────────────
+// ─── Notion connections ────────────────────────────────────────
 
 export const notionConnection = pgTable("notion_connection", {
   id: text("id").primaryKey(),
@@ -121,7 +121,7 @@ export const instagramAccount = pgTable("instagram_account", {
   uniqUserClientPlatformPage: uniqueIndex("instagram_account_user_client_platform_page_uniq").on(t.userId, t.clientId, t.platform, t.pageId),
 }))
 
-// ─── Field mapping ─────────────────────────────────────────
+// ─── Field mapping ────────────────────────────────
 
 export const fieldMapping = pgTable("field_mapping", {
   id: text("id").primaryKey(),
@@ -158,6 +158,10 @@ export const fieldMapping = pgTable("field_mapping", {
   // Link de volta para o app (URL property no Notion). Default "Social VP";
   // o valor escrito é {NEXT_PUBLIC_APP_URL}/scheduled?postId={pageId}.
   socialVpField: text("social_vp_field").default("Social VP"),
+  // URL pública do post no destino (Instagram permalink, Facebook post URL,
+  // YouTube watch URL, etc.) — escrita em uma URL property do Notion após
+  // o publish. Opcional: se não mapeado, nada é escrito.
+  postUrlField: text("post_url_field"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
@@ -175,6 +179,7 @@ export const publishLog = pgTable("publish_log", {
   platform: text("platform"),
   instagramPostId: text("instagram_post_id"),
   platformPostId: text("platform_post_id"),
+  platformPostUrl: text("platform_post_url"),
   status: text("status").notNull(),
   error: text("error"),
   publishedAt: timestamp("published_at").notNull().defaultNow(),
