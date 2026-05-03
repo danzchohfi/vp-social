@@ -4,7 +4,7 @@ import { client } from "@/lib/db/schema"
 import { and, eq } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
-import { setActiveClientCookie } from "@/lib/active-client"
+import { setActiveClientCookie, ALL_CLIENTS, listAccessibleClients } from "@/lib/active-client"
 
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -12,6 +12,18 @@ export async function POST(req: Request) {
 
   const { clientId } = await req.json()
   if (!clientId) return NextResponse.json({ error: "clientId obrigatório" }, { status: 400 })
+
+  // Agency view: cookie stores the sentinel and read-only routes will resolve
+  // it via getActiveClientScope. Only allow it when the user actually has
+  // multiple accessible clients — otherwise it's nonsensical.
+  if (clientId === ALL_CLIENTS) {
+    const clients = await listAccessibleClients(session.user.id)
+    if (clients.length < 2) {
+      return NextResponse.json({ error: "Você precisa de pelo menos 2 clientes para usar a visão agência." }, { status: 400 })
+    }
+    await setActiveClientCookie(ALL_CLIENTS)
+    return NextResponse.json({ ok: true, mode: "all" })
+  }
 
   const [c] = await db
     .select()

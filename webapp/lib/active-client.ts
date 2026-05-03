@@ -6,7 +6,19 @@ import { generateId } from "./utils"
 
 const COOKIE_NAME = "vpsocial_client_id"
 
+// Sentinel value stored in the active-client cookie when the user wants the
+// "agency view" — a consolidated read-only view across every client they have
+// access to. Mutating routes (Settings, OAuth, publish) MUST resolve a single
+// client; they fall back to the first accessible client and the UI guards
+// against accidental writes via <RequiresSingleClient>.
+export const ALL_CLIENTS = "__all__"
+
 export type Client = typeof schema.client.$inferSelect
+
+/** What scope the user is currently looking at — single client or all clients. */
+export type ActiveClientScope =
+  | { mode: "single"; client: Client }
+  | { mode: "all"; clients: Client[] }
 
 export async function listAccessibleClients(userId: string): Promise<Client[]> {
   const owned = await db
@@ -86,7 +98,10 @@ export async function getActiveClient(userId: string): Promise<Client> {
 
   const cookieStore = await cookies()
   const stored = cookieStore.get(COOKIE_NAME)?.value
-  if (stored) {
+  // ALL_CLIENTS sentinel means "agency view"; mutating callers still need a
+  // concrete client, so fall back to the first one (alphabetical via
+  // listAccessibleClients's natural order).
+  if (stored && stored !== ALL_CLIENTS) {
     const found = clients.find((c) => c.id === stored)
     if (found) return found
   }
@@ -96,6 +111,35 @@ export async function getActiveClient(userId: string): Promise<Client> {
 export async function getActiveClientId(userId: string): Promise<string> {
   const c = await getActiveClient(userId)
   return c.id
+}
+
+/**
+ * Returns the user's view scope: a single client (default) or all accessible
+ * clients (agency view). Use this in read-only routes/pages that should
+ * aggregate across clients when the user picks "Todos os clientes".
+ */
+export async function getActiveClientScope(userId: string): Promise<ActiveClientScope> {
+  const cookieStore = await cookies()
+  const stored = cookieStore.get(COOKIE_NAME)?.value
+  if (stored === ALL_CLIENTS) {
+    const clients = await listAccessibleClients(userId)
+    if (clients.length > 1) return { mode: "all", clients }
+    // Only one client accessible — agency view is meaningless. Treat as single.
+    if (clients.length === 1) return { mode: "single", client: clients[0] }
+  }
+  return { mode: "single", client: await getActiveClient(userId) }
+}
+
+/** Convenience: just the IDs the user can read. Used with `inArray()` filters. */
+export async function getAccessibleClientIds(userId: string): Promise<string[]> {
+  const clients = await listAccessibleClients(userId)
+  return clients.map((c) => c.id)
+}
+
+/** True when the active-client cookie equals the agency-view sentinel. */
+export async function isAgencyMode(): Promise<boolean> {
+  const cookieStore = await cookies()
+  return cookieStore.get(COOKIE_NAME)?.value === ALL_CLIENTS
 }
 
 export async function setActiveClientCookie(clientId: string) {

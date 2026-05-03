@@ -5,7 +5,7 @@ import { and, eq, inArray } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { generateId } from "@/lib/utils"
-import { getActiveClient, listAccessibleClients } from "@/lib/active-client"
+import { getActiveClient, listAccessibleClients, isAgencyMode } from "@/lib/active-client"
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -14,6 +14,7 @@ export async function GET() {
   const userId = session.user.id
   const active = await getActiveClient(userId)
   const clients = await listAccessibleClients(userId)
+  const agencyMode = await isAgencyMode()
 
   const memberRows = clients.length
     ? await db
@@ -34,7 +35,11 @@ export async function GET() {
     }))
     .sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime())
 
-  return NextResponse.json({ clients: result, activeClientId: active.id })
+  return NextResponse.json({
+    clients: result,
+    activeClientId: active.id,
+    agencyMode,
+  })
 }
 
 export async function POST(req: Request) {

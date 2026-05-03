@@ -1,11 +1,11 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { notionConnection, fieldMapping, instagramAccount, publishLog } from "@/lib/db/schema"
-import { eq, and, gte } from "drizzle-orm"
+import { eq, and, gte, inArray } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING } from "@/lib/notion"
-import { getActiveClientId } from "@/lib/active-client"
+import { getActiveClientScope } from "@/lib/active-client"
 
 type TargetCheck = { raw: string; platform: string; tipo: string; configured: boolean; pageName?: string | null }
 
@@ -15,21 +15,39 @@ export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const clientId = await getActiveClientId(session.user.id)
+  const scope = await getActiveClientScope(session.user.id)
+  const isAgency = scope.mode === "all"
+  // Resolve into a flat list of clients we'll filter against. Doing this
+  // inside the discriminated-union branches lets TypeScript narrow `scope`.
+  const allowedClients = scope.mode === "all" ? scope.clients : [scope.client]
+  const clientIds = allowedClients.map((c) => c.id)
+  const clientById = new Map(allowedClients.map((c) => [c.id, c] as const))
+
+  const filterByClient = isAgency
+    ? inArray(notionConnection.clientId, clientIds)
+    : eq(notionConnection.clientId, clientIds[0])
+  const filterAccounts = isAgency
+    ? inArray(instagramAccount.clientId, clientIds)
+    : eq(instagramAccount.clientId, clientIds[0])
 
   const [connections, accounts] = await Promise.all([
-    db.select().from(notionConnection).where(eq(notionConnection.clientId, clientId)),
-    db.select().from(instagramAccount).where(eq(instagramAccount.clientId, clientId)),
+    db.select().from(notionConnection).where(filterByClient),
+    db.select().from(instagramAccount).where(filterAccounts),
   ])
 
   const configured = connections.filter((c) => c.databaseId)
 
+  // In single mode, accountMap groups all accounts (one client). In agency
+  // mode we still want a flat platform:conta lookup but it's now scoped
+  // across clients — if the same conta exists in two clients the post will
+  // match whichever was inserted first; that's acceptable since accounts
+  // are already unique per client in real data.
   const accountMap = new Map(
     accounts.filter((a) => a.active).map((a) => [`${a.platform.toLowerCase()}:${a.conta.toLowerCase()}`, a])
   )
   const clientContas = new Set(accounts.filter((a) => a.active).map((a) => a.conta.toLowerCase()))
 
-  // ─── Upcoming (Notion) ────────────────────────────────────────────────────
+  // ─── Upcoming (Notion) ───────────────────────────────────────────────
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? ""
   let upcoming: any[] = []
   if (configured.length) {
@@ -56,6 +74,7 @@ export async function GET() {
           }
         }
 
+        const owningClient = clientById.get(connection.clientId ?? "")
         return posts.map((p) => {
           const targetChecks: TargetCheck[] = p.publishTargets.map((t) => {
             const key = `${t.platform}:${p.conta?.toLowerCase() ?? ""}`
@@ -70,12 +89,19 @@ export async function GET() {
           })
           const contaKey = p.conta?.toLowerCase() ?? ""
           const contaConnected = contaKey ? accounts.some((a) => a.active && a.conta.toLowerCase() === contaKey) : false
-          const belongsToClient = !!p.conta && clientContas.has(p.conta.toLowerCase())
+          // In agency mode, every accessible client's posts "belong" — the
+          // belongsToClient flag was a single-client UX kludge.
+          const belongsToClient = isAgency
+            ? true
+            : !!p.conta && clientContas.has(p.conta.toLowerCase())
           return {
             kind: "upcoming",
             ...p,
             workspaceName: connection.workspaceName,
             connectionId: connection.id,
+            clientId: connection.clientId,
+            clientName: owningClient?.name ?? null,
+            clientLogoUrl: owningClient?.logoUrl ?? null,
             targetChecks,
             belongsToClient,
             contaConnected,
@@ -94,7 +120,7 @@ export async function GET() {
       })
   }
 
-  // ─── Past (publishLog) ────────────────────────────────────────────────────
+  // ─── Past (publishLog) ───────────────────────────────────────────────
   const cutoff = new Date(Date.now() - PAST_WINDOW_DAYS * 24 * 60 * 60 * 1000)
   const logs = await db
     .select()
@@ -103,7 +129,9 @@ export async function GET() {
       and(
         eq(publishLog.userId, session.user.id),
         gte(publishLog.publishedAt, cutoff),
-        ...(clientId ? [eq(publishLog.clientId, clientId)] : [])
+        isAgency
+          ? inArray(publishLog.clientId, clientIds)
+          : eq(publishLog.clientId, clientIds[0])
       )
     )
 
@@ -114,6 +142,7 @@ export async function GET() {
     const key = log.notionPageId
     let entry = grouped.get(key)
     if (!entry) {
+      const owning = log.clientId ? clientById.get(log.clientId) : null
       entry = {
         kind: "past",
         pageId: log.notionPageId,
@@ -121,6 +150,9 @@ export async function GET() {
         conta: log.conta,
         date: log.publishedAt,
         connectionId: log.connectionId,
+        clientId: log.clientId,
+        clientName: owning?.name ?? null,
+        clientLogoUrl: owning?.logoUrl ?? null,
         belongsToClient: true,
         platforms: [] as any[],
       }
@@ -147,5 +179,9 @@ export async function GET() {
     // Backward-compat: existing /scheduled callers that read `posts` keep working.
     posts: upcoming,
     configured: configured.length > 0,
+    agencyMode: isAgency,
+    // Light client roster so the UI can render a per-client legend without
+    // a second round-trip.
+    clients: allowedClients.map((c) => ({ id: c.id, name: c.name, logoUrl: c.logoUrl })),
   })
 }
