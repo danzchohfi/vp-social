@@ -2,7 +2,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Instagram, Settings, Zap, History, CalendarClock, LogOut } from "lucide-react"
+import { LayoutDashboard, Instagram, Settings, Zap, CalendarClock, LogOut } from "lucide-react"
 import { signOut, useSession } from "@/lib/auth-client"
 import { useRouter } from "next/navigation"
 import { ClientSwitcher } from "@/components/dashboard/client-switcher"
@@ -10,8 +10,7 @@ import { ClientSwitcher } from "@/components/dashboard/client-switcher"
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/accounts", label: "Contas", icon: Instagram },
-  { href: "/scheduled", label: "Agendados", icon: CalendarClock },
-  { href: "/history", label: "Histórico", icon: History },
+  { href: "/scheduled", label: "Publicações", icon: CalendarClock },
   { href: "/settings", label: "Configurações", icon: Settings },
 ]
 
@@ -28,12 +27,12 @@ export function Sidebar() {
   const user = session?.user
 
   return (
-    <aside className="max-md:hidden flex h-full w-60 flex-col border-r bg-card">
+    <aside className="max-md:hidden flex h-full w-60 shrink-0 flex-col overflow-hidden border-r bg-card">
       <div className="flex h-16 items-center gap-2 border-b px-5">
-        <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
+        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary">
           <Zap className="h-4 w-4 text-primary-foreground" />
         </div>
-        <span className="text-lg tracking-tight">
+        <span className="truncate text-lg tracking-tight">
           <span className="font-semibold">VP</span>
           <span className="ml-1 italic font-display">Social</span>
         </span>
@@ -57,8 +56,8 @@ export function Sidebar() {
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
               )}
             >
-              <item.icon className="h-4 w-4" />
-              {item.label}
+              <item.icon className="h-4 w-4 shrink-0" />
+              <span className="truncate">{item.label}</span>
             </Link>
           )
         })}
@@ -74,7 +73,7 @@ export function Sidebar() {
               <img
                 src={user.image}
                 alt={user.name}
-                className="h-7 w-7 rounded-full object-cover"
+                className="h-7 w-7 shrink-0 rounded-full object-cover"
               />
             ) : (
               <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
@@ -91,8 +90,8 @@ export function Sidebar() {
           onClick={handleSignOut}
           className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
         >
-          <LogOut className="h-4 w-4" />
-          Sair
+          <LogOut className="h-4 w-4 shrink-0" />
+          <span className="truncate">Sair</span>
         </button>
       </div>
     </aside>
