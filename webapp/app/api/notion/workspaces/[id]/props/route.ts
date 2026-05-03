@@ -20,7 +20,12 @@ export async function GET(
     .from(notionConnection)
     .where(and(eq(notionConnection.id, connectionId), eq(notionConnection.userId, session.user.id)))
 
-  if (!connection?.databaseId) return NextResponse.json([])
+  if (!connection) {
+    return NextResponse.json({ error: "Conexão Notion não encontrada" }, { status: 404 })
+  }
+  if (!connection.databaseId) {
+    return NextResponse.json({ error: "Nenhum banco de dados selecionado nesta conexão" }, { status: 400 })
+  }
 
   try {
     const notion = new Client({ auth: connection.accessToken })
@@ -39,7 +44,9 @@ export async function GET(
       return { name, type, options }
     })
     return NextResponse.json(props)
-  } catch {
-    return NextResponse.json([])
+  } catch (e) {
+    console.error("Notion props fetch error:", e)
+    const message = e instanceof Error ? e.message : "Falha ao buscar propriedades do Notion"
+    return NextResponse.json({ error: message }, { status: 500 })
   }
 }
