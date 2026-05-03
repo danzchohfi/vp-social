@@ -85,8 +85,6 @@ export default function OnboardingPage() {
   const [keptAccountIds, setKeptAccountIds] = useState<Set<string>>(new Set())
   const [confirmingPending, setConfirmingPending] = useState(false)
 
-  // ─── Load existing connection ──────────────────────────────────────────
-
   const loadConnection = useCallback(async () => {
     setLoading(true)
     try {
@@ -106,7 +104,7 @@ export default function OnboardingPage() {
         const conn = list[0]
         setConnection(conn)
         if (conn.databaseId) {
-          setStep(3) // database already picked → Instagram step
+          setStep(3)
         } else {
           setStep(2)
           loadDatabases(conn.id)
@@ -119,17 +117,11 @@ export default function OnboardingPage() {
     }
   }, [])
 
-  // ─── Detect OAuth redirects + load existing connection ─────────────
-
   useEffect(() => {
     const igConnected = searchParams.get("instagram_connected")
     const error = searchParams.get("error")
 
     if (error) {
-      // Surface the failure with a toast instead of silently swallowing it.
-      // Still call loadConnection so the wizard advances to whatever step the
-      // DB actually reflects — otherwise the user gets stuck on step 0
-      // because nothing else updates `step` after the redirect.
       const message =
         error === "cancelled"
           ? "Conexão cancelada — você fechou a janela do Notion ou Facebook."
@@ -142,12 +134,6 @@ export default function OnboardingPage() {
     }
 
     if (igConnected === "true") {
-      // Returning from Facebook OAuth. Three things to do in parallel:
-      // 1. Load client info (for the wizard header / saveClient fallback)
-      // 2. Load notion connection (for MappingForm in step 4)
-      // 3. Load pending Facebook pages (active=false, recently created) so
-      //    we can show the per-client page picker BEFORE proceeding to
-      //    Mapeamento. The picker lives inside step 3.
       ;(async () => {
         try {
           const [clientsRes, connRes, pendingRes] = await Promise.all([
@@ -164,15 +150,10 @@ export default function OnboardingPage() {
 
           const pending: PendingAccount[] = pendingRes.accounts ?? []
           if (pending.length > 0) {
-            // Stay on step 3 and show the page picker. Default selection
-            // is none — user explicitly picks the pages that belong to
-            // THIS client.
             setPendingAccounts(pending)
             setKeptAccountIds(new Set())
             setStep(3)
           } else {
-            // No pending pages (nothing new added in OAuth, or the user is
-            // testing). Skip straight to Mapeamento.
             setStep(4)
           }
         } finally {
@@ -185,14 +166,11 @@ export default function OnboardingPage() {
     loadConnection()
   }, [searchParams, loadConnection])
 
-  // ─── Save client (step 0) ────────────────────────────────────────────────
-
   const saveClient = async () => {
     if (!clientName.trim()) return
     setSavingClient(true)
     try {
       if (clientId) {
-        // Rename the active client (typical case: "Cliente padrão" → real name).
         const res = await fetch(`/api/clients/${clientId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
@@ -203,7 +181,6 @@ export default function OnboardingPage() {
           return
         }
       } else {
-        // No active client yet (rare race condition). Create one.
         const res = await fetch("/api/clients", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -226,8 +203,6 @@ export default function OnboardingPage() {
       setSavingClient(false)
     }
   }
-
-  // ─── Load databases ──────────────────────────────────────────────────────────
 
   const loadDatabases = useCallback(async (connectionId: string) => {
     setDbLoading(true)
@@ -330,7 +305,6 @@ export default function OnboardingPage() {
 
   return (
     <div className="w-full max-w-lg space-y-8">
-      {/* Step indicators */}
       <div className="flex items-center justify-center gap-0">
         {STEPS.map((s, i) => (
           <div key={s.num} className="flex items-center">
@@ -347,104 +321,55 @@ export default function OnboardingPage() {
               >
                 {step > s.num ? <CheckCircle2 className="h-4 w-4" /> : s.num}
               </div>
-              <span
-                className={cn(
-                  "text-[10px] sm:text-xs",
-                  step === s.num ? "font-medium text-foreground" : "text-muted-foreground"
-                )}
-              >
-                {s.label}
-              </span>
+              <span className={cn("text-[10px] sm:text-xs", step === s.num ? "font-medium text-foreground" : "text-muted-foreground")}>{s.label}</span>
             </div>
-            {i < STEPS.length - 1 && (
-              <div
-                className={cn(
-                  "mx-1 sm:mx-2 mb-5 h-0.5 w-6 sm:w-10 transition-colors",
-                  step > s.num ? "bg-primary" : "bg-muted"
-                )}
-              />
-            )}
+            {i < STEPS.length - 1 && <div className={cn("mx-1 sm:mx-2 mb-5 h-0.5 w-6 sm:w-10 transition-colors", step > s.num ? "bg-primary" : "bg-muted")} />}
           </div>
         ))}
       </div>
 
       {step === 0 && (
-        <StepCard
-          icon={<Building2 className="h-6 w-6 text-primary" />}
-          title="Seu primeiro cliente"
-          description="Cada cliente tem seu próprio Notion, contas sociais e histórico isolados. Comece dando um nome."
-        >
+        <StepCard icon={<Building2 className="h-6 w-6 text-primary" />} title="Seu primeiro cliente" description="Cada cliente tem seu próprio Notion, contas sociais e histórico isolados. Comece dando um nome.">
           <div className="space-y-3">
             <div className="space-y-1.5">
               <Label>Nome do cliente</Label>
-              <Input
-                autoFocus
-                value={clientName}
-                onChange={(e) => setClientName(e.target.value)}
-                onKeyDown={(e) => { if (e.key === "Enter") saveClient() }}
-                placeholder="Ex: Vitamina Publicitária, Naydacury…"
-              />
+              <Input autoFocus value={clientName} onChange={(e) => setClientName(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") saveClient() }} placeholder="Ex: Vitamina Publicitária, Naydacury…" />
             </div>
             <div className="space-y-1.5">
               <Label>Logo (URL opcional)</Label>
-              <Input
-                value={clientLogo}
-                onChange={(e) => setClientLogo(e.target.value)}
-                placeholder="https://exemplo.com/logo.png"
-              />
+              <Input value={clientLogo} onChange={(e) => setClientLogo(e.target.value)} placeholder="https://exemplo.com/logo.png" />
             </div>
             <Button onClick={saveClient} disabled={savingClient || !clientName.trim()} className="w-full" size="lg">
               {savingClient ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
               Continuar
             </Button>
-            <p className="text-center text-xs text-muted-foreground">
-              Você pode adicionar mais clientes depois em &quot;Clientes&quot;.
-            </p>
+            <p className="text-center text-xs text-muted-foreground">Você pode adicionar mais clientes depois em &quot;Clientes&quot;.</p>
           </div>
         </StepCard>
       )}
 
       {step === 1 && (
-        <StepCard
-          icon={<BookOpen className="h-6 w-6 text-primary" />}
-          title="Conectar ao Notion"
-          description="Autorize o VP Social a acessar seus workspaces no Notion para buscar seus posts agendados."
-        >
+        <StepCard icon={<BookOpen className="h-6 w-6 text-primary" />} title="Conectar ao Notion" description="Autorize o VP Social a acessar seus workspaces no Notion para buscar seus posts agendados.">
           <Button onClick={connectNotion} disabled={loading} className="w-full" size="lg">
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}
             Conectar Notion
           </Button>
-          <p className="text-center text-xs text-muted-foreground">
-            Você será redirecionado para o Notion para autorizar o acesso.{" "}
-            Se tiver o app Notion instalado no Mac, use Firefox ou uma janela anônima para evitar que o app intercepte o login.
-          </p>
+          <p className="text-center text-xs text-muted-foreground">Você será redirecionado para o Notion para autorizar o acesso. Se tiver o app Notion instalado no Mac, use Firefox ou uma janela anônima para evitar que o app intercepte o login.</p>
         </StepCard>
       )}
 
       {step === 2 && (
-        <StepCard
-          icon={<Database className="h-6 w-6 text-primary" />}
-          title="Selecionar banco de dados"
-          description="Escolha qual banco de dados do Notion contém seus posts para publicação."
-        >
+        <StepCard icon={<Database className="h-6 w-6 text-primary" />} title="Selecionar banco de dados" description="Escolha qual banco de dados do Notion contém seus posts para publicação.">
           {dbLoading ? (
-            <div className="flex justify-center py-4">
-              <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-            </div>
+            <div className="flex justify-center py-4"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
           ) : (
             <div className="space-y-3">
               {databases.length > 0 && (
                 <div className="space-y-1.5">
                   <Label>Banco de dados detectado</Label>
                   <Select value={selectedDbId} onValueChange={(v) => { setSelectedDbId(v); setManualUrl("") }}>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Selecione um banco de dados…" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {databases.map((db) => (
-                        <SelectItem key={db.id} value={db.id}>{db.name}</SelectItem>
-                      ))}
-                    </SelectContent>
+                    <SelectTrigger><SelectValue placeholder="Selecione um banco de dados…" /></SelectTrigger>
+                    <SelectContent>{databases.map((db) => <SelectItem key={db.id} value={db.id}>{db.name}</SelectItem>)}</SelectContent>
                   </Select>
                 </div>
               )}
@@ -452,9 +377,7 @@ export default function OnboardingPage() {
                 <div className="space-y-3 rounded-lg border border-warning/40 bg-warning/5 p-4">
                   <div className="space-y-1">
                     <p className="text-sm font-medium">Nenhuma página acessível para este cliente.</p>
-                    <p className="text-xs text-muted-foreground">
-                      Cada cliente que você cria tem sua própria autorização do Notion. Páginas compartilhadas com outros clientes não vêm junto automaticamente. Você tem 2 caminhos:
-                    </p>
+                    <p className="text-xs text-muted-foreground">Cada cliente que você cria tem sua própria autorização do Notion. Páginas compartilhadas com outros clientes não vêm junto automaticamente. Você tem 2 caminhos:</p>
                   </div>
                   <div className="space-y-2 rounded border bg-background/50 p-3 text-xs">
                     <p className="font-semibold">Opção 1 — No Notion, adicione esta integração ao banco</p>
@@ -477,21 +400,10 @@ export default function OnboardingPage() {
               )}
               <div className="space-y-1.5">
                 <Label>{databases.length > 0 ? "Ou cole o link do banco diretamente" : "Cole a URL do banco aqui"}</Label>
-                <Input
-                  placeholder="https://notion.so/workspace/Titulo-xxxxxxxx"
-                  value={manualUrl}
-                  onChange={(e) => { setManualUrl(e.target.value); setSelectedDbId("") }}
-                />
-                <p className="text-xs text-muted-foreground">
-                  No banco do Notion, clique em ⋯ → <strong>Copiar link</strong> e cole aqui. Vamos validar o acesso antes de salvar.
-                </p>
+                <Input placeholder="https://notion.so/workspace/Titulo-xxxxxxxx" value={manualUrl} onChange={(e) => { setManualUrl(e.target.value); setSelectedDbId("") }} />
+                <p className="text-xs text-muted-foreground">No banco do Notion, clique em ⋯ → <strong>Copiar link</strong> e cole aqui. Vamos validar o acesso antes de salvar.</p>
               </div>
-              <Button
-                onClick={saveDatabase}
-                disabled={!effectiveDbId || dbSaving}
-                className="w-full"
-                size="lg"
-              >
+              <Button onClick={saveDatabase} disabled={!effectiveDbId || dbSaving} className="w-full" size="lg">
                 {dbSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
                 Continuar
               </Button>
@@ -501,28 +413,13 @@ export default function OnboardingPage() {
       )}
 
       {step === 3 && pendingAccounts && pendingAccounts.length > 0 && (
-        <StepCard
-          icon={<Instagram className="h-6 w-6 text-primary" />}
-          title="Quais páginas pertencem a este cliente?"
-          description="O Facebook devolveu todas as páginas que você compartilhou com a integração. Marque só as que pertencem a este cliente — as outras são removidas."
-        >
+        <StepCard icon={<Instagram className="h-6 w-6 text-primary" />} title="Quais páginas pertencem a este cliente?" description="O Facebook devolveu todas as páginas que você compartilhou com a integração. Marque só as que pertencem a este cliente — as outras são removidas.">
           <div className="space-y-2">
             {pendingAccounts.map((acc) => {
               const checked = keptAccountIds.has(acc.id)
               return (
-                <label
-                  key={acc.id}
-                  className={cn(
-                    "flex cursor-pointer items-center gap-3 rounded-lg border bg-card p-3 transition-colors",
-                    checked ? "border-primary bg-primary/5" : "hover:bg-accent"
-                  )}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => togglePending(acc.id)}
-                    className="h-4 w-4 shrink-0"
-                  />
+                <label key={acc.id} className={cn("flex cursor-pointer items-center gap-3 rounded-lg border bg-card p-3 transition-colors", checked ? "border-primary bg-primary/5" : "hover:bg-accent")}>
+                  <input type="checkbox" checked={checked} onChange={() => togglePending(acc.id)} className="h-4 w-4 shrink-0" />
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-medium">{acc.pageName}</p>
                     <p className="text-xs text-muted-foreground capitalize">{acc.platform}</p>
@@ -531,50 +428,21 @@ export default function OnboardingPage() {
               )
             })}
           </div>
-
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
-            <button
-              type="button"
-              onClick={() => setKeptAccountIds(new Set(pendingAccounts.map((a) => a.id)))}
-              className="underline hover:text-foreground"
-            >
-              Marcar todas
-            </button>
+            <button type="button" onClick={() => setKeptAccountIds(new Set(pendingAccounts.map((a) => a.id)))} className="underline hover:text-foreground">Marcar todas</button>
             <span>·</span>
-            <button
-              type="button"
-              onClick={() => setKeptAccountIds(new Set())}
-              className="underline hover:text-foreground"
-            >
-              Limpar
-            </button>
+            <button type="button" onClick={() => setKeptAccountIds(new Set())} className="underline hover:text-foreground">Limpar</button>
             <span className="ml-auto">{keptAccountIds.size} de {pendingAccounts.length} selecionada(s)</span>
           </div>
-
-          <Button
-            onClick={confirmPending}
-            disabled={confirmingPending}
-            className="w-full"
-            size="lg"
-          >
-            {confirmingPending ? (
-              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            ) : (
-              <ArrowRight className="mr-2 h-4 w-4" />
-            )}
-            {keptAccountIds.size === 0
-              ? `Continuar sem conectar nenhuma página (${pendingAccounts.length} serão removidas)`
-              : `Confirmar ${keptAccountIds.size} página(s) e continuar`}
+          <Button onClick={confirmPending} disabled={confirmingPending} className="w-full" size="lg">
+            {confirmingPending ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
+            {keptAccountIds.size === 0 ? `Continuar sem conectar nenhuma página (${pendingAccounts.length} serão removidas)` : `Confirmar ${keptAccountIds.size} página(s) e continuar`}
           </Button>
         </StepCard>
       )}
 
       {step === 3 && !(pendingAccounts && pendingAccounts.length > 0) && (
-        <StepCard
-          icon={<Instagram className="h-6 w-6 text-primary" />}
-          title="Conectar contas sociais"
-          description="Conecte suas contas via Facebook (Instagram + Facebook Pages). Outras plataformas podem ser conectadas depois nas Contas."
-        >
+        <StepCard icon={<Instagram className="h-6 w-6 text-primary" />} title="Conectar contas sociais" description="Conecte suas contas via Facebook (Instagram + Facebook Pages). Outras plataformas podem ser conectadas depois nas Contas.">
           {wasCloned && (
             <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">
               <strong>Workspace já estava conectado em outro cliente.</strong> Reaproveitamos o banco e o mapeamento — você só precisa conectar as contas sociais deste cliente agora.
@@ -592,55 +460,26 @@ export default function OnboardingPage() {
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}
             Conectar via Facebook
           </Button>
-          <button
-            type="button"
-            onClick={() => setStep(4)}
-            className="block w-full text-center text-xs text-muted-foreground underline hover:text-foreground"
-          >
-            Pular por agora
-          </button>
+          <button type="button" onClick={() => setStep(4)} className="block w-full text-center text-xs text-muted-foreground underline hover:text-foreground">Pular por agora</button>
         </StepCard>
       )}
 
       {step === 4 && !connection && (
-        <StepCard
-          icon={<Settings className="h-6 w-6 text-primary" />}
-          title="Mapeamento de campos"
-          description="Carregando dados do banco do Notion…"
-        >
-          <div className="flex justify-center py-6">
-            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-          </div>
-          <p className="text-center text-xs text-muted-foreground">
-            Se isso demorar mais de alguns segundos, talvez seja porque você não conectou um banco do Notion antes.
-          </p>
-          <Button variant="outline" onClick={() => router.push("/dashboard")} className="w-full">
-            Ir para o Dashboard
-          </Button>
+        <StepCard icon={<Settings className="h-6 w-6 text-primary" />} title="Mapeamento de campos" description="Carregando dados do banco do Notion…">
+          <div className="flex justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
+          <p className="text-center text-xs text-muted-foreground">Se isso demorar mais de alguns segundos, talvez seja porque você não conectou um banco do Notion antes.</p>
+          <Button variant="outline" onClick={() => router.push("/dashboard")} className="w-full">Ir para o Dashboard</Button>
         </StepCard>
       )}
 
       {step === 4 && connection && (
-        <StepCard
-          icon={<Settings className="h-6 w-6 text-primary" />}
-          title="Mapeamento de campos"
-          description="Diga ao VP Social onde estão os dados em cada coluna do seu banco do Notion."
-        >
-          <MappingForm
-            connectionId={connection.id}
-            wasCloned={wasCloned}
-            onSaved={() => setStep(5)}
-            onSkip={() => setStep(5)}
-          />
+        <StepCard icon={<Settings className="h-6 w-6 text-primary" />} title="Mapeamento de campos" description="Diga ao VP Social onde estão os dados em cada coluna do seu banco do Notion.">
+          <MappingForm connectionId={connection.id} wasCloned={wasCloned} onSaved={() => setStep(5)} onSkip={() => setStep(5)} />
         </StepCard>
       )}
 
       {step === 5 && (
-        <StepCard
-          icon={<Zap className="h-6 w-6 text-primary" />}
-          title="Tudo pronto!"
-          description="Suas conexões foram configuradas com sucesso. O VP Social vai publicar seus posts automaticamente."
-        >
+        <StepCard icon={<Zap className="h-6 w-6 text-primary" />} title="Tudo pronto!" description="Suas conexões foram configuradas com sucesso. O VP Social vai publicar seus posts automaticamente.">
           <div className="space-y-3">
             <SuccessItem label="Notion conectado" />
             <SuccessItem label="Banco de dados selecionado" />
@@ -655,17 +494,12 @@ export default function OnboardingPage() {
               <li>Acompanhe tudo em <strong>Publicações</strong></li>
             </ul>
           </div>
-          <Button onClick={finish} className="w-full" size="lg">
-            Ir para o Dashboard
-            <ArrowRight className="ml-2 h-4 w-4" />
-          </Button>
+          <Button onClick={finish} className="w-full" size="lg">Ir para o Dashboard <ArrowRight className="ml-2 h-4 w-4" /></Button>
         </StepCard>
       )}
     </div>
   )
 }
-
-// ─── Mapping form (used in step 4) ───────────────────────────────────────
 
 function MappingForm({
   connectionId,
@@ -722,8 +556,9 @@ function MappingForm({
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(mapping),
       })
+      const data = await res.json().catch(() => ({}))
       if (!res.ok) {
-        toast.error("Erro ao salvar mapeamento")
+        toast.error(data.error ?? "Erro ao salvar mapeamento")
         return
       }
       toast.success("Mapeamento salvo!")
@@ -741,13 +576,19 @@ function MappingForm({
     )
   }
 
-  const propNames = props.length
-    ? props.map(p => p.name)
-    : Object.values(mapping).filter((v): v is string => typeof v === "string" && v.length > 0)
-  const selectPropNames = props.length
-    ? props.filter(p => p.type === "select" || p.type === "status").map(p => p.name)
-    : [mapping.statusField].filter(Boolean)
-  const statusOptions = props.find(p => p.name === mapping.statusField)?.options ?? []
+  // Filter Notion props by type per field. We always include the currently-
+  // mapped value as a fallback so editing a pre-filled mapping doesn't silently
+  // hide a wrong-type column the user already had configured.
+  function namesByTypes(types: string[], current?: string): string[] {
+    if (!props.length) return current ? [current] : []
+    const matching = props.filter((p) => types.includes(p.type)).map((p) => p.name)
+    if (current && current.length > 0 && !matching.includes(current)) {
+      return [current, ...matching]
+    }
+    return matching
+  }
+
+  const statusOptions = props.find((p) => p.name === mapping.statusField)?.options ?? []
 
   return (
     <div className="space-y-5">
@@ -758,27 +599,81 @@ function MappingForm({
       )}
 
       <Section label="Status de Publicação">
-        <SelectField label="Campo de status" value={mapping.statusField} options={selectPropNames} onChange={(v) => setField("statusField", v)} hint="Apenas campos Select aparecem aqui" />
+        <SelectField
+          label="Campo de status"
+          value={mapping.statusField}
+          options={namesByTypes(["select", "status"], mapping.statusField)}
+          onChange={(v) => setField("statusField", v)}
+          hint="Apenas Select / Status"
+        />
         <StatusValueSelect label='Valor "Pronto"' value={mapping.statusReadyValue} options={statusOptions} onChange={(v) => setField("statusReadyValue", v)} />
         <StatusValueSelect label='Valor "Publicado"' value={mapping.statusPublishedValue} options={statusOptions} onChange={(v) => setField("statusPublishedValue", v)} />
         <StatusValueSelect label='Valor "Erro"' value={mapping.statusErrorValue} options={statusOptions} onChange={(v) => setField("statusErrorValue", v)} />
       </Section>
 
       <Section label="Agendamento">
-        <SelectField label="Data de publicação" value={mapping.dateField} options={propNames} onChange={(v) => setField("dateField", v)} />
-        <SelectField label="Conta" value={mapping.accountField} options={propNames} onChange={(v) => setField("accountField", v)} hint="Deve bater com o nome da conta cadastrada" />
+        <SelectField
+          label="Data de publicação"
+          value={mapping.dateField}
+          options={namesByTypes(["date"], mapping.dateField)}
+          onChange={(v) => setField("dateField", v)}
+          hint="Apenas Date"
+        />
+        <SelectField
+          label="Conta"
+          value={mapping.accountField}
+          options={namesByTypes(["select", "status", "rich_text", "title", "relation"], mapping.accountField)}
+          onChange={(v) => setField("accountField", v)}
+          hint="Texto, select ou relação"
+        />
       </Section>
 
       <Section label="Conteúdo">
-        <SelectField label="Legenda" value={mapping.captionField} options={propNames} onChange={(v) => setField("captionField", v)} />
-        <SelectField label="Publicar em" value={mapping.publicarEmField} options={propNames} onChange={(v) => setField("publicarEmField", v)} hint="Multi-select: Instagram Reels, TikTok…" />
+        <SelectField
+          label="Legenda"
+          value={mapping.captionField}
+          options={namesByTypes(["rich_text", "title"], mapping.captionField)}
+          onChange={(v) => setField("captionField", v)}
+          hint="Texto longo (rich_text) ou título"
+        />
+        <SelectField
+          label="Publicar em"
+          value={mapping.publicarEmField}
+          options={namesByTypes(["multi_select"], mapping.publicarEmField)}
+          onChange={(v) => setField("publicarEmField", v)}
+          hint="Apenas Multi-select"
+        />
       </Section>
 
       <Section label="Mídia">
-        <SelectField label="Imagens Feed" value={mapping.feedImageUrlsField} options={propNames} onChange={(v) => setField("feedImageUrlsField", v)} />
-        <SelectField label="Mídia Vertical" value={mapping.verticalUrlsField} options={propNames} onChange={(v) => setField("verticalUrlsField", v)} hint="Stories, Reels" />
-        <SelectField label="Mídia Horizontal" value={mapping.horizontalUrlsField} options={propNames} onChange={(v) => setField("horizontalUrlsField", v)} />
-        <SelectField label="Thumbnail" value={mapping.thumbnailUrlField} options={propNames} onChange={(v) => setField("thumbnailUrlField", v)} />
+        <SelectField
+          label="Imagens Feed"
+          value={mapping.feedImageUrlsField}
+          options={namesByTypes(["files"], mapping.feedImageUrlsField)}
+          onChange={(v) => setField("feedImageUrlsField", v)}
+          hint="Apenas Files"
+        />
+        <SelectField
+          label="Mídia Vertical"
+          value={mapping.verticalUrlsField}
+          options={namesByTypes(["files"], mapping.verticalUrlsField)}
+          onChange={(v) => setField("verticalUrlsField", v)}
+          hint="Stories, Reels (Files)"
+        />
+        <SelectField
+          label="Mídia Horizontal"
+          value={mapping.horizontalUrlsField}
+          options={namesByTypes(["files"], mapping.horizontalUrlsField)}
+          onChange={(v) => setField("horizontalUrlsField", v)}
+          hint="Apenas Files"
+        />
+        <SelectField
+          label="Thumbnail"
+          value={mapping.thumbnailUrlField}
+          options={namesByTypes(["files"], mapping.thumbnailUrlField)}
+          onChange={(v) => setField("thumbnailUrlField", v)}
+          hint="Apenas Files"
+        />
       </Section>
 
       <p className="text-xs text-muted-foreground">
@@ -790,13 +685,7 @@ function MappingForm({
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
           Salvar e continuar
         </Button>
-        <button
-          type="button"
-          onClick={onSkip}
-          className="block w-full text-center text-xs text-muted-foreground underline hover:text-foreground"
-        >
-          Pular por agora (uso valores padrão)
-        </button>
+        <button type="button" onClick={onSkip} className="block w-full text-center text-xs text-muted-foreground underline hover:text-foreground">Pular por agora (uso valores padrão)</button>
       </div>
     </div>
   )
@@ -817,9 +706,7 @@ function SelectField({ label, value, options, onChange, hint }: { label: string;
       <Label className="text-sm">{label}</Label>
       {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
       <Select value={value || NONE_VALUE} onValueChange={(v) => onChange(v === NONE_VALUE ? "" : v)}>
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Selecionar campo..." />
-        </SelectTrigger>
+        <SelectTrigger className="w-full"><SelectValue placeholder="Selecionar campo..." /></SelectTrigger>
         <SelectContent>
           <SelectItem value={NONE_VALUE}>— Não usar —</SelectItem>
           {options.filter(Boolean).map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
@@ -842,9 +729,7 @@ function StatusValueSelect({ label, value, options, onChange }: { label: string;
     <div className="space-y-1">
       <Label className="text-sm">{label}</Label>
       <Select value={value || NONE_VALUE} onValueChange={(v) => onChange(v === NONE_VALUE ? "" : v)}>
-        <SelectTrigger className="w-full">
-          <SelectValue placeholder="Selecionar valor..." />
-        </SelectTrigger>
+        <SelectTrigger className="w-full"><SelectValue placeholder="Selecionar valor..." /></SelectTrigger>
         <SelectContent>
           <SelectItem value={NONE_VALUE}>— Não usar —</SelectItem>
           {options.map((o) => <SelectItem key={o} value={o}>{o}</SelectItem>)}
@@ -854,23 +739,11 @@ function StatusValueSelect({ label, value, options, onChange }: { label: string;
   )
 }
 
-function StepCard({
-  icon,
-  title,
-  description,
-  children,
-}: {
-  icon: React.ReactNode
-  title: string
-  description: string
-  children: React.ReactNode
-}) {
+function StepCard({ icon, title, description, children }: { icon: React.ReactNode; title: string; description: string; children: React.ReactNode }) {
   return (
     <Card className="shadow-sm">
       <CardHeader className="pb-4">
-        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">
-          {icon}
-        </div>
+        <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">{icon}</div>
         <CardTitle className="text-xl">{title}</CardTitle>
         <CardDescription className="text-sm leading-relaxed">{description}</CardDescription>
       </CardHeader>
