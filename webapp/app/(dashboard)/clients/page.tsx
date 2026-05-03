@@ -84,14 +84,19 @@ export default function ClientsPage() {
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Erro")
-      toast.success(`Cliente "${data.client.name}" criado`)
-      setNewName("")
-      setNewLogo("")
-      setShowNew(false)
-      await load()
+      // Make active and send through onboarding so the new client gets a
+      // proper Notion + Contas + Mapeamento setup. Without this the user has
+      // to manually click "Tornar ativo" and navigate to /onboarding, ending
+      // up in a half-configured state.
+      await fetch("/api/clients/active", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ clientId: data.client.id }),
+      })
+      toast.success(`Cliente "${data.client.name}" criado — configurando…`)
+      window.location.href = "/onboarding"
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro")
-    } finally {
       setCreating(false)
     }
   }
