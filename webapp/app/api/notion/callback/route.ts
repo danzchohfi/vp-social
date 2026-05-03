@@ -88,41 +88,51 @@ export async function GET(req: Request) {
     // Clone the field mapping when we cloned the connection. Only on first
     // insert — if the new client already had a mapping (from a previous
     // partial setup) we keep it.
+    //
+    // Wrapped in its own try/catch so a failure here (e.g. a column the
+    // source row has but the new schema rejects) doesn't kill the whole
+    // callback and dump the user back to the wizard with ?error=failed.
+    // The connection itself is already saved; the user can fall back to
+    // the default mapping on /settings if this clone fails.
     if (cloneSource?.databaseId) {
-      const [newConn] = await db
-        .select()
-        .from(notionConnection)
-        .where(and(
-          eq(notionConnection.userId, userId),
-          eq(notionConnection.clientId, clientId),
-          eq(notionConnection.workspaceId, data.workspace_id),
-        ))
-        .limit(1)
-
-      if (newConn) {
-        const [existing] = await db
+      try {
+        const [newConn] = await db
           .select()
-          .from(fieldMapping)
-          .where(eq(fieldMapping.connectionId, newConn.id))
+          .from(notionConnection)
+          .where(and(
+            eq(notionConnection.userId, userId),
+            eq(notionConnection.clientId, clientId),
+            eq(notionConnection.workspaceId, data.workspace_id),
+          ))
           .limit(1)
 
-        if (!existing) {
-          const [source] = await db
+        if (newConn) {
+          const [existing] = await db
             .select()
             .from(fieldMapping)
-            .where(eq(fieldMapping.connectionId, cloneSource.id))
+            .where(eq(fieldMapping.connectionId, newConn.id))
             .limit(1)
 
-          if (source) {
-            const { id: _id, connectionId: _cid, userId: _uid, createdAt: _ca, updatedAt: _ua, ...mappingFields } = source
-            await db.insert(fieldMapping).values({
-              id: generateId(),
-              userId,
-              connectionId: newConn.id,
-              ...mappingFields,
-            })
+          if (!existing) {
+            const [source] = await db
+              .select()
+              .from(fieldMapping)
+              .where(eq(fieldMapping.connectionId, cloneSource.id))
+              .limit(1)
+
+            if (source) {
+              const { id: _id, connectionId: _cid, userId: _uid, createdAt: _ca, updatedAt: _ua, ...mappingFields } = source
+              await db.insert(fieldMapping).values({
+                id: generateId(),
+                userId,
+                connectionId: newConn.id,
+                ...mappingFields,
+              })
+            }
           }
         }
+      } catch (e) {
+        console.warn("Notion callback: failed to clone fieldMapping (non-fatal):", e)
       }
     }
 
