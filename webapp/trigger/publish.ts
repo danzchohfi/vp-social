@@ -109,6 +109,10 @@ export const publishForConnection = task({
       // same post every 5 minutes because the filter still matches.
       let anyPublished = false
       let anyFailed = false
+      // Collect all published-platform URLs so we can write them to the
+      // Notion link field as a single rich_text block — multiple platforms
+      // would otherwise overwrite each other.
+      const publishedLinks: Array<{ platform: string; url: string }> = []
 
       for (const target of post.publishTargets) {
         const key = `${target.platform}:${post.conta.toLowerCase()}`
@@ -124,9 +128,7 @@ export const publishForConnection = task({
         try {
           const { id: postId, url: postUrl } = await publishToPlatform(target.platform, target.tipo, account, post)
           await saveLog(db, userId, connectionId, post, postId, postUrl, target.raw, "published", null, connection.clientId)
-          if (postUrl) {
-            await notion.setPostUrl(post.pageId, mapping, postUrl).catch(() => {})
-          }
+          if (postUrl) publishedLinks.push({ platform: target.raw, url: postUrl })
           logger.info(`[${target.raw}/${post.conta}] ✓ "${post.title}" publicado! ID: ${postId}${postUrl ? ` URL: ${postUrl}` : ""}`)
           results.published++
           anyPublished = true
@@ -139,15 +141,17 @@ export const publishForConnection = task({
         }
       }
 
-      // Update the Notion page status so the post leaves the "ready" filter.
-      // If at least one platform published, mark Publicado. Otherwise if any
-      // attempt failed, mark Erro. Pure skipped (no targets matched) leaves
-      // status untouched so the user can fix the account mapping and retry.
+      // After all platforms attempted: write the collected links + flip status.
+      // Status update is what removes the post from the "ready" filter; without
+      // it the cron would republish on the next tick.
       try {
+        if (publishedLinks.length > 0) {
+          await notion.setPostUrls(post.pageId, mapping, publishedLinks)
+        }
         if (anyPublished) await notion.markPublished(post.pageId, mapping)
         else if (anyFailed) await notion.markFailed(post.pageId, mapping)
       } catch (e) {
-        logger.warn(`Falha ao atualizar status no Notion para "${post.title}": ${e}`)
+        logger.warn(`Falha ao atualizar Notion para "${post.title}": ${e}`)
       }
     }
 

@@ -1,6 +1,6 @@
 import { Client } from "@notionhq/client"
 
-// ─── Publish targets ──────────────────────────────────────
+// ─── Publish targets ───────────────────────────────────────
 
 export interface PublishTarget {
   platform: string  // "instagram" | "facebook" | "youtube" | "tiktok" | "linkedin"
@@ -90,7 +90,7 @@ export const DEFAULT_MAPPING: FieldMapping = {
   dateField: "Dia para fazer",
   accountField: "Conta",
   socialVpField: "Social VP",
-  postUrlField: "Link do Post",
+  postUrlField: "Links Publicados",
 }
 
 // ─── Cliente Notion ────────────────────────────────────────
@@ -190,22 +190,43 @@ export function createNotionClient(accessToken: string) {
     },
 
     async setPostUrl(pageId: string, mapping: FieldMapping, url: string): Promise<void> {
-      if (!mapping.postUrlField) return
+      // Backwards-compat shim: writes a single URL via setPostUrls.
+      return this.setPostUrls(pageId, mapping, [{ platform: "Post", url }])
+    },
+
+    async setPostUrls(
+      pageId: string,
+      mapping: FieldMapping,
+      links: Array<{ platform: string; url: string }>
+    ): Promise<void> {
+      if (!mapping.postUrlField || !links.length) return
+      // Build a rich_text array: "Platform: " + clickable URL, separated by newlines.
+      const richText: Array<Record<string, unknown>> = []
+      links.forEach((link, i) => {
+        if (i > 0) richText.push({ type: "text", text: { content: "\n" } })
+        richText.push({ type: "text", text: { content: `${link.platform}: ` } })
+        richText.push({
+          type: "text",
+          text: { content: link.url, link: { url: link.url } },
+        })
+      })
       try {
         await client.pages.update({
           page_id: pageId,
           properties: {
-            [mapping.postUrlField]: { url },
+            [mapping.postUrlField]: { rich_text: richText },
           } as any,
         })
-      } catch {
-        // Field may not exist on the user's database — fail silently
+      } catch (e) {
+        // The property may not exist, or may be the wrong type (e.g. URL
+        // property instead of rich_text). Don't fail the publish — just log.
+        console.warn(`[notion.setPostUrls] failed for page ${pageId}: ${e}`)
       }
     },
   }
 }
 
-// ─── Parsing ───────────────────────────────────────────────
+// ─── Parsing ──────────────────────────────────────────────
 
 async function parsePage(page: any, m: FieldMapping, client: Client): Promise<NotionPost> {
   const p = page.properties

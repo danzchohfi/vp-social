@@ -59,6 +59,10 @@ export async function POST(req: Request) {
 
   const results: Array<{ platform: string; status: "published" | "failed" | "skipped"; postId?: string; postUrl?: string | null; error?: string }> = []
   let anyPublished = false
+  // Collect all published-platform URLs so we can write them to the Notion
+  // link field as a single rich_text block. Multiple platforms otherwise
+  // overwrite each other.
+  const publishedLinks: Array<{ platform: string; url: string }> = []
 
   if (!post.publishTargets.length) {
     return NextResponse.json(
@@ -81,9 +85,7 @@ export async function POST(req: Request) {
     try {
       const { id: postId, url: postUrl } = await publishToPlatform(target.platform, target.tipo, account, post)
       await saveLog(db, userId, connectionId, post, postId, postUrl, target.raw, "published", null, connection.clientId)
-      if (postUrl) {
-        await notion.setPostUrl(post.pageId, mapping, postUrl).catch(() => {})
-      }
+      if (postUrl) publishedLinks.push({ platform: target.raw, url: postUrl })
       results.push({ platform: target.raw, status: "published", postId, postUrl })
       anyPublished = true
     } catch (error) {
@@ -94,6 +96,9 @@ export async function POST(req: Request) {
   }
 
   try {
+    if (publishedLinks.length > 0) {
+      await notion.setPostUrls(post.pageId, mapping, publishedLinks)
+    }
     if (anyPublished) await notion.markPublished(post.pageId, mapping)
     else await notion.markFailed(post.pageId, mapping)
   } catch {}
