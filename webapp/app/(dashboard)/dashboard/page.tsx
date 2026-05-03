@@ -3,11 +3,11 @@ import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
 import { fieldMapping, instagramAccount, notionConnection, publishLog } from "@/lib/db/schema"
-import { eq, desc, count, inArray } from "drizzle-orm"
+import { eq, desc, count, inArray, and, gte, max } from "drizzle-orm"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, Zap, ArrowRight, Facebook, Youtube, Linkedin, CalendarClock, LayoutGrid, Building2 } from "lucide-react"
+import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, Zap, ArrowRight, Facebook, Youtube, Linkedin, CalendarClock, LayoutGrid, Building2, AlertTriangle, MoonStar } from "lucide-react"
 import Link from "next/link"
 import { PublishButton } from "@/components/dashboard/publish-button"
 import { getActiveClientScope } from "@/lib/active-client"
@@ -79,6 +79,61 @@ export default async function DashboardPage() {
   const upcomingCount = upcoming.length
   const nextFive = upcoming.slice(0, 5)
 
+  // ─── Health panel + per-client aggregates ─────────────────────────────
+  // These are cheap (couple of GROUP BY queries) and feed both the
+  // attention panel (recent failures, inactive clients) and the agency-mode
+  // per-client cards.
+  const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
+  const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
+  const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
+
+  const [recentFailures, lastPerClient, monthByClient] = await Promise.all([
+    // Most recent failures (across scope) — drives the "needs review" item.
+    db
+      .select({
+        id: publishLog.id,
+        title: publishLog.postTitle,
+        clientId: publishLog.clientId,
+        platform: publishLog.platform,
+        publishedAt: publishLog.publishedAt,
+        error: publishLog.error,
+      })
+      .from(publishLog)
+      .where(and(logsFilter, eq(publishLog.status, "failed"), gte(publishLog.publishedAt, sevenDaysAgo)))
+      .orderBy(desc(publishLog.publishedAt))
+      .limit(5),
+    // Most recent successful publish per client — drives "inactive client" warning.
+    db
+      .select({ clientId: publishLog.clientId, lastAt: max(publishLog.publishedAt) })
+      .from(publishLog)
+      .where(and(logsFilter, eq(publishLog.status, "published")))
+      .groupBy(publishLog.clientId),
+    // Publishes this month per client — drives agency-mode per-client cards.
+    db
+      .select({ clientId: publishLog.clientId, total: count() })
+      .from(publishLog)
+      .where(and(logsFilter, eq(publishLog.status, "published"), gte(publishLog.publishedAt, startOfMonth)))
+      .groupBy(publishLog.clientId),
+  ])
+
+  const lastByClient = new Map(lastPerClient.map((r) => [r.clientId, r.lastAt ? new Date(r.lastAt) : null]))
+  const monthCountByClient = new Map(monthByClient.map((r) => [r.clientId, Number(r.total)]))
+  const upcomingByClient = new Map<string, number>()
+  for (const p of upcoming) {
+    if (p.clientId) upcomingByClient.set(p.clientId, (upcomingByClient.get(p.clientId) ?? 0) + 1)
+  }
+
+  // Inactive = no successful publish in last 14 days. Skip clients that never
+  // configured Notion (no point flagging — already shown in setup wizard).
+  const clientHasConnection = new Set(notion.map((n) => n.clientId).filter(Boolean) as string[])
+  const inactiveClients = allowedClients.filter((c) => {
+    if (!clientHasConnection.has(c.id)) return false
+    const last = lastByClient.get(c.id)
+    return !last || last < fourteenDaysAgo
+  })
+
+  const hasHealthIssues = recentFailures.length > 0 || inactiveClients.length > 0
+
   const notionConnected = notion.length > 0
   const notionHasDb = notion.some((n) => n.databaseId)
   const hasAccounts = accounts.filter((a) => a.active).length > 0
@@ -142,24 +197,129 @@ export default async function DashboardPage() {
         {!isAgency && isReady && <PublishButton />}
       </div>
 
-      {scope.mode === "all" && (
-        <div className="mb-8 rounded-xl border bg-card p-4">
-          <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Clientes ({scope.clients.length})</p>
-          <div className="mt-2 flex flex-wrap gap-2">
-            {scope.clients.map((c) => (
-              <span key={c.id} className="inline-flex items-center gap-1.5 rounded-full border bg-background px-2 py-1 text-xs">
-                {c.logoUrl ? (
-                  <img src={c.logoUrl} alt="" className="h-4 w-4 rounded-full object-cover" />
-                ) : (
-                  <Building2 className="h-3 w-3 text-muted-foreground" />
-                )}
-                {c.name}
-              </span>
-            ))}
+      {hasHealthIssues && (
+        <div className="mb-8 rounded-xl border border-warning/40 bg-warning/5 p-5">
+          <div className="mb-3 flex items-center gap-2">
+            <AlertTriangle className="h-4 w-4 text-warning" />
+            <p className="text-sm font-semibold">Precisa de atenção</p>
           </div>
-          <p className="mt-3 text-xs text-muted-foreground">
-            Para publicar ou configurar um cliente específico, troque para ele no menu lateral.
-          </p>
+          <div className="space-y-3">
+            {recentFailures.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">
+                  {recentFailures.length} {recentFailures.length === 1 ? "publicação falhou" : "publicações falharam"} nos últimos 7 dias
+                </p>
+                <ul className="mt-1.5 space-y-1">
+                  {recentFailures.map((f) => {
+                    const owning = f.clientId ? clientById.get(f.clientId) : null
+                    return (
+                      <li key={f.id} className="flex items-start gap-2 text-sm">
+                        <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
+                        <div className="min-w-0 flex-1">
+                          <span className="truncate">{f.title || "Post sem título"}</span>
+                          {scope.mode === "all" && owning && (
+                            <span className="ml-1.5 text-xs text-muted-foreground">· {owning.name}</span>
+                          )}
+                          <span className="ml-1.5 text-xs text-muted-foreground">· {f.platform}</span>
+                          {f.error && (
+                            <p className="mt-0.5 text-xs text-destructive/80 truncate font-mono">{f.error}</p>
+                          )}
+                        </div>
+                      </li>
+                    )
+                  })}
+                </ul>
+                <Link href="/scheduled?filter=errors" className="mt-2 inline-block text-xs text-warning underline hover:no-underline">
+                  Ver todos os erros →
+                </Link>
+              </div>
+            )}
+            {inactiveClients.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">
+                  {inactiveClients.length} {inactiveClients.length === 1 ? "cliente sem publicar há 14+ dias" : "clientes sem publicar há 14+ dias"}
+                </p>
+                <ul className="mt-1.5 space-y-1">
+                  {inactiveClients.map((c) => {
+                    const last = lastByClient.get(c.id)
+                    return (
+                      <li key={c.id} className="flex items-center gap-2 text-sm">
+                        <MoonStar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
+                        <span>{c.name}</span>
+                        <span className="text-xs text-muted-foreground">
+                          {last ? `· última em ${last.toLocaleDateString("pt-BR")}` : "· nenhuma publicação"}
+                        </span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {scope.mode === "all" && (
+        <div className="mb-8">
+          <div className="mb-3 flex items-baseline justify-between">
+            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+              Clientes ({scope.clients.length})
+            </p>
+            <p className="text-xs text-muted-foreground">
+              Toque pra trocar para um cliente específico
+            </p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            {scope.clients.map((c) => {
+              const last = lastByClient.get(c.id)
+              const monthCount = monthCountByClient.get(c.id) ?? 0
+              const upcomingForThisClient = upcomingByClient.get(c.id) ?? 0
+              const inactive = inactiveClients.some((x) => x.id === c.id)
+              const hasNotionConfigured = clientHasConnection.has(c.id)
+              return (
+                <div
+                  key={c.id}
+                  className={`flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors ${inactive ? "border-warning/40" : ""}`}
+                >
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {c.logoUrl ? (
+                      <img src={c.logoUrl} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
+                    ) : (
+                      <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                        <Building2 className="h-4 w-4" />
+                      </div>
+                    )}
+                    <p className="font-medium truncate flex-1">{c.name}</p>
+                  </div>
+                  {!hasNotionConfigured ? (
+                    <p className="text-xs text-muted-foreground">Notion não configurado</p>
+                  ) : (
+                    <>
+                      <div className="grid grid-cols-2 gap-2 text-center">
+                        <div className="rounded-lg bg-muted/40 p-2">
+                          <p className="font-display text-lg leading-none">{monthCount}</p>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">
+                            Publ. mês
+                          </p>
+                        </div>
+                        <div className="rounded-lg bg-muted/40 p-2">
+                          <p className="font-display text-lg leading-none">{upcomingForThisClient}</p>
+                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">
+                            Agendados
+                          </p>
+                        </div>
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {last
+                          ? <>Última: {last.toLocaleDateString("pt-BR")}{inactive && <span className="text-warning"> · inativo</span>}</>
+                          : "Sem publicações ainda"}
+                      </p>
+                    </>
+                  )}
+                </div>
+              )
+            })}
+          </div>
         </div>
       )}
 
