@@ -112,7 +112,21 @@ export default function OnboardingPage() {
     const igConnected = searchParams.get("instagram_connected")
     const error = searchParams.get("error")
 
-    if (error) return
+    if (error) {
+      // Surface the failure with a toast instead of silently swallowing it.
+      // Still call loadConnection so the wizard advances to whatever step the
+      // DB actually reflects — otherwise the user gets stuck on step 0
+      // because nothing else updates `step` after the redirect.
+      const message =
+        error === "cancelled"
+          ? "Conexão cancelada — você fechou a janela do Notion ou Facebook."
+          : error === "no_pages"
+          ? "Nenhuma página encontrada no Facebook. Verifique se você tem páginas administradas."
+          : "Erro ao conectar. Tente de novo."
+      toast.error(message)
+      loadConnection()
+      return
+    }
 
     if (igConnected === "true") {
       setStep(4)
