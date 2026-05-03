@@ -664,7 +664,7 @@ function MappingForm({
       </Section>
 
       <Section label="Pós-publicação">
-        <SelectField label="Link do post publicado" value={mapping.postUrlField} options={namesByTypes(["url"], mapping.postUrlField)} onChange={(v) => setField("postUrlField", v)} hint="Apenas URL — preenchido após publicar" />
+        <SelectField label="Links publicados" value={mapping.postUrlField} options={namesByTypes(["rich_text"], mapping.postUrlField)} onChange={(v) => setField("postUrlField", v)} hint="Texto — recebe um link clicável por plataforma após publicar" />
       </Section>
 
       <p className="text-xs text-muted-foreground">
