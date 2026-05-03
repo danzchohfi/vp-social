@@ -25,6 +25,11 @@ type ScheduledPost = {
   scheduledDate: string | null
   workspaceName?: string
   connectionId?: string
+  // Agency-view metadata (only present when /api/notion/scheduled is in
+  // mode: "all"). Used to render a small client badge per row.
+  clientId?: string | null
+  clientName?: string | null
+  clientLogoUrl?: string | null
   targetChecks?: TargetCheck[]
   belongsToClient?: boolean
   contaConnected?: boolean
@@ -46,6 +51,9 @@ type PastPost = {
   conta: string
   date: string
   connectionId: string | null
+  clientId?: string | null
+  clientName?: string | null
+  clientLogoUrl?: string | null
   belongsToClient: boolean
   platforms: PastPlatform[]
 }
@@ -108,6 +116,7 @@ export default function ScheduledPage() {
   const [configured, setConfigured] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showOthers, setShowOthers] = useState(false)
+  const [agencyMode, setAgencyMode] = useState(false)
   const [view, setView] = useState<"list" | "calendar">("list")
   const [filter, setFilter] = useState<Filter>("all")
 
@@ -121,6 +130,7 @@ export default function ScheduledPage() {
       setUpcomingAll((data.upcoming ?? data.posts ?? []).map((p: any) => ({ ...p, kind: "upcoming" as const })))
       setPastAll((data.past ?? []).map((p: any) => ({ ...p, kind: "past" as const })))
       setConfigured(data.configured ?? true)
+      setAgencyMode(!!data.agencyMode)
     } catch (e) {
       setError(String(e))
     } finally {
@@ -175,10 +185,10 @@ export default function ScheduledPage() {
     return checks.length > 0 && checks.some((c) => c.configured)
   }
 
-  // Apply showOthers filter (only meaningful for upcoming since past entries are
-  // always for the active client — they were saved when the user was scoped here)
-  const upcomingScoped = showOthers ? upcomingAll : upcomingAll.filter((p) => p.belongsToClient)
-  const otherPosts = upcomingAll.filter((p) => !p.belongsToClient)
+  // showOthers only matters in single-client mode; agency view shows all
+  // posts from the user's accessible clients by default.
+  const upcomingScoped = agencyMode || showOthers ? upcomingAll : upcomingAll.filter((p) => p.belongsToClient)
+  const otherPosts = agencyMode ? [] : upcomingAll.filter((p) => !p.belongsToClient)
 
   // Apply status filter
   const visibleUpcoming = filter === "published" || filter === "errors"
@@ -230,6 +240,11 @@ export default function ScheduledPage() {
       <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Publicações</h1>
+          {agencyMode && (
+            <span className="mt-1 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+              Visão agência · todos os clientes
+            </span>
+          )}
           <p className="text-muted-foreground">
             {willPublishPosts.length} prontos para publicar
             {needsAttention.length > 0 && <span className="text-warning"> · {needsAttention.length} precisam de ajustes</span>}
@@ -460,7 +475,17 @@ function PastPostRow({ post }: { post: PastPost }) {
     >
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <p className="font-medium truncate">{post.title || "Sem título"}</p>
+          <div className="flex flex-wrap items-center gap-2">
+            <p className="font-medium truncate">{post.title || "Sem título"}</p>
+            {post.clientName && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                {post.clientLogoUrl ? (
+                  <img src={post.clientLogoUrl} alt="" className="h-3 w-3 rounded-full object-cover" />
+                ) : null}
+                {post.clientName}
+              </span>
+            )}
+          </div>
           <p className="mt-0.5 text-xs text-muted-foreground">{post.conta}</p>
         </div>
         <div className="text-right shrink-0">
@@ -616,6 +641,15 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <p className="font-medium truncate">{post.title || "Sem título"}</p>
+            {/* Client chip — only shown in agency view (clientName present). */}
+            {post.clientName && (
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                {post.clientLogoUrl ? (
+                  <img src={post.clientLogoUrl} alt="" className="h-3 w-3 rounded-full object-cover" />
+                ) : null}
+                {post.clientName}
+              </span>
+            )}
             {isOtherClient && (
               <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
                 Outro cliente
