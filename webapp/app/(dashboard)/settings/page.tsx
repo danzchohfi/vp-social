@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSession } from "@/lib/auth-client"
 import { toast } from "sonner"
+import { RequiresSingleClient } from "@/components/dashboard/requires-single-client"
 
 type Workspace = {
   id: string
@@ -197,6 +198,7 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 py-8 px-4">
+      <RequiresSingleClient message="Configurações são por cliente. Selecione um cliente específico no menu lateral antes de mexer em conexões ou mapeamento." />
       <div>
         <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Configurações</h1>
         <p className="text-muted-foreground mt-1">Configure seus workspaces do Notion e o mapeamento de campos.</p>
