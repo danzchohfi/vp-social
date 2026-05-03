@@ -334,15 +334,26 @@ export default function OnboardingPage() {
                   </Select>
                 </div>
               )}
-              <div className="space-y-1.5">
-                <Label>
-                  {databases.length > 0 ? "Ou cole o link do banco diretamente" : "Link do banco de dados no Notion"}
-                </Label>
-                {databases.length === 0 && (
-                  <div className="rounded-lg border border-dashed p-3 text-center text-sm text-muted-foreground mb-2">
-                    Nenhum banco encontrado automaticamente.
+              {databases.length === 0 && (
+                <div className="space-y-3 rounded-lg border border-dashed bg-muted/30 p-4">
+                  <div className="space-y-1">
+                    <p className="text-sm font-medium">Nenhuma página compartilhada com este cliente.</p>
+                    <p className="text-xs text-muted-foreground">
+                      Cada cliente tem sua própria autorização do Notion. Reabra a tela do Notion e marque a página/banco que quer usar aqui.
+                    </p>
                   </div>
-                )}
+                  <Button onClick={connectNotion} disabled={loading} variant="outline" size="sm" className="w-full">
+                    {loading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <ExternalLink className="mr-2 h-4 w-4" />
+                    )}
+                    Selecionar páginas no Notion
+                  </Button>
+                </div>
+              )}
+              <div className="space-y-1.5">
+                <Label>Ou cole o link do banco diretamente</Label>
                 <Input
                   placeholder="https://notion.so/workspace/Titulo-xxxxxxxx"
                   value={manualUrl}

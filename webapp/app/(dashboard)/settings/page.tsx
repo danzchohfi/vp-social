@@ -173,6 +173,12 @@ export default function SettingsPage() {
     setWorkspaces(ws => ws.map(w => w.id === selectedId ? { ...w, databaseId: data.id, databaseName: data.name } : w))
   }
 
+  async function reauthNotion() {
+    const res = await fetch("/api/notion/auth-url?from=settings")
+    const { url } = await res.json()
+    window.location.href = url
+  }
+
   async function save() {
     if (!selectedId) return
     setSaving(true)
@@ -246,7 +252,17 @@ export default function SettingsPage() {
                     </Select>
                   </div>
                 ) : (
-                  <p className="text-xs text-muted-foreground">Nenhum banco encontrado automaticamente. Cole a URL abaixo.</p>
+                  <div className="space-y-3 rounded-lg border border-dashed bg-muted/30 p-4">
+                    <div className="space-y-1">
+                      <p className="text-sm font-medium">Nenhuma página compartilhada com este cliente.</p>
+                      <p className="text-xs text-muted-foreground">
+                        Cada cliente tem sua própria autorização do Notion. Reabra a tela do Notion e marque a página/banco que quer usar aqui.
+                      </p>
+                    </div>
+                    <Button onClick={reauthNotion} variant="outline" size="sm" className="w-full">
+                      Selecionar páginas no Notion
+                    </Button>
+                  </div>
                 )}
 
                 <div className="space-y-1.5">
