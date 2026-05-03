@@ -129,8 +129,27 @@ export default function OnboardingPage() {
     }
 
     if (igConnected === "true") {
-      setStep(4)
-      setLoading(false)
+      // Returning from Facebook OAuth. Force step 4 (Mapeamento) but ALSO
+      // refresh the connection from the DB — without this, MappingForm
+      // never renders because the gate `step === 4 && connection` fails
+      // (connection state is null on a fresh page load).
+      ;(async () => {
+        try {
+          const [clientsRes, connRes] = await Promise.all([
+            fetch("/api/clients").then((r) => r.json()),
+            fetch("/api/notion/connection").then((r) => r.json()),
+          ])
+          const activeClient = (clientsRes.clients ?? []).find((c: any) => c.id === clientsRes.activeClientId)
+          setClientId(activeClient?.id ?? null)
+          setClientName(activeClient?.name === "Cliente padrão" ? "" : activeClient?.name ?? "")
+          setClientLogo(activeClient?.logoUrl ?? "")
+          const list: Connection[] = connRes.connections ?? []
+          if (list.length > 0) setConnection(list[0])
+        } finally {
+          setStep(4)
+          setLoading(false)
+        }
+      })()
       return
     }
 
@@ -451,6 +470,24 @@ export default function OnboardingPage() {
           >
             Pular por agora
           </button>
+        </StepCard>
+      )}
+
+      {step === 4 && !connection && (
+        <StepCard
+          icon={<Settings className="h-6 w-6 text-primary" />}
+          title="Mapeamento de campos"
+          description="Carregando dados do banco do Notion…"
+        >
+          <div className="flex justify-center py-6">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+          <p className="text-center text-xs text-muted-foreground">
+            Se isso demorar mais de alguns segundos, talvez seja porque você não conectou um banco do Notion antes.
+          </p>
+          <Button variant="outline" onClick={() => router.push("/dashboard")} className="w-full">
+            Ir para o Dashboard
+          </Button>
         </StepCard>
       )}
 
