@@ -363,6 +363,12 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Analytics (opcional)</p>
                 <p className="text-xs text-muted-foreground">Crie campos Number no Notion e mapeie aqui para sincronizar métricas automaticamente.</p>
+                <div className="rounded-md border-2 border-fuchsia-500 bg-fuchsia-500/10 px-3 py-2 text-xs">
+                  <p className="font-mono font-bold text-fuchsia-600">BUILD: v2-numfilter</p>
+                  <p className="mt-1">Total props carregadas: <strong>{props.length}</strong></p>
+                  <p>Tipos únicos: <strong>{Array.from(new Set(props.map(p => p.type))).join(", ") || "—"}</strong></p>
+                  <p>Number filtrados ({numberPropNames.length}): <strong>{numberPropNames.join(", ") || "(vazio)"}</strong></p>
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <SelectField label="Curtidas" value={mapping.likesField} options={numberPropNames} onChange={(v) => setField("likesField", v)} />
                   <SelectField label="Comentários" value={mapping.commentsField} options={numberPropNames} onChange={(v) => setField("commentsField", v)} />
