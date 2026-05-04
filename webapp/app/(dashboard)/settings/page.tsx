@@ -152,6 +152,14 @@ export default function SettingsPage() {
     ? props.filter(p => p.type === "select" || p.type === "status").map(p => p.name)
     : [mapping.statusField].filter(Boolean)
 
+  // Analytics fields are written as numeric metrics by the sync job, so the
+  // dropdowns only offer Number-type properties. Falls back to the current
+  // saved value so an existing mapping isn't lost if the user reopens the
+  // form before props load.
+  const numberPropNames = props.length
+    ? props.filter(p => p.type === "number").map(p => p.name)
+    : [mapping.likesField, mapping.commentsField, mapping.reachField, mapping.savesField, mapping.impressionsField].filter(Boolean)
+
   const statusOptions = props.find(p => p.name === mapping.statusField)?.options ?? []
 
   function setField(key: keyof FieldMapping, value: string) {
@@ -356,11 +364,11 @@ export default function SettingsPage() {
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Analytics (opcional)</p>
                 <p className="text-xs text-muted-foreground">Crie campos Number no Notion e mapeie aqui para sincronizar métricas automaticamente.</p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <SelectField label="Curtidas" value={mapping.likesField} options={propNames} onChange={(v) => setField("likesField", v)} />
-                  <SelectField label="Comentários" value={mapping.commentsField} options={propNames} onChange={(v) => setField("commentsField", v)} />
-                  <SelectField label="Alcance" value={mapping.reachField} options={propNames} onChange={(v) => setField("reachField", v)} />
-                  <SelectField label="Salvamentos" value={mapping.savesField} options={propNames} onChange={(v) => setField("savesField", v)} />
-                  <SelectField label="Impressões" value={mapping.impressionsField} options={propNames} onChange={(v) => setField("impressionsField", v)} />
+                  <SelectField label="Curtidas" value={mapping.likesField} options={numberPropNames} onChange={(v) => setField("likesField", v)} />
+                  <SelectField label="Comentários" value={mapping.commentsField} options={numberPropNames} onChange={(v) => setField("commentsField", v)} />
+                  <SelectField label="Alcance" value={mapping.reachField} options={numberPropNames} onChange={(v) => setField("reachField", v)} />
+                  <SelectField label="Salvamentos" value={mapping.savesField} options={numberPropNames} onChange={(v) => setField("savesField", v)} />
+                  <SelectField label="Impressões" value={mapping.impressionsField} options={numberPropNames} onChange={(v) => setField("impressionsField", v)} />
                 </div>
               </div>
 
