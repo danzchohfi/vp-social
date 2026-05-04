@@ -206,14 +206,6 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 py-8 px-4">
-      <div className="rounded-md border-4 border-fuchsia-500 bg-fuchsia-500/20 px-4 py-3 text-sm">
-        <p className="font-mono font-bold text-fuchsia-700">BUILD: v3-top-debug</p>
-        <p className="mt-1">props.length = <strong>{props.length}</strong></p>
-        <p>tipos únicos: <strong>{Array.from(new Set(props.map(p => p.type))).join(", ") || "—"}</strong></p>
-        <p>numberPropNames ({numberPropNames.length}): <strong>{numberPropNames.join(", ") || "(vazio)"}</strong></p>
-        <p>dbName: <strong>{dbName ?? "(null)"}</strong></p>
-        <p>selectedId: <strong>{selectedId || "(none)"}</strong></p>
-      </div>
       <RequiresSingleClient message="Configurações são por cliente. Selecione um cliente específico no menu lateral antes de mexer em conexões ou mapeamento." />
       <div>
         <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Configurações</h1>
@@ -371,12 +363,6 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Analytics (opcional)</p>
                 <p className="text-xs text-muted-foreground">Crie campos Number no Notion e mapeie aqui para sincronizar métricas automaticamente.</p>
-                <div className="rounded-md border-2 border-fuchsia-500 bg-fuchsia-500/10 px-3 py-2 text-xs">
-                  <p className="font-mono font-bold text-fuchsia-600">BUILD: v2-numfilter</p>
-                  <p className="mt-1">Total props carregadas: <strong>{props.length}</strong></p>
-                  <p>Tipos únicos: <strong>{Array.from(new Set(props.map(p => p.type))).join(", ") || "—"}</strong></p>
-                  <p>Number filtrados ({numberPropNames.length}): <strong>{numberPropNames.join(", ") || "(vazio)"}</strong></p>
-                </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <SelectField label="Curtidas" value={mapping.likesField} options={numberPropNames} onChange={(v) => setField("likesField", v)} />
                   <SelectField label="Comentários" value={mapping.commentsField} options={numberPropNames} onChange={(v) => setField("commentsField", v)} />
