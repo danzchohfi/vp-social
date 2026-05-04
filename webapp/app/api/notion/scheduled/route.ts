@@ -89,11 +89,12 @@ export async function GET() {
           })
           const contaKey = p.conta?.toLowerCase() ?? ""
           const contaConnected = contaKey ? accounts.some((a) => a.active && a.conta.toLowerCase() === contaKey) : false
-          // In agency mode, every accessible client's posts "belong" — the
-          // belongsToClient flag was a single-client UX kludge.
-          const belongsToClient = isAgency
-            ? true
-            : !!p.conta && clientContas.has(p.conta.toLowerCase())
+          // True when the post's `conta` matches an active account in (single
+          // mode) the active client or (agency mode) any accessible client.
+          // Posts where this is false are filtered out below — they belong to
+          // contas the user hasn't connected here, and would just clutter
+          // /scheduled with stuff that isn't going to publish from this view.
+          const belongsToClient = !!contaKey && clientContas.has(contaKey)
           return {
             kind: "upcoming",
             ...p,
@@ -110,9 +111,13 @@ export async function GET() {
       })
     )
 
-    upcoming = allPosts
+    const flat = allPosts
       .filter((r): r is PromiseFulfilledResult<any[]> => r.status === "fulfilled")
       .flatMap((r) => r.value)
+    // Hide posts whose `conta` is unknown to this view's accounts. They can't
+    // publish from here anyway, so showing them creates a fake "limbo".
+    upcoming = flat
+      .filter((p) => p.belongsToClient)
       .sort((a, b) => {
         if (!a.scheduledDate) return 1
         if (!b.scheduledDate) return -1
