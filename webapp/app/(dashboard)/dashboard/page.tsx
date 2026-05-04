@@ -75,7 +75,12 @@ export default async function DashboardPage() {
 
   // Best-effort upcoming-post count + next 5 list. Failures fall back to []
   // so a flaky Notion call doesn't break the dashboard.
-  const upcoming = await fetchUpcomingForConnections(notion).catch(() => [])
+  const upcomingRaw = await fetchUpcomingForConnections(notion).catch(() => [])
+  // Same filter as /api/notion/scheduled: drop posts whose `conta` isn't a
+  // connected account in this scope. Otherwise the dashboard would surface
+  // posts that can't publish from here (limbo).
+  const clientContas = new Set(accounts.filter((a) => a.active).map((a) => a.conta.toLowerCase()))
+  const upcoming = upcomingRaw.filter((p) => p.conta && clientContas.has(p.conta.toLowerCase()))
   const upcomingCount = upcoming.length
   const nextFive = upcoming.slice(0, 5)
 
