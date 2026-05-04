@@ -206,6 +206,14 @@ export default function SettingsPage() {
 
   return (
     <div className="max-w-2xl mx-auto space-y-8 py-8 px-4">
+      <div className="rounded-md border-4 border-fuchsia-500 bg-fuchsia-500/20 px-4 py-3 text-sm">
+        <p className="font-mono font-bold text-fuchsia-700">BUILD: v3-top-debug</p>
+        <p className="mt-1">props.length = <strong>{props.length}</strong></p>
+        <p>tipos únicos: <strong>{Array.from(new Set(props.map(p => p.type))).join(", ") || "—"}</strong></p>
+        <p>numberPropNames ({numberPropNames.length}): <strong>{numberPropNames.join(", ") || "(vazio)"}</strong></p>
+        <p>dbName: <strong>{dbName ?? "(null)"}</strong></p>
+        <p>selectedId: <strong>{selectedId || "(none)"}</strong></p>
+      </div>
       <RequiresSingleClient message="Configurações são por cliente. Selecione um cliente específico no menu lateral antes de mexer em conexões ou mapeamento." />
       <div>
         <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Configurações</h1>
