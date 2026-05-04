@@ -115,7 +115,6 @@ export default function ScheduledPage() {
   const [loading, setLoading] = useState(true)
   const [configured, setConfigured] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showOthers, setShowOthers] = useState(false)
   const [agencyMode, setAgencyMode] = useState(false)
   const [view, setView] = useState<"list" | "calendar">("list")
   const [filter, setFilter] = useState<Filter>("all")
@@ -185,10 +184,9 @@ export default function ScheduledPage() {
     return checks.length > 0 && checks.some((c) => c.configured)
   }
 
-  // showOthers only matters in single-client mode; agency view shows all
-  // posts from the user's accessible clients by default.
-  const upcomingScoped = agencyMode || showOthers ? upcomingAll : upcomingAll.filter((p) => p.belongsToClient)
-  const otherPosts = agencyMode ? [] : upcomingAll.filter((p) => !p.belongsToClient)
+  // The API already filters out posts whose `conta` isn't connected in this
+  // view (single client or agency). What arrives here is what should show.
+  const upcomingScoped = upcomingAll
 
   // Apply status filter
   const visibleUpcoming = filter === "published" || filter === "errors"
@@ -304,20 +302,6 @@ export default function ScheduledPage() {
           </button>
         ))}
       </div>
-
-      {otherPosts.length > 0 && (
-        <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-lg border bg-muted/30 px-4 py-3">
-          <p className="text-sm text-muted-foreground">
-            {showOthers
-              ? <>Mostrando posts de <strong className="text-foreground">todos os clientes</strong> deste workspace</>
-              : <><strong className="text-foreground">{otherPosts.length}</strong> {otherPosts.length === 1 ? "post pertence" : "posts pertencem"} a outras contas/clientes neste workspace</>
-            }
-          </p>
-          <Button variant="ghost" size="sm" onClick={() => setShowOthers((v) => !v)}>
-            {showOthers ? "Ocultar de outros clientes" : "Ver todos do workspace"}
-          </Button>
-        </div>
-      )}
 
       {!configured && (
         <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-6 text-center">
