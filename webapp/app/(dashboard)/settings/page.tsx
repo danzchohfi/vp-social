@@ -22,6 +22,7 @@ type PropInfo = { name: string; type: string; options: string[] }
 
 type FieldMapping = {
   statusField: string; statusReadyValue: string; statusPublishedValue: string; statusErrorValue: string
+  titleField: string
   dateField: string; captionField: string
   publicarEmField: string
   accountField: string
@@ -32,6 +33,7 @@ type FieldMapping = {
 
 const DEFAULT_MAPPING: FieldMapping = {
   statusField: "Status", statusReadyValue: "Pronto", statusPublishedValue: "Publicado", statusErrorValue: "Erro",
+  titleField: "Produção",
   dateField: "Data", captionField: "Legenda",
   publicarEmField: "Publicar em",
   accountField: "Conta",
@@ -151,6 +153,13 @@ export default function SettingsPage() {
   const selectPropNames = props.length
     ? props.filter(p => p.type === "select" || p.type === "status").map(p => p.name)
     : [mapping.statusField].filter(Boolean)
+
+  // Notion enforces exactly one Title-type property per database; filter to it
+  // so the dropdown can't be misconfigured to a non-title field (which would
+  // make YouTube uploads error out with empty title).
+  const titlePropNames = props.length
+    ? props.filter(p => p.type === "title").map(p => p.name)
+    : [mapping.titleField].filter(Boolean)
 
   // Analytics fields are written as numeric metrics by the sync job, so the
   // dropdowns only offer Number-type properties. Falls back to the current
@@ -329,6 +338,7 @@ export default function SettingsPage() {
               <div className="space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Agendamento</p>
                 <div className="grid gap-3 sm:grid-cols-2">
+                  <SelectField label="Título" value={mapping.titleField} options={titlePropNames} onChange={(v) => setField("titleField", v)} hint="Propriedade Title do Notion. Usado como título do vídeo no YouTube." />
                   <SelectField label="Data de publicação" value={mapping.dateField} options={propNames} onChange={(v) => setField("dateField", v)} />
                   <SelectField label="Conta" value={mapping.accountField} options={propNames} onChange={(v) => setField("accountField", v)} hint="Deve bater com o nome da conta no app" />
                 </div>
