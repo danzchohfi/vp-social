@@ -767,18 +767,22 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
             Configurar conta
           </Link>
         )}
-        <div className="ml-auto flex items-center gap-2">
+        <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
           <Button size="sm" variant="outline" onClick={() => setPreviewOpen(true)} title="Ver como o post vai sair em cada plataforma">
             <Eye className="h-3.5 w-3.5" />
             Preview
           </Button>
           {post.notionUrl && (
-            <Button asChild size="sm" variant="outline">
-              <a href={post.notionUrl} target="_blank" rel="noopener noreferrer" title="Abrir no Notion">
-                <ExternalLink className="h-3.5 w-3.5" />
-                Notion
-              </a>
-            </Button>
+            <a
+              href={post.notionUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Abrir no Notion"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Notion
+            </a>
           )}
           {canPublishNow && (
             <Button
