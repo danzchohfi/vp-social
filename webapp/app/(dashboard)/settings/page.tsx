@@ -112,6 +112,8 @@ export default function SettingsPage() {
   const [cloneSources, setCloneSources] = useState<CloneSource[]>([])
   const [cloneFromId, setCloneFromId] = useState("")
   const [cloning, setCloning] = useState(false)
+  const [testing, setTesting] = useState(false)
+  const [testResults, setTestResults] = useState<Array<{ id: string; label: string; status: "ok" | "warn" | "error"; message: string; details?: string }> | null>(null)
 
   useEffect(() => {
     fetch("/api/notion/workspaces").then(r => r.json()).then((data: Workspace[]) => {
@@ -225,6 +227,22 @@ export default function SettingsPage() {
       toast.success("Configuração copiada! Confira e clique em Salvar.")
     } finally {
       setCloning(false)
+    }
+  }
+
+  async function runTest() {
+    setTesting(true)
+    setTestResults(null)
+    try {
+      const res = await fetch("/api/settings/test-config")
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? "Erro ao testar")
+        return
+      }
+      setTestResults(data.checks ?? [])
+    } finally {
+      setTesting(false)
     }
   }
 
@@ -436,6 +454,49 @@ export default function SettingsPage() {
                   <SelectField label="Salvamentos" value={mapping.savesField} options={numberPropNames} onChange={(v) => setField("savesField", v)} />
                   <SelectField label="Impressões" value={mapping.impressionsField} options={numberPropNames} onChange={(v) => setField("impressionsField", v)} />
                 </div>
+              </div>
+
+              <div className="space-y-3 rounded-lg border border-muted-foreground/20 bg-muted/20 p-4">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <div>
+                    <p className="text-sm font-semibold">Testar configuração</p>
+                    <p className="text-xs text-muted-foreground">
+                      Faz um dry-run: valida tokens, acessos, mapeamento e contas sociais antes de você agendar.
+                    </p>
+                  </div>
+                  <Button onClick={runTest} disabled={testing} variant="outline" size="sm">
+                    {testing ? "Testando..." : "Rodar teste"}
+                  </Button>
+                </div>
+                {testResults && (
+                  <div className="space-y-1.5">
+                    {testResults.length === 0 && (
+                      <p className="text-xs text-muted-foreground">Nada a testar.</p>
+                    )}
+                    {testResults.map((r) => {
+                      const color =
+                        r.status === "ok"
+                          ? "border-success/30 bg-success/5 text-success"
+                          : r.status === "warn"
+                            ? "border-warning/30 bg-warning/5 text-warning"
+                            : "border-destructive/30 bg-destructive/5 text-destructive"
+                      const icon = r.status === "ok" ? "✓" : r.status === "warn" ? "⚠" : "✗"
+                      return (
+                        <div key={r.id} className={`rounded border px-3 py-2 text-xs ${color}`}>
+                          <div className="flex items-baseline gap-2">
+                            <span className="font-mono font-bold">{icon}</span>
+                            <span className="font-medium text-foreground">{r.label}</span>
+                            <span className="ml-auto text-[11px] uppercase tracking-wider opacity-70">{r.status}</span>
+                          </div>
+                          <p className="mt-0.5 text-foreground/80">{r.message}</p>
+                          {r.details && (
+                            <p className="mt-1 break-all font-mono text-[10px] opacity-70">{r.details}</p>
+                          )}
+                        </div>
+                      )
+                    })}
+                  </div>
+                )}
               </div>
 
               <Button onClick={save} disabled={saving} className="w-full">
