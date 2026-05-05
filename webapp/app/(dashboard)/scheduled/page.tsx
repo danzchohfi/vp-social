@@ -502,7 +502,57 @@ function PastPostRow({ post, onRetried }: { post: PastPost; onRetried?: () => vo
   const allFailed = post.platforms.every((pl) => pl.status === "failed")
   const [showErrors, setShowErrors] = useState(false)
   const [retrying, setRetrying] = useState(false)
+  const [previewLoading, setPreviewLoading] = useState(false)
+  const [previewPost, setPreviewPost] = useState<ScheduledPost | null>(null)
   const errorPlatforms = post.platforms.filter((pl) => pl.status === "failed" && pl.error)
+
+  async function loadPreview() {
+    if (!post.connectionId) return
+    setPreviewLoading(true)
+    try {
+      const res = await fetch(`/api/notion/post-detail?pageId=${encodeURIComponent(post.pageId)}&connectionId=${encodeURIComponent(post.connectionId)}`)
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? "Erro ao carregar preview")
+        return
+      }
+      // Build a synthetic ScheduledPost shape so the existing PreviewDialog
+      // can render. Past entries in publishLog are per-platform; we surface
+      // the published platforms as targetChecks so the dialog shows one card
+      // per platform with its real media.
+      setPreviewPost({
+        kind: "upcoming",
+        pageId: data.post.pageId,
+        title: data.post.title,
+        conta: data.post.conta,
+        scheduledDate: data.post.scheduledDate,
+        notionUrl: data.post.notionUrl,
+        feedImageUrls: data.post.feedImageUrls,
+        verticalUrls: data.post.verticalUrls,
+        horizontalUrls: data.post.horizontalUrls,
+        thumbnailUrl: data.post.thumbnailUrl,
+        fullCaption: data.post.fullCaption,
+        caption: data.post.caption,
+        targetChecks: post.platforms.map((pl) => {
+          const platform = pl.raw.toLowerCase().split(/[\s-]+/)[0]
+          // Derive a coarse `tipo` from the raw target so the dialog picks
+          // the right aspect ratio.
+          const lower = pl.raw.toLowerCase()
+          const tipo = lower.includes("reel") ? "reel"
+            : lower.includes("story") ? "story"
+            : lower.includes("short") ? "youtube short"
+            : lower.includes("youtube") ? "youtube"
+            : lower.includes("carrossel") || lower.includes("carousel") ? "carrossel"
+            : "feed"
+          return { raw: pl.raw, platform, tipo, configured: pl.status === "published", pageName: null }
+        }),
+      })
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao carregar preview")
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
 
   async function retry() {
     if (!post.connectionId) return
@@ -561,28 +611,49 @@ function PastPostRow({ post, onRetried }: { post: PastPost; onRetried?: () => vo
         {post.platforms.map((pl) => (
           <PastPlatformBadge key={pl.logId} pl={pl} />
         ))}
-        {errorPlatforms.length > 0 && (
-          <>
+        <div className="ml-auto flex flex-wrap items-center gap-2">
+          {errorPlatforms.length > 0 && (
             <button
               onClick={() => setShowErrors((v) => !v)}
-              className="ml-auto text-xs text-destructive underline hover:no-underline"
+              className="text-xs text-destructive underline hover:no-underline"
             >
               {showErrors ? "Ocultar erros" : `Ver erro${errorPlatforms.length > 1 ? "s" : ""}`}
             </button>
-            {hasFailure && post.connectionId && (
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={retry}
-                disabled={retrying}
-                title="Reagendar para o cron tentar publicar novamente"
-              >
-                {retrying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-                {retrying ? "Reagendando..." : "Tentar novamente"}
-              </Button>
-            )}
-          </>
-        )}
+          )}
+          {post.connectionId && (
+            <Button size="sm" variant="outline" onClick={loadPreview} disabled={previewLoading} title="Ver mídia e legenda do post">
+              {previewLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
+              Preview
+            </Button>
+          )}
+          {/* Notion URL is constructed from the page ID since the publishLog
+              row doesn't store the full URL — Notion accepts the bare ID
+              with or without dashes. */}
+          {post.pageId && (
+            <a
+              href={`https://www.notion.so/${post.pageId.replace(/-/g, "")}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              title="Abrir no Notion"
+              className="inline-flex h-9 items-center gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Notion
+            </a>
+          )}
+          {hasFailure && post.connectionId && (
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={retry}
+              disabled={retrying}
+              title="Reagendar para o cron tentar publicar novamente"
+            >
+              {retrying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+              {retrying ? "Reagendando..." : "Tentar novamente"}
+            </Button>
+          )}
+        </div>
       </div>
       {showErrors && errorPlatforms.length > 0 && (
         <div className="mt-3 space-y-2">
@@ -594,6 +665,7 @@ function PastPostRow({ post, onRetried }: { post: PastPost; onRetried?: () => vo
           ))}
         </div>
       )}
+      {previewPost && <PreviewDialog post={previewPost} onClose={() => setPreviewPost(null)} />}
     </div>
   )
 }
