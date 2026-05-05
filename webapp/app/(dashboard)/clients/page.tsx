@@ -228,7 +228,7 @@ export default function ClientsPage() {
                       </div>
                     </div>
                   ) : (
-                    <div className="flex flex-wrap items-center gap-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-4">
                       {c.logoUrl ? (
                         <img src={c.logoUrl} alt="" className="h-12 w-12 shrink-0 rounded-lg object-cover" />
                       ) : (
@@ -238,7 +238,7 @@ export default function ClientsPage() {
                       )}
                       <div className="min-w-0 flex-1">
                         <div className="flex flex-wrap items-center gap-2">
-                          <p className="min-w-0 max-w-full truncate font-semibold">{c.name}</p>
+                          <p className="min-w-0 max-w-full break-words font-semibold">{c.name}</p>
                           {isActive && (
                             <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
                               Ativo
@@ -254,7 +254,7 @@ export default function ClientsPage() {
                           Criado em {new Date(c.createdAt).toLocaleDateString("pt-BR")}
                         </p>
                       </div>
-                      <div className="flex shrink-0 flex-wrap gap-1">
+                      <div className="flex flex-wrap gap-1 sm:shrink-0">
                         {!isActive && (
                           <Button variant="outline" size="sm" onClick={() => setActive(c.id)}>
                             Tornar ativo
