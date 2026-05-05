@@ -11,6 +11,40 @@ type TargetCheck = { raw: string; platform: string; tipo: string; configured: bo
 
 const PAST_WINDOW_DAYS = 90
 
+// Levenshtein distance — used to suggest "did you mean X?" when a Notion
+// post's `conta` doesn't match any connected account exactly. Small (~20
+// lines) so worth inlining vs. pulling a dep.
+function levenshtein(a: string, b: string): number {
+  if (a === b) return 0
+  if (!a.length) return b.length
+  if (!b.length) return a.length
+  const dp = Array.from({ length: a.length + 1 }, (_, i) => Array(b.length + 1).fill(0))
+  for (let i = 0; i <= a.length; i++) dp[i][0] = i
+  for (let j = 0; j <= b.length; j++) dp[0][j] = j
+  for (let i = 1; i <= a.length; i++) {
+    for (let j = 1; j <= b.length; j++) {
+      dp[i][j] = a[i - 1] === b[j - 1]
+        ? dp[i - 1][j - 1]
+        : 1 + Math.min(dp[i - 1][j], dp[i][j - 1], dp[i - 1][j - 1])
+    }
+  }
+  return dp[a.length][b.length]
+}
+
+function suggestMatch(needle: string, haystack: string[]): string | null {
+  if (!needle || !haystack.length) return null
+  const lower = needle.toLowerCase().trim()
+  let best: { name: string; dist: number } | null = null
+  for (const h of haystack) {
+    const dist = levenshtein(lower, h.toLowerCase().trim())
+    if (best === null || dist < best.dist) best = { name: h, dist }
+  }
+  // Tolerate up to 30% character difference. "naydacury" → "Naydacury" passes;
+  // "vitamina" → "comparacar" doesn't.
+  if (best && best.dist <= Math.max(2, Math.floor(needle.length * 0.3))) return best.name
+  return null
+}
+
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -47,9 +81,10 @@ export async function GET() {
   )
   const clientContas = new Set(accounts.filter((a) => a.active).map((a) => a.conta.toLowerCase()))
 
-  // ─── Upcoming (Notion) ───────────────────────────────────────────────
+  // ─── Upcoming (Notion) ──────────────────────────────────────────────
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? ""
   let upcoming: any[] = []
+  let ignored: Array<{ pageId: string; title: string; conta: string; clientName: string | null; suggestion: string | null }> = []
   if (configured.length) {
     const allPosts = await Promise.allSettled(
       configured.map(async (connection) => {
@@ -123,9 +158,22 @@ export async function GET() {
         if (!b.scheduledDate) return -1
         return new Date(a.scheduledDate).getTime() - new Date(b.scheduledDate).getTime()
       })
+
+    // Capture posts that would have shown but were filtered out — surface
+    // them in the UI as "ignorados" with a fuzzy-match suggestion. Helps
+    // users catch typo/case mismatches that silently kill publishing.
+    ignored = flat
+      .filter((p) => !p.belongsToClient && p.conta)
+      .map((p) => ({
+        pageId: p.pageId,
+        title: p.title,
+        conta: p.conta,
+        clientName: p.clientName ?? null,
+        suggestion: suggestMatch(p.conta, accounts.filter((a) => a.active).map((a) => a.conta)),
+      }))
   }
 
-  // ─── Past (publishLog) ───────────────────────────────────────────────
+  // ─── Past (publishLog) ────────────────────────────────────────────────
   const cutoff = new Date(Date.now() - PAST_WINDOW_DAYS * 24 * 60 * 60 * 1000)
   const logs = await db
     .select()
@@ -181,6 +229,7 @@ export async function GET() {
   return NextResponse.json({
     upcoming,
     past,
+    ignored,
     // Backward-compat: existing /scheduled callers that read `posts` keep working.
     posts: upcoming,
     configured: configured.length > 0,
