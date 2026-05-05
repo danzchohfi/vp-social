@@ -62,7 +62,7 @@ export default async function DashboardPage() {
     ? inArray(publishLog.clientId, clientIds)
     : eq(publishLog.clientId, clientIds[0])
 
-  const [accounts, notion, logs, stats] = await Promise.all([
+  const [accounts, notion, logs, stats, mappings] = await Promise.all([
     db.select().from(instagramAccount).where(accountsFilter),
     db.select().from(notionConnection).where(notionFilter),
     db.select().from(publishLog).where(logsFilter).orderBy(desc(publishLog.publishedAt)).limit(10),
@@ -71,6 +71,13 @@ export default async function DashboardPage() {
       .from(publishLog)
       .where(logsFilter)
       .groupBy(publishLog.status),
+    // Mapping rows for these connections — used to drive the "Mapeamento ✓"
+    // checklist item. If a row exists for any connection, count it as done.
+    db
+      .select({ connectionId: fieldMapping.connectionId })
+      .from(fieldMapping)
+      .innerJoin(notionConnection, eq(notionConnection.id, fieldMapping.connectionId))
+      .where(notionFilter),
   ])
 
   // Best-effort upcoming-post count + next 5 list. Failures fall back to []
@@ -84,7 +91,7 @@ export default async function DashboardPage() {
   const upcomingCount = upcoming.length
   const nextFive = upcoming.slice(0, 5)
 
-  // ─── Health panel + per-client aggregates ─────────────────────────────
+  // ─── Health panel + per-client aggregates ────────────────────────────────────
   // These are cheap (couple of GROUP BY queries) and feed both the
   // attention panel (recent failures, inactive clients) and the agency-mode
   // per-client cards.
@@ -142,7 +149,8 @@ export default async function DashboardPage() {
   const notionConnected = notion.length > 0
   const notionHasDb = notion.some((n) => n.databaseId)
   const hasAccounts = accounts.filter((a) => a.active).length > 0
-  const isReady = notionConnected && notionHasDb && hasAccounts
+  const hasMapping = mappings.length > 0
+  const isReady = notionConnected && notionHasDb && hasMapping && hasAccounts
 
   // Single-client first-run redirect to onboarding. Skip in agency mode —
   // user already has at least 2 clients and knows what they're doing.
@@ -328,44 +336,99 @@ export default async function DashboardPage() {
         </div>
       )}
 
-      {scope.mode === "single" && !isReady && (
-        <div className="mb-8 rounded-xl border border-primary/20 border-l-4 border-l-primary bg-gradient-to-br from-primary/5 to-transparent p-6">
-          <div className="flex items-start gap-4">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
-              <Zap className="h-5 w-5 text-primary" />
-            </div>
-            <div className="flex-1">
-              <h3 className="font-semibold">Configure este cliente</h3>
-              <p className="mt-1 text-sm text-muted-foreground">
-                Complete os passos abaixo para começar a publicar para <strong>{scope.client.name}</strong>.
-              </p>
-              <div className="mt-4 flex flex-wrap gap-3">
-                {!notionConnected && (
-                  <Button size="sm" variant="outline" asChild>
-                    <Link href="/settings">
-                      <BookOpen className="h-4 w-4" /> Conectar Notion
-                    </Link>
-                  </Button>
-                )}
-                {notionConnected && !notionHasDb && (
-                  <Button size="sm" variant="outline" asChild>
-                    <Link href="/settings">
-                      <BookOpen className="h-4 w-4" /> Selecionar banco de dados
-                    </Link>
-                  </Button>
-                )}
-                {!hasAccounts && (
-                  <Button size="sm" asChild>
-                    <Link href="/accounts">
-                      <Instagram className="h-4 w-4" /> Conectar Instagram
-                    </Link>
-                  </Button>
-                )}
+      {scope.mode === "single" && !isReady && (() => {
+        const items = [
+          {
+            done: notionConnected,
+            label: "Conectar Notion",
+            description: "Autorize o acesso ao seu workspace do Notion.",
+            cta: { href: "/settings", label: "Conectar Notion", icon: BookOpen },
+          },
+          {
+            done: notionHasDb,
+            blocked: !notionConnected,
+            label: "Selecionar banco de dados",
+            description: "Escolha o database do Notion onde estão os posts.",
+            cta: { href: "/settings", label: "Selecionar banco", icon: BookOpen },
+          },
+          {
+            done: hasMapping,
+            blocked: !notionHasDb,
+            label: "Configurar mapeamento",
+            description: "Diga ao app quais colunas são título, data, conta, mídia, etc.",
+            cta: { href: "/settings", label: "Configurar campos", icon: Zap },
+          },
+          {
+            done: hasAccounts,
+            label: "Conectar conta social",
+            description: "Pelo menos uma conta de Instagram, Facebook ou outra.",
+            cta: { href: "/accounts", label: "Conectar conta", icon: Instagram },
+          },
+        ]
+        const nextIndex = items.findIndex((i) => !i.done && !i.blocked)
+        const completed = items.filter((i) => i.done).length
+        return (
+          <div className="mb-8 rounded-xl border border-primary/20 border-l-4 border-l-primary bg-gradient-to-br from-primary/5 to-transparent p-6">
+            <div className="flex items-start gap-4">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary/10">
+                <Zap className="h-5 w-5 text-primary" />
+              </div>
+              <div className="flex-1">
+                <div className="flex flex-wrap items-baseline justify-between gap-2">
+                  <h3 className="font-semibold">Configure este cliente</h3>
+                  <span className="text-xs text-muted-foreground">{completed}/{items.length} concluídos</span>
+                </div>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Para começar a publicar em <strong>{scope.client.name}</strong>, complete os 4 passos abaixo.
+                </p>
+                <ol className="mt-4 space-y-2">
+                  {items.map((item, i) => {
+                    const Icon = item.cta.icon
+                    const isNext = i === nextIndex
+                    return (
+                      <li
+                        key={item.label}
+                        className={`flex flex-wrap items-center gap-3 rounded-lg border p-3 ${
+                          item.done
+                            ? "border-success/30 bg-success/5"
+                            : isNext
+                              ? "border-primary/40 bg-primary/5"
+                              : "border-muted bg-muted/20 opacity-60"
+                        }`}
+                      >
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium">
+                          {item.done ? (
+                            <CheckCircle2 className="h-5 w-5 text-success" />
+                          ) : (
+                            <span className={`flex h-5 w-5 items-center justify-center rounded-full border-2 ${isNext ? "border-primary text-primary" : "border-muted-foreground/30 text-muted-foreground"}`}>
+                              {i + 1}
+                            </span>
+                          )}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className={`text-sm font-medium ${item.done ? "text-success line-through opacity-75" : ""}`}>
+                            {item.label}
+                          </p>
+                          {!item.done && (
+                            <p className="text-xs text-muted-foreground">{item.description}</p>
+                          )}
+                        </div>
+                        {!item.done && isNext && (
+                          <Button size="sm" asChild>
+                            <Link href={item.cta.href}>
+                              <Icon className="h-4 w-4" /> {item.cta.label}
+                            </Link>
+                          </Button>
+                        )}
+                      </li>
+                    )
+                  })}
+                </ol>
               </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
         <Card>
