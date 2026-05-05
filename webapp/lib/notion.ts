@@ -170,6 +170,18 @@ export function createNotionClient(accessToken: string) {
       })
     },
 
+    async getPostById(pageId: string, mapping: FieldMapping): Promise<NotionPost | null> {
+      // One-shot fetch of a single page. Used by the Preview dialog on past
+      // posts where we don't have the original media URLs cached in publishLog.
+      try {
+        const page = await client.pages.retrieve({ page_id: pageId })
+        if (!("properties" in page)) return null
+        return await parsePage(page as any, mapping, client)
+      } catch {
+        return null
+      }
+    },
+
     async updateAnalytics(
       pageId: string,
       mapping: FieldMapping,

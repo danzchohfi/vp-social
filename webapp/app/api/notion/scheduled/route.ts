@@ -81,7 +81,7 @@ export async function GET() {
   )
   const clientContas = new Set(accounts.filter((a) => a.active).map((a) => a.conta.toLowerCase()))
 
-  // ─── Upcoming (Notion) ──────────────────────────────────────────────
+  // ─── Upcoming (Notion) ───────────────────────────────────────────
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? ""
   let upcoming: any[] = []
   let ignored: Array<{ pageId: string; title: string; conta: string; clientName: string | null; suggestion: string | null }> = []
@@ -189,7 +189,12 @@ export async function GET() {
     )
 
   // Group log rows by notionPageId so one Notion post = one past entry
-  // even when it published to several platforms.
+  // even when it published to several platforms. Within each group, also
+  // dedupe by platform raw — multiple retries on the same platform would
+  // otherwise produce N badges of "Youtube — ignorado". Keep the best
+  // status per platform (published > skipped > failed), and within ties
+  // prefer the most recent log row.
+  const statusRank = (s: string) => (s === "published" ? 3 : s === "skipped" ? 2 : 1)
   const grouped = new Map<string, any>()
   for (const log of logs) {
     const key = log.notionPageId
@@ -207,24 +212,45 @@ export async function GET() {
         clientName: owning?.name ?? null,
         clientLogoUrl: owning?.logoUrl ?? null,
         belongsToClient: true,
-        platforms: [] as any[],
+        // Map<platformRaw, platformBadge> — flattened to .platforms below.
+        _platformsByRaw: new Map<string, any>(),
       }
       grouped.set(key, entry)
     }
-    entry.platforms.push({
-      raw: log.platform ?? "—",
+    const raw = log.platform ?? "—"
+    const candidate = {
+      raw,
       status: log.status,
       error: log.error,
       postId: log.platformPostId ?? log.instagramPostId,
       logId: log.id,
-    })
+      publishedAt: log.publishedAt,
+    }
+    const existing = entry._platformsByRaw.get(raw)
+    const rankCmp = statusRank(candidate.status) - statusRank(existing?.status ?? "")
+    const recencyCmp = existing
+      ? new Date(candidate.publishedAt).getTime() - new Date(existing.publishedAt).getTime()
+      : 1
+    if (!existing || rankCmp > 0 || (rankCmp === 0 && recencyCmp > 0)) {
+      entry._platformsByRaw.set(raw, candidate)
+    }
     // Use the earliest publishedAt for the group's date
     if (new Date(log.publishedAt) < new Date(entry.date)) entry.date = log.publishedAt
   }
 
-  const past = Array.from(grouped.values()).sort(
-    (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()
-  )
+  const past = Array.from(grouped.values())
+    .map((entry) => {
+      const platforms = Array.from(entry._platformsByRaw.values()).map((p: any) => ({
+        raw: p.raw,
+        status: p.status,
+        error: p.error,
+        postId: p.postId,
+        logId: p.logId,
+      }))
+      const { _platformsByRaw, ...rest } = entry
+      return { ...rest, platforms }
+    })
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   return NextResponse.json({
     upcoming,
