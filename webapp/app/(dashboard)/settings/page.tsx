@@ -19,6 +19,7 @@ type Workspace = {
 
 type NotionDatabase = { id: string; name: string }
 type PropInfo = { name: string; type: string; options: string[] }
+type CloneSource = { id: string; workspaceName: string; databaseName: string | null; clientId: string | null; clientName: string | null }
 
 type FieldMapping = {
   statusField: string; statusReadyValue: string; statusPublishedValue: string; statusErrorValue: string
@@ -108,6 +109,9 @@ export default function SettingsPage() {
   const [databases, setDatabases] = useState<NotionDatabase[]>([])
   const [selectedDbId, setSelectedDbId] = useState("")
   const [loadingDbs, setLoadingDbs] = useState(false)
+  const [cloneSources, setCloneSources] = useState<CloneSource[]>([])
+  const [cloneFromId, setCloneFromId] = useState("")
+  const [cloning, setCloning] = useState(false)
 
   useEffect(() => {
     fetch("/api/notion/workspaces").then(r => r.json()).then((data: Workspace[]) => {
@@ -126,6 +130,10 @@ export default function SettingsPage() {
     fetch(`/api/notion/workspaces/${selectedId}/mapping`).then(r => r.json()).then((data) => {
       setMapping({ ...DEFAULT_MAPPING, ...data })
     })
+    fetch(`/api/notion/workspaces/clonable?excludeConnectionId=${selectedId}`)
+      .then(r => r.json())
+      .then((data) => setCloneSources(Array.isArray(data) ? data : []))
+      .catch(() => setCloneSources([]))
     if (selected?.databaseId) {
       setDbUrl("")
       setSelectedDbId("")
@@ -197,6 +205,27 @@ export default function SettingsPage() {
     const res = await fetch("/api/notion/auth-url?from=settings")
     const { url } = await res.json()
     window.location.href = url
+  }
+
+  async function cloneFrom() {
+    if (!selectedId || !cloneFromId) return
+    setCloning(true)
+    try {
+      const res = await fetch(`/api/notion/workspaces/${selectedId}/mapping/clone-from`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sourceConnectionId: cloneFromId }),
+      })
+      const data = await res.json()
+      if (!res.ok) { toast.error(data.error ?? "Erro ao copiar"); return }
+      // Reload the mapping so the form reflects the cloned values immediately.
+      const fresh = await fetch(`/api/notion/workspaces/${selectedId}/mapping`).then(r => r.json())
+      setMapping({ ...DEFAULT_MAPPING, ...fresh })
+      setCloneFromId("")
+      toast.success("Configuração copiada! Confira e clique em Salvar.")
+    } finally {
+      setCloning(false)
+    }
   }
 
   async function save() {
@@ -322,6 +351,33 @@ export default function SettingsPage() {
 
           {dbName && (
             <div className="space-y-6">
+              {cloneSources.length > 0 && (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
+                  <p className="text-sm font-semibold">Copiar de outro workspace</p>
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    Replica o mapeamento (status, campos, analytics) de um cliente já configurado. Útil pra clientes que usam um banco do Notion com a mesma estrutura.
+                  </p>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <Select value={cloneFromId} onValueChange={setCloneFromId}>
+                      <SelectTrigger className="flex-1">
+                        <SelectValue placeholder="Escolha um workspace de origem..." />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {cloneSources.map((s) => (
+                          <SelectItem key={s.id} value={s.id}>
+                            {s.clientName ? `${s.clientName} · ` : ""}{s.workspaceName}
+                            {s.databaseName ? ` (${s.databaseName})` : ""}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    <Button onClick={cloneFrom} disabled={!cloneFromId || cloning} variant="outline">
+                      {cloning ? "Copiando..." : "Aplicar configuração"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
               <div className="space-y-4">
                 <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status de Publicação</p>
                 <p className="text-xs text-muted-foreground">

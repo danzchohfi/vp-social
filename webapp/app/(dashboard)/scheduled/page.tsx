@@ -112,6 +112,7 @@ export default function ScheduledPage() {
 
   const [upcomingAll, setUpcomingAll] = useState<ScheduledPost[]>([])
   const [pastAll, setPastAll] = useState<PastPost[]>([])
+  const [ignored, setIgnored] = useState<Array<{ pageId: string; title: string; conta: string; clientName: string | null; suggestion: string | null }>>([])
   const [loading, setLoading] = useState(true)
   const [configured, setConfigured] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -128,6 +129,7 @@ export default function ScheduledPage() {
       if (data.error) throw new Error(data.error)
       setUpcomingAll((data.upcoming ?? data.posts ?? []).map((p: any) => ({ ...p, kind: "upcoming" as const })))
       setPastAll((data.past ?? []).map((p: any) => ({ ...p, kind: "past" as const })))
+      setIgnored(Array.isArray(data.ignored) ? data.ignored : [])
       setConfigured(data.configured ?? true)
       setAgencyMode(!!data.agencyMode)
     } catch (e) {
@@ -316,6 +318,51 @@ export default function ScheduledPage() {
         </div>
       )}
 
+      {ignored.length > 0 && (
+        <div className="mb-6 rounded-xl border border-warning/40 bg-warning/5 p-4 sm:p-5">
+          <div className="mb-2 flex items-start gap-2">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
+            <div>
+              <p className="text-sm font-semibold">
+                {ignored.length} {ignored.length === 1 ? "post ignorado" : "posts ignorados"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                A conta no Notion não bate com nenhuma cadastrada — o sistema não vai publicar esses posts até resolver. Sugestões abaixo ↓
+              </p>
+            </div>
+          </div>
+          <ul className="mt-2 space-y-1.5">
+            {ignored.slice(0, 8).map((p) => (
+              <li key={p.pageId} className="flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded border bg-card px-3 py-2 text-sm">
+                <span className="font-medium truncate">{p.title || "Sem título"}</span>
+                {p.clientName && (
+                  <span className="text-[10px] text-muted-foreground">· {p.clientName}</span>
+                )}
+                <span className="text-xs text-muted-foreground">
+                  Notion diz <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">{p.conta}</code>
+                </span>
+                {p.suggestion ? (
+                  <span className="text-xs">
+                    — quis dizer <code className="rounded bg-success/15 px-1 py-0.5 font-mono text-[11px] text-success">{p.suggestion}</code>?
+                  </span>
+                ) : (
+                  <span className="text-xs text-muted-foreground">— sem conta parecida cadastrada</span>
+                )}
+              </li>
+            ))}
+            {ignored.length > 8 && (
+              <li className="text-xs text-muted-foreground">+ {ignored.length - 8} outros</li>
+            )}
+          </ul>
+          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+            <Link href="/accounts" className="text-warning underline hover:no-underline">
+              Editar contas conectadas →
+            </Link>
+            <span className="text-muted-foreground">ou troque o valor da propriedade <strong>Conta</strong> no Notion.</span>
+          </div>
+        </div>
+      )}
+
       {error && (
         <div className="mb-6 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
           Erro ao buscar posts: {error}
@@ -420,7 +467,7 @@ export default function ScheduledPage() {
                 </h2>
               </div>
               <div className="space-y-2">
-                {visiblePast.map((p) => <PastPostRow key={p.pageId + p.date} post={p} />)}
+                {visiblePast.map((p) => <PastPostRow key={p.pageId + p.date} post={p} onRetried={load} />)}
               </div>
             </section>
           )}
@@ -443,11 +490,33 @@ export default function ScheduledPage() {
   )
 }
 
-function PastPostRow({ post }: { post: PastPost }) {
+function PastPostRow({ post, onRetried }: { post: PastPost; onRetried?: () => void }) {
   const hasFailure = post.platforms.some((pl) => pl.status === "failed")
   const allFailed = post.platforms.every((pl) => pl.status === "failed")
   const [showErrors, setShowErrors] = useState(false)
+  const [retrying, setRetrying] = useState(false)
   const errorPlatforms = post.platforms.filter((pl) => pl.status === "failed" && pl.error)
+
+  async function retry() {
+    if (!post.connectionId) return
+    if (!confirm(`Reagendar "${post.title || "este post"}" para tentar novamente?`)) return
+    setRetrying(true)
+    try {
+      const res = await fetch("/api/posts/retry", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId: post.pageId, connectionId: post.connectionId }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Erro ao reagendar")
+      toast.success("Post reagendado — vai publicar no próximo ciclo (até 5 min)")
+      onRetried?.()
+    } catch (e) {
+      toast.error(String(e instanceof Error ? e.message : e))
+    } finally {
+      setRetrying(false)
+    }
+  }
 
   return (
     <div
@@ -486,12 +555,26 @@ function PastPostRow({ post }: { post: PastPost }) {
           <PastPlatformBadge key={pl.logId} pl={pl} />
         ))}
         {errorPlatforms.length > 0 && (
-          <button
-            onClick={() => setShowErrors((v) => !v)}
-            className="ml-auto text-xs text-destructive underline hover:no-underline"
-          >
-            {showErrors ? "Ocultar erros" : `Ver erro${errorPlatforms.length > 1 ? "s" : ""}`}
-          </button>
+          <>
+            <button
+              onClick={() => setShowErrors((v) => !v)}
+              className="ml-auto text-xs text-destructive underline hover:no-underline"
+            >
+              {showErrors ? "Ocultar erros" : `Ver erro${errorPlatforms.length > 1 ? "s" : ""}`}
+            </button>
+            {hasFailure && post.connectionId && (
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={retry}
+                disabled={retrying}
+                title="Reagendar para o cron tentar publicar novamente"
+              >
+                {retrying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+                {retrying ? "Reagendando..." : "Tentar novamente"}
+              </Button>
+            )}
+          </>
         )}
       </div>
       {showErrors && errorPlatforms.length > 0 && (
@@ -708,7 +791,7 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
   )
 }
 
-// ─── Calendar view ────────────────────────────────
+// ─── Calendar view ─────────────────────────────────────
 
 const WEEKDAYS_PT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
 const MONTHS_PT = [
@@ -941,7 +1024,7 @@ function DayDrawer({
         <div className="space-y-2">
           {posts.map((post) => {
             if (post.kind === "past") {
-              return <PastPostRow key={"past:" + post.pageId + post.date} post={post} />
+              return <PastPostRow key={"past:" + post.pageId + post.date} post={post} onRetried={onPublished} />
             }
             const dueNow = post.scheduledDate && new Date(post.scheduledDate) <= new Date()
             return (
