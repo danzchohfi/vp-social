@@ -92,6 +92,12 @@ export default function AccountsPage() {
   const [keptPending, setKeptPending] = useState<Set<string>>(new Set())
   const [confirmingPending, setConfirmingPending] = useState(false)
 
+  // Manual sync of conta names → Notion Select options. The same sync runs
+  // automatically on every account mutation; this button is for when the
+  // user wants explicit confirmation of what's in Notion right now.
+  const [syncing, setSyncing] = useState(false)
+  const [syncResults, setSyncResults] = useState<Array<{ workspaceName: string; status: "ok" | "skipped" | "error"; message: string; added?: string[] }> | null>(null)
+
   useEffect(() => {
     fetchAccounts()
     fetchPending()
@@ -198,6 +204,24 @@ export default function AccountsPage() {
     await fetch(`/api/accounts/${id}`, { method: "DELETE" })
     setAccounts((prev) => prev.filter((a) => a.id !== id))
     toast.success("Conta removida.")
+  }
+
+  async function handleSyncNotion() {
+    setSyncing(true)
+    setSyncResults(null)
+    try {
+      const res = await fetch("/api/accounts/sync-notion", { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? "Erro ao sincronizar")
+        return
+      }
+      setSyncResults(data.results ?? [])
+      const okCount = (data.results ?? []).filter((r: any) => r.status === "ok").length
+      if (okCount > 0) toast.success(`Sincronizado em ${okCount} workspace(s)`)
+    } finally {
+      setSyncing(false)
+    }
   }
 
   async function handleKeepOnly(account: Account) {
@@ -337,6 +361,58 @@ export default function AccountsPage() {
           </>
         )
       })()}
+
+      {accounts.length > 0 && (
+        <div className="mb-6 rounded-lg border border-primary/30 bg-primary/5 p-4">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <div>
+              <p className="text-sm font-semibold">Sincronizar com Notion</p>
+              <p className="mt-0.5 text-xs text-muted-foreground">
+                Empurra os nomes das contas conectadas como opções do Select <strong>Conta</strong> no banco do Notion.
+                Assim você escolhe direto da lista no Notion, sem digitar.
+              </p>
+            </div>
+            <Button onClick={handleSyncNotion} disabled={syncing} size="sm" variant="outline">
+              {syncing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              {syncing ? "Sincronizando..." : "Sincronizar agora"}
+            </Button>
+          </div>
+          {syncResults && (
+            <div className="mt-3 space-y-1.5">
+              {syncResults.length === 0 && (
+                <p className="text-xs text-muted-foreground">Nenhum workspace pra sincronizar.</p>
+              )}
+              {syncResults.map((r) => {
+                const color =
+                  r.status === "ok"
+                    ? "border-success/30 bg-success/5 text-success"
+                    : r.status === "skipped"
+                      ? "border-warning/30 bg-warning/5 text-warning"
+                      : "border-destructive/30 bg-destructive/5 text-destructive"
+                const icon = r.status === "ok" ? "✓" : r.status === "skipped" ? "⚠" : "✗"
+                return (
+                  <div key={r.workspaceName} className={`rounded border px-3 py-2 text-xs ${color}`}>
+                    <div className="flex items-baseline gap-2">
+                      <span className="font-mono font-bold">{icon}</span>
+                      <span className="font-medium text-foreground">{r.workspaceName}</span>
+                    </div>
+                    <p className="mt-0.5 text-foreground/80">{r.message}</p>
+                    {r.added && r.added.length > 0 && (
+                      <p className="mt-1 text-foreground/70">
+                        Adicionada{r.added.length > 1 ? "s" : ""}: <strong>{r.added.join(", ")}</strong>
+                      </p>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
+          <p className="mt-3 text-[11px] text-muted-foreground">
+            <strong>Requer:</strong> a propriedade <strong>Conta</strong> no Notion precisa ser do tipo <strong>Select</strong>.
+            Se for Texto, Relação ou outro tipo, o sync vai pular esse workspace.
+          </p>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-20">
