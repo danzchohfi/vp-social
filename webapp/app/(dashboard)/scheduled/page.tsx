@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { CalendarClock, Loader2, RefreshCw, Zap, Clock, CheckCircle2, AlertTriangle, ChevronLeft, ChevronRight, List, Calendar as CalendarIcon, X, XCircle, ExternalLink } from "lucide-react"
+import { CalendarClock, Loader2, RefreshCw, Zap, Clock, CheckCircle2, AlertTriangle, ChevronLeft, ChevronRight, List, Calendar as CalendarIcon, X, XCircle, ExternalLink, Eye, Play } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -34,6 +34,13 @@ type ScheduledPost = {
   belongsToClient?: boolean
   contaConnected?: boolean
   notionUrl?: string
+  // Media + caption — used by the Preview dialog.
+  feedImageUrls?: string[]
+  verticalUrls?: string[]
+  horizontalUrls?: string[]
+  thumbnailUrl?: string | null
+  fullCaption?: string
+  caption?: string
 }
 
 type PastPlatform = {
@@ -667,6 +674,7 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
   const allMissing = checks.length > 0 && checks.every((c) => !c.configured)
   const hasIssues = (issues?.length ?? 0) > 0
   const [publishing, setPublishing] = useState(false)
+  const [previewOpen, setPreviewOpen] = useState(false)
 
   async function publishNow() {
     if (!post.connectionId) return
@@ -760,6 +768,10 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
           </Link>
         )}
         <div className="ml-auto flex items-center gap-2">
+          <Button size="sm" variant="outline" onClick={() => setPreviewOpen(true)} title="Ver como o post vai sair em cada plataforma">
+            <Eye className="h-3.5 w-3.5" />
+            Preview
+          </Button>
           {post.notionUrl && (
             <Button asChild size="sm" variant="outline">
               <a href={post.notionUrl} target="_blank" rel="noopener noreferrer" title="Abrir no Notion">
@@ -787,11 +799,120 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
           )}
         </div>
       </div>
+      {previewOpen && <PreviewDialog post={post} onClose={() => setPreviewOpen(false)} />}
     </div>
   )
 }
 
-// ─── Calendar view ─────────────────────────────────────
+// ─── Preview dialog ────────────────────────────────
+// Renders a per-platform mockup of how the post will appear when published.
+// Mockups are simplified — just enough to catch obvious issues like missing
+// media, wrong aspect ratio, or caption that's way too long.
+
+function PreviewDialog({ post, onClose }: { post: ScheduledPost; onClose: () => void }) {
+  const targets = post.targetChecks ?? []
+  const caption = post.fullCaption ?? post.caption ?? ""
+
+  function mediaForTarget(t: TargetCheck): string | null {
+    const tipo = t.tipo.toLowerCase()
+    if (tipo === "feed" || tipo === "carrossel") return post.feedImageUrls?.[0] ?? post.thumbnailUrl ?? null
+    if (tipo === "reel" || tipo === "story" || tipo === "youtube short") return post.verticalUrls?.[0] ?? post.thumbnailUrl ?? null
+    if (tipo === "youtube") return post.horizontalUrls?.[0] ?? post.thumbnailUrl ?? null
+    return post.feedImageUrls?.[0] ?? post.verticalUrls?.[0] ?? post.thumbnailUrl ?? null
+  }
+
+  function aspectClass(t: TargetCheck): string {
+    const tipo = t.tipo.toLowerCase()
+    if (tipo === "feed") return "aspect-square"
+    if (tipo === "reel" || tipo === "story" || tipo === "youtube short") return "aspect-[9/16]"
+    if (tipo === "youtube") return "aspect-video"
+    if (tipo === "carrossel") return "aspect-square"
+    return "aspect-square"
+  }
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-6"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-t-xl border bg-background p-4 sm:rounded-xl sm:p-6"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Preview</p>
+            <h3 className="font-display text-xl truncate">{post.title || "Sem título"}</h3>
+            <p className="text-xs text-muted-foreground">@{post.conta}</p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Fechar">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {targets.length === 0 ? (
+          <div className="rounded-lg border border-warning/40 bg-warning/5 p-4 text-sm text-warning">
+            Campo &quot;Publicar em&quot; vazio — sem plataformas pra prever.
+          </div>
+        ) : (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {targets.map((t) => {
+              const media = mediaForTarget(t)
+              const isVideo = ["reel", "story", "youtube short", "youtube"].includes(t.tipo.toLowerCase())
+              return (
+                <div key={t.raw} className="rounded-lg border bg-card overflow-hidden">
+                  <div className="flex items-center gap-2 border-b px-3 py-2 text-xs">
+                    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium", platformClass(t.platform))}>
+                      {t.raw}
+                    </span>
+                    {!t.configured && (
+                      <span className="text-warning ml-auto inline-flex items-center gap-1 text-[10px] uppercase tracking-wider">
+                        <AlertTriangle className="h-3 w-3" /> Sem conta
+                      </span>
+                    )}
+                  </div>
+                  <div className={cn("relative bg-muted", aspectClass(t))}>
+                    {media ? (
+                      <>
+                        <img src={media} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                        {isVideo && (
+                          <div className="absolute inset-0 flex items-center justify-center">
+                            <div className="rounded-full bg-black/50 p-3">
+                              <Play className="h-6 w-6 text-white" fill="white" />
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    ) : (
+                      <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
+                        <AlertTriangle className="h-6 w-6 mb-1" />
+                        <span className="text-xs">Sem mídia</span>
+                      </div>
+                    )}
+                  </div>
+                  {caption && (
+                    <div className="p-3">
+                      <p className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-6">
+                        <strong className="text-foreground">{post.conta}</strong>{" "}
+                        {caption}
+                      </p>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        <div className="mt-4 rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+          <strong>Heads up:</strong> isso é um mock visual baseado nos campos do Notion. As plataformas podem aplicar crops/compressão diferentes na hora real da publicação.
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── Calendar view ────────────────────────────────────
 
 const WEEKDAYS_PT = ["Seg", "Ter", "Qua", "Qui", "Sex", "Sáb", "Dom"]
 const MONTHS_PT = [
