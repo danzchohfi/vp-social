@@ -159,6 +159,17 @@ export function createNotionClient(accessToken: string) {
       })
     },
 
+    async markReady(pageId: string, mapping: FieldMapping): Promise<void> {
+      // Reset a previously-failed post back to "Agendado" so the cron can
+      // pick it up on the next tick. Used by the manual retry button in /scheduled.
+      await client.pages.update({
+        page_id: pageId,
+        properties: {
+          [mapping.statusField]: { status: { name: mapping.statusReadyValue } },
+        },
+      })
+    },
+
     async updateAnalytics(
       pageId: string,
       mapping: FieldMapping,
