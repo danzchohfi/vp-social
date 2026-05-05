@@ -5,6 +5,7 @@ import { and, eq, gte, inArray } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { getActiveClientId } from "@/lib/active-client"
+import { syncAccountsToNotionAsync } from "@/lib/notion-account-sync"
 
 // "Pending" accounts are the ones the Facebook OAuth callback just inserted
 // (active=false) within the last PENDING_WINDOW_MINUTES. After that window
@@ -73,6 +74,12 @@ export async function POST(req: Request) {
     await db
       .delete(instagramAccount)
       .where(inArray(instagramAccount.id, toDelete))
+  }
+
+  // Push the now-active contas to the Notion Select options so the user
+  // can pick them in the database without typing.
+  if (toKeep.length > 0 || toDelete.length > 0) {
+    syncAccountsToNotionAsync(session.user.id, clientId)
   }
 
   return NextResponse.json({ activated: toKeep.length, deleted: toDelete.length })

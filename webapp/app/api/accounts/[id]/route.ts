@@ -5,6 +5,7 @@ import { eq } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { userHasClientAccess } from "@/lib/active-client"
+import { syncAccountsToNotionAsync } from "@/lib/notion-account-sync"
 
 export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -25,6 +26,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
 
   await db.update(instagramAccount).set(update).where(eq(instagramAccount.id, id))
 
+  // If conta name or active state changed, push the new conta set to Notion
+  // so the Select options stay aligned with what the user can publish to.
+  if ((body.conta !== undefined && body.conta !== target.conta) || body.active !== undefined) {
+    syncAccountsToNotionAsync(session.user.id, target.clientId)
+  }
+
   return NextResponse.json({ ok: true })
 }
 
@@ -41,6 +48,13 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   }
 
   await db.delete(instagramAccount).where(eq(instagramAccount.id, id))
+
+  // Note: we don't remove the option from Notion's Select — Notion preserves
+  // historical values that posts may already use. New contas just get added.
+  // But we still call sync to ensure remaining contas are present.
+  if (target.clientId) {
+    syncAccountsToNotionAsync(session.user.id, target.clientId)
+  }
 
   return NextResponse.json({ ok: true })
 }

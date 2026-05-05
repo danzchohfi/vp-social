@@ -5,6 +5,7 @@ import { and, eq, ne } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { userHasClientAccess } from "@/lib/active-client"
+import { syncAccountsToNotionAsync } from "@/lib/notion-account-sync"
 
 export async function POST(
   _req: Request,
@@ -34,6 +35,8 @@ export async function POST(
     .update(instagramAccount)
     .set({ active: true, updatedAt: new Date() })
     .where(eq(instagramAccount.id, id))
+
+  syncAccountsToNotionAsync(session.user.id, target.clientId)
 
   return NextResponse.json({ ok: true, removed: result.length })
 }
