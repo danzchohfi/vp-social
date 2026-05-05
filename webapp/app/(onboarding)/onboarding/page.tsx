@@ -486,23 +486,11 @@ export default function OnboardingPage() {
       )}
 
       {step === 5 && (
-        <StepCard icon={<Zap className="h-6 w-6 text-primary" />} title="Tudo pronto!" description="Suas conexões foram configuradas com sucesso. O VP Social vai publicar seus posts automaticamente.">
-          <div className="space-y-3">
-            <SuccessItem label="Notion conectado" />
-            <SuccessItem label="Banco de dados selecionado" />
-            <SuccessItem label="Contas sociais conectadas" />
-            <SuccessItem label="Mapeamento configurado" />
-          </div>
-          <div className="rounded-lg bg-primary/5 border border-primary/20 p-4 text-sm text-muted-foreground space-y-1">
-            <p className="font-medium text-foreground">Próximos passos:</p>
-            <ul className="list-disc pl-4 space-y-0.5">
-              <li>Verifique que os nomes das contas no Notion correspondem aos cadastrados</li>
-              <li>Posts com status &quot;Agendamento&quot; e data passada serão publicados automaticamente</li>
-              <li>Acompanhe tudo em <strong>Publicações</strong></li>
-            </ul>
-          </div>
-          <Button onClick={finish} className="w-full" size="lg">Ir para o Dashboard <ArrowRight className="ml-2 h-4 w-4" /></Button>
-        </StepCard>
+        <FinalStep
+          connection={connection}
+          onBack={(s) => setStep(s)}
+          onFinish={finish}
+        />
       )}
 
       <div className="flex items-center justify-between">
@@ -756,5 +744,126 @@ function SuccessItem({ label }: { label: string }) {
       <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
       <span className="text-sm font-medium text-green-800 dark:text-green-300">{label}</span>
     </div>
+  )
+}
+
+function PendingItem({ label, hint, onBack }: { label: string; hint: string; onBack: () => void }) {
+  return (
+    <div className="flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning/5 px-4 py-3">
+      <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 border-warning/60" />
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium text-foreground">{label}</p>
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      </div>
+      <Button size="sm" variant="outline" onClick={onBack}>
+        Configurar
+      </Button>
+    </div>
+  )
+}
+
+// Checks the actual setup state when the user reaches step 5 — without this
+// the "Tudo pronto!" screen would lie if the user clicked "Pular por agora"
+// on accounts or mapping. Each missing item gets a 'Configurar' button that
+// jumps back to the relevant step.
+function FinalStep({
+  connection,
+  onBack,
+  onFinish,
+}: {
+  connection: Connection | null
+  onBack: (step: Step) => void
+  onFinish: () => void
+}) {
+  const [status, setStatus] = useState({
+    notion: false,
+    database: false,
+    accounts: false,
+    mapping: false,
+    loading: true,
+  })
+
+  useEffect(() => {
+    let cancelled = false
+    async function check() {
+      const notionOk = !!connection
+      const dbOk = !!connection?.databaseId
+
+      const [accountsOk, mappingOk] = await Promise.all([
+        // /api/accounts is filtered by active client server-side; any active
+        // row counts as "has account".
+        fetch("/api/accounts")
+          .then((r) => r.json())
+          .then((data) => Array.isArray(data) && data.some((a: any) => a.active))
+          .catch(() => false),
+        connection?.id
+          ? fetch(`/api/notion/workspaces/${connection.id}/mapping`)
+              .then((r) => r.json())
+              // The mapping endpoint returns {} when no row exists; check for a
+              // required field to be confident the user actually saved.
+              .then((m) => !!m && (m.statusField || m.titleField))
+              .catch(() => false)
+          : Promise.resolve(false),
+      ])
+
+      if (cancelled) return
+      setStatus({ notion: notionOk, database: dbOk, accounts: accountsOk, mapping: mappingOk, loading: false })
+    }
+    check()
+    return () => {
+      cancelled = true
+    }
+  }, [connection])
+
+  const allDone = status.notion && status.database && status.accounts && status.mapping
+  const headline = status.loading
+    ? "Verificando configuração…"
+    : allDone
+    ? "Tudo pronto!"
+    : "Quase lá"
+  const description = status.loading
+    ? "Conferindo o que ficou pronto."
+    : allDone
+    ? "Suas conexões foram configuradas com sucesso. O VP Social vai publicar seus posts automaticamente."
+    : "Você pulou alguns passos. Conclua os itens abaixo antes de começar a agendar — sem eles o sistema não vai publicar."
+
+  return (
+    <StepCard icon={<Zap className="h-6 w-6 text-primary" />} title={headline} description={description}>
+      <div className="space-y-3">
+        {status.notion ? (
+          <SuccessItem label="Notion conectado" />
+        ) : (
+          <PendingItem label="Notion não conectado" hint="Autorize o acesso ao seu workspace." onBack={() => onBack(1)} />
+        )}
+        {status.database ? (
+          <SuccessItem label="Banco de dados selecionado" />
+        ) : (
+          <PendingItem label="Banco de dados não selecionado" hint="Escolha o database do Notion onde estão os posts." onBack={() => onBack(2)} />
+        )}
+        {status.accounts ? (
+          <SuccessItem label="Contas sociais conectadas" />
+        ) : (
+          <PendingItem label="Nenhuma conta social conectada" hint="Conecte ao menos uma conta de Instagram, Facebook ou outra." onBack={() => onBack(3)} />
+        )}
+        {status.mapping ? (
+          <SuccessItem label="Mapeamento configurado" />
+        ) : (
+          <PendingItem label="Mapeamento não configurado" hint="Diga ao app quais colunas são título, data, conta, mídia." onBack={() => onBack(4)} />
+        )}
+      </div>
+      {allDone && (
+        <div className="rounded-lg bg-primary/5 border border-primary/20 p-4 text-sm text-muted-foreground space-y-1">
+          <p className="font-medium text-foreground">Próximos passos:</p>
+          <ul className="list-disc pl-4 space-y-0.5">
+            <li>Verifique que os nomes das contas no Notion correspondem aos cadastrados</li>
+            <li>Posts com status &quot;Agendamento&quot; e data passada serão publicados automaticamente</li>
+            <li>Acompanhe tudo em <strong>Publicações</strong></li>
+          </ul>
+        </div>
+      )}
+      <Button onClick={onFinish} className="w-full" size="lg" variant={allDone ? "default" : "outline"}>
+        {allDone ? <>Ir para o Dashboard <ArrowRight className="ml-2 h-4 w-4" /></> : "Ir para o Dashboard mesmo assim"}
+      </Button>
+    </StepCard>
   )
 }
