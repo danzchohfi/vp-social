@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { clientInvite, clientMember } from "@/lib/db/schema"
-import { and, eq } from "drizzle-orm"
+import { and, eq, isNull } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { generateId } from "@/lib/utils"
@@ -33,13 +33,21 @@ export async function POST(
     )
   }
 
-  const [existing] = await db
-    .select()
-    .from(clientMember)
-    .where(and(eq(clientMember.clientId, invite.clientId), eq(clientMember.userId, session.user.id)))
-
-  if (!existing) {
-    await db.insert(clientMember).values({
+  // Two operations, each idempotent on its own — neon-http doesn't support
+  // interactive transactions, so we sequence the writes such that any retry
+  // (concurrent tab, crash between calls) converges to the same state:
+  //
+  //   1) INSERT membership ON CONFLICT DO NOTHING — concurrent accepts by
+  //      the same user no-op the second insert thanks to the unique index
+  //      on (clientId, userId).
+  //   2) UPDATE invite acceptedAt WHERE acceptedAt IS NULL — the WHERE
+  //      clause makes this atomic at row level: the second concurrent call
+  //      finds no matching row and no-ops. If a crash happens between (1)
+  //      and (2), the user already has membership; the next retry will
+  //      flip acceptedAt — no stuck state.
+  await db
+    .insert(clientMember)
+    .values({
       id: generateId(),
       clientId: invite.clientId,
       userId: session.user.id,
@@ -49,12 +57,17 @@ export async function POST(
       scope: invite.scope,
       invitedByUserId: invite.invitedByUserId,
     })
-  }
+    .onConflictDoNothing({
+      target: [clientMember.clientId, clientMember.userId],
+    })
 
   await db
     .update(clientInvite)
     .set({ acceptedAt: new Date() })
-    .where(eq(clientInvite.id, invite.id))
+    .where(and(
+      eq(clientInvite.id, invite.id),
+      isNull(clientInvite.acceptedAt),
+    ))
 
   await setActiveClientCookie(invite.clientId)
 
