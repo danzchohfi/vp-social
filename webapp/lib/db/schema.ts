@@ -56,6 +56,13 @@ export const client = pgTable("client", {
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   logoUrl: text("logo_url"),
+  // ManyChat integration for client-approval WhatsApp notifications. Both
+  // optional — when set, the cron uses ManyChat API to send the approval
+  // request to the subscriber matching the contact's phone (read from the
+  // Notion Contatos DB via fieldMapping.contactPhoneField). When not set,
+  // approval requests fall back to email only.
+  manychatApiKey: text("manychat_api_key"),
+  manychatApprovalFlowNs: text("manychat_approval_flow_ns"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
@@ -167,6 +174,19 @@ export const fieldMapping = pgTable("field_mapping", {
   // YouTube watch URL, etc.) — escrita em uma URL property do Notion após
   // o publish. Opcional: se não mapeado, nada é escrito.
   postUrlField: text("post_url_field"),
+  // Approval flow — all opt-in. When awaitingApprovalValue is set, the cron
+  // detects posts in that status, creates an approvalLink, and notifies the
+  // client (ManyChat WA + Resend email) using contact info read from the
+  // Notion post via the contact*Field rollups (which typically resolve via
+  // a relation to a "Contatos" DB). When client approves on the public page
+  // /approve/{token}, status flips to statusReadyValue. When client requests
+  // changes, status flips to revisionRequestedValue + a comment is posted
+  // on the Notion page via comments.create.
+  awaitingApprovalValue: text("awaiting_approval_value"),
+  revisionRequestedValue: text("revision_requested_value"),
+  clientContactField: text("client_contact_field"),
+  contactEmailField: text("contact_email_field"),
+  contactPhoneField: text("contact_phone_field"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
@@ -209,4 +229,46 @@ export const publishLog = pgTable("publish_log", {
   // dashboard, /scheduled, /history, analytics worker all hit it.
   byClientPublished: index("publish_log_client_published_idx").on(t.clientId, t.publishedAt),
   byStatus: index("publish_log_status_idx").on(t.status),
+}))
+
+// ─── Approval link ────────────────────────────────────
+// One row per pending client-approval cycle for a Notion post. The cron
+// detects posts in fieldMapping.awaitingApprovalValue, creates an
+// approvalLink (random token, 14d expiry), notifies the client (ManyChat
+// WA + Resend email), and registers sentVia. The client opens
+// /approve/{token}, sees the post preview, and posts a decision —
+// approved | changes_requested | rejected. Approving flips Notion status
+// to statusReadyValue (cron picks it up). Changes_requested flips to
+// revisionRequestedValue + adds a comment on the Notion page via API.
+export const approvalLink = pgTable("approval_link", {
+  id: text("id").primaryKey(),
+  token: text("token").notNull().unique(),
+  clientId: text("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
+  connectionId: text("connection_id").notNull().references(() => notionConnection.id, { onDelete: "cascade" }),
+  notionPageId: text("notion_page_id").notNull(),
+  postTitle: text("post_title").notNull(),
+  contactName: text("contact_name"),
+  contactEmail: text("contact_email"),
+  contactPhone: text("contact_phone"),
+  // "manychat" | "email" | "manual" | "none". "none" means no channel
+  // succeeded — agency has to nudge manually via the click-to-chat WA
+  // button rendered in /scheduled.
+  sentVia: text("sent_via").notNull().default("none"),
+  sentAt: timestamp("sent_at"),
+  expiresAt: timestamp("expires_at").notNull(),
+  // null when pending. Set when client decides on the public page.
+  decision: text("decision"),
+  decidedAt: timestamp("decided_at"),
+  decidedFromIp: text("decided_from_ip"),
+  comment: text("comment"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => ({
+  // At most one PENDING approval link per Notion page. The cron uses this
+  // to avoid sending repeat notifications. Once decided (decision NOT NULL),
+  // a new pending link can be created if the post re-enters the awaiting
+  // state — but that's a different row.
+  pendingPerPage: uniqueIndex("approval_link_pending_per_page_uniq")
+    .on(t.notionPageId)
+    .where(sql`${t.decision} IS NULL`),
+  byClient: index("approval_link_client_idx").on(t.clientId, t.createdAt),
 }))
