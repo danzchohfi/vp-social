@@ -30,6 +30,9 @@ type FieldMapping = {
   feedImageUrlsField: string; verticalUrlsField: string; horizontalUrlsField: string; thumbnailUrlField: string
   likesField: string; commentsField: string; reachField: string; savesField: string; impressionsField: string
   postUrlField: string
+  // Approval flow (opt-in). Empty string = not configured.
+  awaitingApprovalValue: string; revisionRequestedValue: string
+  clientContactField: string; contactEmailField: string; contactPhoneField: string
 }
 
 const DEFAULT_MAPPING: FieldMapping = {
@@ -41,6 +44,8 @@ const DEFAULT_MAPPING: FieldMapping = {
   feedImageUrlsField: "Imagens Feed", verticalUrlsField: "Mídia Vertical", horizontalUrlsField: "Mídia Horizontal", thumbnailUrlField: "Thumbnail",
   likesField: "", commentsField: "", reachField: "", savesField: "", impressionsField: "",
   postUrlField: "",
+  awaitingApprovalValue: "", revisionRequestedValue: "",
+  clientContactField: "", contactEmailField: "", contactPhoneField: "",
 }
 
 const NONE_VALUE = "__none__"
@@ -441,6 +446,41 @@ export default function SettingsPage() {
                 <p className="text-xs text-muted-foreground">Crie uma propriedade do tipo <strong>Texto</strong> no Notion e mapeie aqui. Após publicar, vamos escrever um link clicável por plataforma (ex.: &quot;Instagram: https://...&quot;) — assim você não perde os links anteriores quando publicar em várias plataformas.</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <SelectField label="Links publicados" value={mapping.postUrlField} options={propNames} onChange={(v) => setField("postUrlField", v)} />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aprovação do cliente (opcional)</p>
+                <p className="text-xs text-muted-foreground">
+                  Dispara um link de aprovação por WhatsApp toda vez que um post entra no status &quot;aguardando aprovação&quot;. O cliente abre <code className="rounded bg-muted px-1 font-mono text-[11px]">/approve/&lt;token&gt;</code> e decide aprovar ou pedir alterações. Para ativar, preencha os 5 campos abaixo + o ManyChat do cliente em <a href="/clients" className="underline">/clients</a>.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <StatusValueSelect label="Status que dispara aprovação" value={mapping.awaitingApprovalValue} options={statusOptions} onChange={(v) => setField("awaitingApprovalValue", v)} />
+                  <StatusValueSelect label='Status quando "pedir alterações"' value={mapping.revisionRequestedValue} options={statusOptions} onChange={(v) => setField("revisionRequestedValue", v)} />
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  Para descobrir o contato do cliente, criamos uma <strong>relação</strong> no post para a sua DB de Contatos (com colunas Email e Telefone). O app segue a relação e lê o email/telefone na DB de Contatos.
+                </p>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <SelectField label="Coluna de relação cliente" value={mapping.clientContactField} options={propNames} onChange={(v) => setField("clientContactField", v)} hint="Propriedade do tipo Relation no post → DB de Contatos" />
+                  <div className="space-y-1">
+                    <Label className="text-sm">Coluna de email no contato</Label>
+                    <p className="text-xs text-muted-foreground">Nome da propriedade na DB de Contatos (ex.: &quot;Email&quot;).</p>
+                    <Input
+                      placeholder="Email"
+                      value={mapping.contactEmailField}
+                      onChange={(e) => setField("contactEmailField", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-sm">Coluna de telefone no contato</Label>
+                    <p className="text-xs text-muted-foreground">Nome da propriedade na DB de Contatos (ex.: &quot;Telefone&quot;). Formato com DDI: <code className="rounded bg-muted px-1 font-mono text-[10px]">+5511999999999</code>.</p>
+                    <Input
+                      placeholder="Telefone"
+                      value={mapping.contactPhoneField}
+                      onChange={(e) => setField("contactPhoneField", e.target.value)}
+                    />
+                  </div>
                 </div>
               </div>
 
