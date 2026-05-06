@@ -27,6 +27,12 @@ function dbToUi(row: any) {
     savesField: row.savesField ?? "",
     impressionsField: row.impressionsField ?? "",
     postUrlField: row.postUrlField ?? "",
+    // Approval flow — opt-in; null in DB = empty string in UI.
+    awaitingApprovalValue: row.awaitingApprovalValue ?? "",
+    revisionRequestedValue: row.revisionRequestedValue ?? "",
+    clientContactField: row.clientContactField ?? "",
+    contactEmailField: row.contactEmailField ?? "",
+    contactPhoneField: row.contactPhoneField ?? "",
   }
 }
 
@@ -82,6 +88,11 @@ export async function POST(
     savesField: ui.savesField || null,
     impressionsField: ui.impressionsField || null,
     postUrlField: ui.postUrlField || null,
+    awaitingApprovalValue: ui.awaitingApprovalValue || null,
+    revisionRequestedValue: ui.revisionRequestedValue || null,
+    clientContactField: ui.clientContactField || null,
+    contactEmailField: ui.contactEmailField || null,
+    contactPhoneField: ui.contactPhoneField || null,
     updatedAt: new Date(),
   }
 
