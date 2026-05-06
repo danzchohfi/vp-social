@@ -36,7 +36,7 @@ export async function POST(
     .set({ active: true, updatedAt: new Date() })
     .where(eq(instagramAccount.id, id))
 
-  syncAccountsToNotionAsync(session.user.id, target.clientId)
+  syncAccountsToNotionAsync(target.clientId)
 
   return NextResponse.json({ ok: true, removed: result.length })
 }

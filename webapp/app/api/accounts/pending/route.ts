@@ -79,7 +79,7 @@ export async function POST(req: Request) {
   // Push the now-active contas to the Notion Select options so the user
   // can pick them in the database without typing.
   if (toKeep.length > 0 || toDelete.length > 0) {
-    syncAccountsToNotionAsync(session.user.id, clientId)
+    syncAccountsToNotionAsync(clientId)
   }
 
   return NextResponse.json({ activated: toKeep.length, deleted: toDelete.length })

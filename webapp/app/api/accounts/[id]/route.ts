@@ -29,7 +29,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   // If conta name or active state changed, push the new conta set to Notion
   // so the Select options stay aligned with what the user can publish to.
   if ((body.conta !== undefined && body.conta !== target.conta) || body.active !== undefined) {
-    syncAccountsToNotionAsync(session.user.id, target.clientId)
+    syncAccountsToNotionAsync(target.clientId)
   }
 
   return NextResponse.json({ ok: true })
@@ -53,7 +53,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   // historical values that posts may already use. New contas just get added.
   // But we still call sync to ensure remaining contas are present.
   if (target.clientId) {
-    syncAccountsToNotionAsync(session.user.id, target.clientId)
+    syncAccountsToNotionAsync(target.clientId)
   }
 
   return NextResponse.json({ ok: true })

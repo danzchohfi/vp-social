@@ -14,7 +14,11 @@ export async function POST() {
   const userId = session.user.id
   const clientId = await getActiveClientId(userId)
 
-  const results = await syncAccountsToNotion(userId, clientId)
+  // getActiveClientId resolves through listAccessibleClients, so the
+  // returned clientId is always one the user can access. The sync helper
+  // doesn't take userId anymore (clientId is the access boundary now,
+  // so agency members don't silently no-op on owner-created accounts).
+  const results = await syncAccountsToNotion(clientId)
 
   return NextResponse.json({ results })
 }

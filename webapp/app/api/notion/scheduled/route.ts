@@ -81,7 +81,7 @@ export async function GET() {
   )
   const clientContas = new Set(accounts.filter((a) => a.active).map((a) => a.conta.toLowerCase()))
 
-  // ─── Upcoming (Notion) ───────────────────────────────────────────
+  // ─── Upcoming (Notion) ────────────────────────────────
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? ""
   let upcoming: any[] = []
   let ignored: Array<{ pageId: string; title: string; conta: string; clientName: string | null; suggestion: string | null }> = []
@@ -174,13 +174,16 @@ export async function GET() {
   }
 
   // ─── Past (publishLog) ────────────────────────────────────────────────
+  // Tenancy is enforced by clientId only. Filtering on session.user.id
+  // would silently hide past logs in agency-scope clients (where the
+  // publishLog rows carry the owner's userId, not the calling member's),
+  // making the Past tab look empty for members.
   const cutoff = new Date(Date.now() - PAST_WINDOW_DAYS * 24 * 60 * 60 * 1000)
   const logs = await db
     .select()
     .from(publishLog)
     .where(
       and(
-        eq(publishLog.userId, session.user.id),
         gte(publishLog.publishedAt, cutoff),
         isAgency
           ? inArray(publishLog.clientId, clientIds)

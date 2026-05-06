@@ -22,17 +22,18 @@ export type SyncResult = {
 // Should be called after any mutation that changes the conta set: account
 // creation (pending confirm), edit conta name, toggle active, delete,
 // keep-only. Best-effort — failures don't block the calling mutation.
-export async function syncAccountsToNotion(
-  userId: string,
-  clientId: string
-): Promise<SyncResult[]> {
+//
+// Scoped by `clientId` only — accounts and connections of an agency-scope
+// client may have been created by the OWNER's userId, not the calling
+// member's. Filtering on session.user.id used to silently no-op for
+// members. Callers must verify clientId access before calling.
+export async function syncAccountsToNotion(clientId: string): Promise<SyncResult[]> {
   const [accounts, connections] = await Promise.all([
     db
       .select()
       .from(instagramAccount)
       .where(
         and(
-          eq(instagramAccount.userId, userId),
           eq(instagramAccount.clientId, clientId),
           eq(instagramAccount.active, true)
         )
@@ -40,12 +41,7 @@ export async function syncAccountsToNotion(
     db
       .select()
       .from(notionConnection)
-      .where(
-        and(
-          eq(notionConnection.userId, userId),
-          eq(notionConnection.clientId, clientId)
-        )
-      ),
+      .where(eq(notionConnection.clientId, clientId)),
   ])
 
   // Unique conta names, trimmed, case-preserving (Notion is case-sensitive
@@ -149,8 +145,8 @@ export async function syncAccountsToNotion(
 // Convenience: fire-and-forget version that swallows errors. Use from the
 // account-mutation endpoints where we don't want a Notion API hiccup to fail
 // the actual mutation.
-export function syncAccountsToNotionAsync(userId: string, clientId: string): void {
-  syncAccountsToNotion(userId, clientId).catch((e) => {
+export function syncAccountsToNotionAsync(clientId: string): void {
+  syncAccountsToNotion(clientId).catch((e) => {
     console.warn(`[notion-account-sync] background sync failed: ${e}`)
   })
 }

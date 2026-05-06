@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { fieldMapping, notionConnection } from "@/lib/db/schema"
-import { and, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING } from "@/lib/notion"
@@ -22,13 +22,19 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "pageId e connectionId obrigatórios" }, { status: 400 })
   }
 
+  // Look up by id only — gate via userHasClientAccess below so members of
+  // an agency-scope client can preview posts of that client (same fix as
+  // publish-now/retry: connection.userId is the OWNER's id, not the
+  // calling member's).
   const [conn] = await db
     .select()
     .from(notionConnection)
-    .where(and(eq(notionConnection.id, connectionId), eq(notionConnection.userId, userId)))
+    .where(eq(notionConnection.id, connectionId))
 
   if (!conn) return NextResponse.json({ error: "Conexão não encontrada" }, { status: 404 })
-  if (conn.clientId && !(await userHasClientAccess(userId, conn.clientId))) {
+  const accessOk = conn.userId === userId
+    || (conn.clientId && await userHasClientAccess(userId, conn.clientId))
+  if (!accessOk) {
     return NextResponse.json({ error: "Sem acesso" }, { status: 403 })
   }
 
