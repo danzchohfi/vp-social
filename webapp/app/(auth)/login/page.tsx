@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,24 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { signIn } from "@/lib/auth-client"
 import { Loader2, Facebook } from "lucide-react"
+
+// Forwards the current ?redirect= so that invitees who land on /login and
+// click "Criar conta" don't lose the invite target.
+function SignupLink() {
+  const [href, setHref] = useState("/signup")
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search)
+    const redirect = sp.get("redirect")
+    if (redirect && redirect.startsWith("/") && !redirect.startsWith("//")) {
+      setHref(`/signup?redirect=${encodeURIComponent(redirect)}`)
+    }
+  }, [])
+  return (
+    <Link href={href} className="ml-1 font-medium text-primary hover:underline">
+      Criar conta grátis
+    </Link>
+  )
+}
 
 function GoogleIcon() {
   return (
@@ -29,6 +47,17 @@ export default function LoginPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
 
+  // Honor ?redirect=<path> so the invite-accept flow can come back to
+  // /invites/{token} after signing in. Read at click time (not via
+  // useSearchParams) to avoid forcing dynamic rendering on the auth page.
+  function postAuthTarget(): string {
+    if (typeof window === "undefined") return "/dashboard"
+    const sp = new URLSearchParams(window.location.search)
+    const redirect = sp.get("redirect")
+    // Only allow same-origin paths to prevent open-redirect.
+    return redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : "/dashboard"
+  }
+
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
@@ -36,19 +65,19 @@ export default function LoginPage() {
     if (error) {
       toast.error(error.message || "Erro ao entrar. Verifique suas credenciais.")
     } else {
-      router.push("/dashboard")
+      router.push(postAuthTarget())
     }
     setLoading(false)
   }
 
   async function handleGoogle() {
     setGoogleLoading(true)
-    await signIn.social({ provider: "google", callbackURL: "/dashboard" })
+    await signIn.social({ provider: "google", callbackURL: postAuthTarget() })
   }
 
   async function handleFacebook() {
     setFbLoading(true)
-    await signIn.social({ provider: "facebook", callbackURL: "/dashboard" })
+    await signIn.social({ provider: "facebook", callbackURL: postAuthTarget() })
   }
 
   return (
@@ -98,9 +127,7 @@ export default function LoginPage() {
       </CardContent>
       <CardFooter className="justify-center text-sm text-muted-foreground">
         Não tem conta?{" "}
-        <Link href="/signup" className="ml-1 font-medium text-primary hover:underline">
-          Criar conta grátis
-        </Link>
+        <SignupLink />
       </CardFooter>
     </Card>
   )

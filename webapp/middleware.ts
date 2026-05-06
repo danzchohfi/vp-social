@@ -1,7 +1,13 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
 
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/forgot-password", "/reset-password", "/api/auth", "/api/tiktok-proxy", "/privacy", "/terms"]
+// /invites and /api/invites are public so an unauthenticated invitee can
+// (a) land on the accept page and see the inviter/scope context, and
+// (b) the page can fetch /api/invites/[token] for that context. Without
+// these, the middleware redirected the invite click to /login and dropped
+// the redirect target — invitees signed up and ended up on /onboarding
+// instead of accepting.
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/forgot-password", "/reset-password", "/api/auth", "/api/tiktok-proxy", "/privacy", "/terms", "/invites", "/api/invites"]
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl

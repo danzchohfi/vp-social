@@ -1,6 +1,6 @@
 "use client"
 import Link from "next/link"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { toast } from "sonner"
 import { Button } from "@/components/ui/button"
@@ -9,6 +9,25 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card"
 import { signUp, signIn } from "@/lib/auth-client"
 import { Loader2, Facebook } from "lucide-react"
+
+// Forwards the current ?redirect= so an invitee who lands here, then clicks
+// "Entrar" because they realize they have an account, doesn't lose the
+// invite target.
+function LoginLink() {
+  const [href, setHref] = useState("/login")
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search)
+    const redirect = sp.get("redirect")
+    if (redirect && redirect.startsWith("/") && !redirect.startsWith("//")) {
+      setHref(`/login?redirect=${encodeURIComponent(redirect)}`)
+    }
+  }, [])
+  return (
+    <Link href={href} className="ml-1 font-medium text-primary hover:underline">
+      Entrar
+    </Link>
+  )
+}
 
 function GoogleIcon() {
   return (
@@ -30,6 +49,25 @@ export default function SignupPage() {
   const [email, setEmail] = useState("")
   const [password, setPassword] = useState("")
 
+  // Pre-fill email from ?email=… (sent by the invite-accept page) so the
+  // invitee doesn't have to retype it. Slight flash of empty → filled is
+  // acceptable for an unauth flow.
+  useEffect(() => {
+    const sp = new URLSearchParams(window.location.search)
+    const initialEmail = sp.get("email")
+    if (initialEmail) setEmail(initialEmail)
+  }, [])
+
+  // Honor ?redirect=<path> so invitees signing up via the invite link land
+  // back on /invites/{token} instead of /dashboard. Without this, they
+  // ended up in onboarding with a default client and the invite untouched.
+  function postAuthTarget(): string {
+    if (typeof window === "undefined") return "/dashboard"
+    const sp = new URLSearchParams(window.location.search)
+    const redirect = sp.get("redirect")
+    return redirect && redirect.startsWith("/") && !redirect.startsWith("//") ? redirect : "/dashboard"
+  }
+
   async function handleSignup(e: React.FormEvent) {
     e.preventDefault()
     if (password.length < 8) {
@@ -42,19 +80,19 @@ export default function SignupPage() {
       toast.error(error.message || "Erro ao criar conta.")
     } else {
       toast.success("Conta criada! Bem-vindo ao VP Social.")
-      router.push("/dashboard")
+      router.push(postAuthTarget())
     }
     setLoading(false)
   }
 
   async function handleGoogle() {
     setGoogleLoading(true)
-    await signIn.social({ provider: "google", callbackURL: "/dashboard" })
+    await signIn.social({ provider: "google", callbackURL: postAuthTarget() })
   }
 
   async function handleFacebook() {
     setFbLoading(true)
-    await signIn.social({ provider: "facebook", callbackURL: "/dashboard" })
+    await signIn.social({ provider: "facebook", callbackURL: postAuthTarget() })
   }
 
   return (
@@ -103,9 +141,7 @@ export default function SignupPage() {
       </CardContent>
       <CardFooter className="justify-center text-sm text-muted-foreground">
         Já tem conta?{" "}
-        <Link href="/login" className="ml-1 font-medium text-primary hover:underline">
-          Entrar
-        </Link>
+        <LoginLink />
       </CardFooter>
     </Card>
   )
