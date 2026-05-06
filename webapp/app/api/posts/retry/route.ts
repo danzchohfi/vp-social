@@ -1,15 +1,16 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { notionConnection, fieldMapping } from "@/lib/db/schema"
-import { and, eq } from "drizzle-orm"
+import { eq } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING } from "@/lib/notion"
 import { userHasClientAccess } from "@/lib/active-client"
 
 // Manual retry: flips a failed Notion page back to the "ready" status value
-// so the next cron tick picks it up. Cheaper than re-running the full publish
-// pipeline inline — and avoids duplicating saveLog logic.
+// so the next cron tick picks it up. The cron's idempotency pre-check
+// (a3c4366) ensures only platforms that DON'T have a 'published' row in
+// publish_log get retried — successful platforms are skipped.
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -25,16 +26,21 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "pageId e connectionId obrigatórios" }, { status: 400 })
   }
 
+  // Look up by id only — gate via userHasClientAccess below so members of
+  // an agency-scope client can retry posts of that client (same fix as
+  // publish-now in 029b16e).
   const [connection] = await db
     .select()
     .from(notionConnection)
-    .where(and(eq(notionConnection.id, connectionId), eq(notionConnection.userId, userId)))
+    .where(eq(notionConnection.id, connectionId))
 
   if (!connection) {
     return NextResponse.json({ error: "Conexão não encontrada" }, { status: 404 })
   }
-  if (connection.clientId && !(await userHasClientAccess(userId, connection.clientId))) {
-    return NextResponse.json({ error: "Sem acesso a este cliente" }, { status: 403 })
+  const accessOk = connection.userId === userId
+    || (connection.clientId && await userHasClientAccess(userId, connection.clientId))
+  if (!accessOk) {
+    return NextResponse.json({ error: "Sem acesso a esta conexão" }, { status: 403 })
   }
 
   const [mappingRow] = await db
