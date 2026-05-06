@@ -112,6 +112,13 @@ export const publishForConnection = task({
       if (!post.publishTargets.length) {
         logger.warn(`Post "${post.title}" sem "Publicar em" definido — ignorado.`)
         await saveLog(db, userId, connectionId, post, null, null, "—", "skipped", `Campo "Publicar em" vazio`, connection.clientId)
+        // Flip status to Erro so the cron filter stops matching this post.
+        // Without the flip, the same post is logged "skipped" every 5 min.
+        try {
+          await notion.markFailed(post.pageId, mapping)
+        } catch (e) {
+          logger.warn(`Falha ao marcar erro no Notion para "${post.title}" (sem publishTargets): ${e}`)
+        }
         results.skipped++
         continue
       }
@@ -160,17 +167,26 @@ export const publishForConnection = task({
         }
       }
 
-      // After all platforms attempted: write the collected links + flip status.
-      // Status update is what removes the post from the "ready" filter; without
-      // it the cron would republish on the next tick.
+      // CRITICAL: status flip is what removes the post from the "ready"
+      // filter. It MUST run before link writeback — if setPostUrls fails
+      // (Notion API 5xx, wrong field type, integration access removed),
+      // the unhandled throw used to skip the status flip and the cron
+      // would republish the same post every 5 min.
       try {
-        if (publishedLinks.length > 0) {
-          await notion.setPostUrls(post.pageId, mapping, publishedLinks)
-        }
         if (anyPublished) await notion.markPublished(post.pageId, mapping)
         else if (anyFailed) await notion.markFailed(post.pageId, mapping)
       } catch (e) {
-        logger.warn(`Falha ao atualizar Notion para "${post.title}": ${e}`)
+        logger.error(`CRÍTICO: falha ao flipar status no Notion para "${post.title}" — pode reproduzir em 5min: ${e}`)
+      }
+
+      // Link writeback is best-effort cosmetic. Even if it throws, the
+      // status was already flipped so the post won't be republished.
+      if (publishedLinks.length > 0) {
+        try {
+          await notion.setPostUrls(post.pageId, mapping, publishedLinks)
+        } catch (e) {
+          logger.warn(`Falha ao escrever links no Notion para "${post.title}": ${e}`)
+        }
       }
     }
 
