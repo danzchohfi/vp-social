@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { client } from "@/lib/db/schema"
+import { client, notionConnection } from "@/lib/db/schema"
 import { eq } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
@@ -40,10 +40,22 @@ export async function GET(
   // Lazy create — first call generates the token. Idempotent.
   const calendarToken = await getOrCreateClientCalendarToken(id)
 
+  // Connections for this client — populates the test-dispatch dropdown
+  // so the agency doesn't have to look up connectionId by hand.
+  const connections = await db
+    .select({
+      id: notionConnection.id,
+      workspaceName: notionConnection.workspaceName,
+      databaseName: notionConnection.databaseName,
+    })
+    .from(notionConnection)
+    .where(eq(notionConnection.clientId, id))
+
   return NextResponse.json({
     calendarToken,
     calendarPath: `/c/${calendarToken}`,
     manychatApiKey: row.manychatApiKey ?? "",
     manychatApprovalFlowNs: row.manychatApprovalFlowNs ?? "",
+    connections,
   })
 }
