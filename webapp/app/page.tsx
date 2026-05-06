@@ -178,7 +178,7 @@ export default function LandingPage() {
       </main>
 
       <footer className="border-t px-6 py-8">
-        <div className="mx-auto flex max-w-6xl items-center justify-between text-sm text-muted-foreground">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm text-muted-foreground sm:flex-row">
           <div className="flex items-center gap-2">
             <div className="flex h-6 w-6 items-center justify-center rounded bg-primary">
               <Zap className="h-3 w-3 text-primary-foreground" />
@@ -188,7 +188,11 @@ export default function LandingPage() {
               <span className="ml-1 italic font-display">Social</span>
             </span>
           </div>
-          <p>© 2026 VP Social. Todos os direitos reservados.</p>
+          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
+            <Link href="/privacy" className="hover:text-foreground transition-colors">Política de Privacidade</Link>
+            <Link href="/terms" className="hover:text-foreground transition-colors">Termos de Uso</Link>
+          </nav>
+          <p>© 2026 VP Social.</p>
         </div>
       </footer>
     </div>
