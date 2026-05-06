@@ -15,7 +15,12 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const userId = session.user.id
-  const { pageId, connectionId } = await req.json()
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== "object") {
+    return NextResponse.json({ error: "Body JSON inválido" }, { status: 400 })
+  }
+  const pageId = typeof body.pageId === "string" ? body.pageId : ""
+  const connectionId = typeof body.connectionId === "string" ? body.connectionId : ""
   if (!pageId || !connectionId) {
     return NextResponse.json({ error: "pageId e connectionId obrigatórios" }, { status: 400 })
   }
