@@ -64,6 +64,9 @@ export const clientMember = pgTable("client_member", {
   clientId: text("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   role: text("role").notNull().default("member"),
+  // "client" = só este cliente. "agency" = todos os clientes do mesmo owner
+  // que clientId (acesso de agência).
+  scope: text("scope").notNull().default("client"),
   invitedByUserId: text("invited_by_user_id").references(() => user.id, { onDelete: "set null" }),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (t) => ({
@@ -75,6 +78,7 @@ export const clientInvite = pgTable("client_invite", {
   clientId: text("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
   email: text("email").notNull(),
   role: text("role").notNull().default("member"),
+  scope: text("scope").notNull().default("client"),
   token: text("token").notNull().unique(),
   invitedByUserId: text("invited_by_user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   acceptedAt: timestamp("accepted_at"),

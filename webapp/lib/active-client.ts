@@ -26,17 +26,42 @@ export async function listAccessibleClients(userId: string): Promise<Client[]> {
     .from(schema.client)
     .where(eq(schema.client.userId, userId))
 
+  // Pull membership rows + join the anchor client so we know:
+  // - the anchor's id (for scope=client)
+  // - the anchor's userId, i.e. the owner whose clients should be unlocked
+  //   when scope=agency.
   const memberRows = await db
-    .select({ client: schema.client })
+    .select({
+      client: schema.client,
+      scope: schema.clientMember.scope,
+    })
     .from(schema.clientMember)
     .innerJoin(schema.client, eq(schema.client.id, schema.clientMember.clientId))
     .where(eq(schema.clientMember.userId, userId))
 
-  const all: Client[] = [...owned]
+  const directClients: Client[] = []
+  const agencyOwnerIds = new Set<string>()
   for (const row of memberRows) {
-    if (!all.find((c) => c.id === row.client.id)) all.push(row.client)
+    if (row.scope === "agency") {
+      agencyOwnerIds.add(row.client.userId)
+    } else {
+      directClients.push(row.client)
+    }
   }
-  return all
+
+  let agencyClients: Client[] = []
+  if (agencyOwnerIds.size > 0) {
+    agencyClients = await db
+      .select()
+      .from(schema.client)
+      .where(inArray(schema.client.userId, Array.from(agencyOwnerIds)))
+  }
+
+  const merged = [...owned, ...directClients, ...agencyClients]
+  // Dedupe by id while preserving first-seen order.
+  const byId = new Map<string, Client>()
+  for (const c of merged) if (!byId.has(c.id)) byId.set(c.id, c)
+  return Array.from(byId.values())
 }
 
 export async function getActiveClient(userId: string): Promise<Client> {
