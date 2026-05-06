@@ -15,6 +15,18 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   const update: Record<string, unknown> = { updatedAt: new Date() }
   if (typeof body.name === "string" && body.name.trim()) update.name = body.name.trim()
   if (body.logoUrl !== undefined) update.logoUrl = body.logoUrl
+  // ManyChat config — sent by /clients UI to enable the WhatsApp approval
+  // dispatch for this client. Either string or null (= clear).
+  if (body.manychatApiKey !== undefined) {
+    update.manychatApiKey = typeof body.manychatApiKey === "string" && body.manychatApiKey.trim()
+      ? body.manychatApiKey.trim()
+      : null
+  }
+  if (body.manychatApprovalFlowNs !== undefined) {
+    update.manychatApprovalFlowNs = typeof body.manychatApprovalFlowNs === "string" && body.manychatApprovalFlowNs.trim()
+      ? body.manychatApprovalFlowNs.trim()
+      : null
+  }
 
   await db
     .update(client)
