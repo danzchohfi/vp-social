@@ -73,6 +73,14 @@ export interface FieldMapping {
   impressionsField?: string | null
   socialVpField?: string | null
   postUrlField?: string | null
+  // Approval flow (optional, opt-in). When awaitingApprovalValue is set,
+  // the cron detects posts in that status and notifies the client. See
+  // schema.ts comment for the full flow.
+  awaitingApprovalValue?: string | null
+  revisionRequestedValue?: string | null
+  clientContactField?: string | null
+  contactEmailField?: string | null
+  contactPhoneField?: string | null
 }
 
 export const DEFAULT_MAPPING: FieldMapping = {
@@ -168,6 +176,98 @@ export function createNotionClient(accessToken: string) {
           [mapping.statusField]: { status: { name: mapping.statusReadyValue } },
         },
       })
+    },
+
+    async markRevision(pageId: string, mapping: FieldMapping): Promise<void> {
+      // Flip status to revisionRequestedValue ("Em Revisão" by convention)
+      // when the client requests changes via /approve/{token}. Caller must
+      // ensure mapping.revisionRequestedValue is set.
+      if (!mapping.revisionRequestedValue) {
+        throw new Error("revisionRequestedValue not configured in field mapping")
+      }
+      await client.pages.update({
+        page_id: pageId,
+        properties: {
+          [mapping.statusField]: { status: { name: mapping.revisionRequestedValue } },
+        },
+      })
+    },
+
+    async addClientComment(pageId: string, text: string, contactName?: string | null): Promise<void> {
+      // Posts a comment block on the Notion page. Used when client requests
+      // changes or rejects via /approve/{token} — the agency sees the
+      // comment in the Notion sidebar exactly like any human comment.
+      // Prefixed with the contact name so it's clear who wrote it.
+      const prefix = contactName ? `[${contactName}] ` : "[Cliente] "
+      await client.comments.create({
+        parent: { page_id: pageId },
+        rich_text: [{ type: "text", text: { content: prefix + text } }],
+      } as any)
+    },
+
+    async getPostsByStatus(databaseId: string, mapping: FieldMapping, statusValue: string): Promise<NotionPost[]> {
+      // Generic by-status query. Used for the approval-pending sweep
+      // (statusValue = mapping.awaitingApprovalValue). No date filter —
+      // pending approval can sit there as long as the cycle takes.
+      const response = await client.databases.query({
+        database_id: databaseId,
+        filter: {
+          property: mapping.statusField,
+          status: { equals: statusValue },
+        },
+      })
+      const pages = response.results.filter(
+        (p): p is typeof p & { properties: Record<string, unknown> } => "properties" in p
+      )
+      return Promise.all(pages.map((page) => parsePage(page as any, mapping, client)))
+    },
+
+    async resolveContact(pageId: string, mapping: FieldMapping): Promise<{
+      name: string | null
+      email: string | null
+      phone: string | null
+    } | null> {
+      // Walk: post → relation property (clientContactField) → first related
+      // Contatos page → read email/phone/title.
+      // Returns null when the relation can't be resolved (no relation set,
+      // mapping incomplete, or related page missing). The cron handles null
+      // by skipping notification and logging — no link gets created since
+      // we have nothing to send to.
+      if (!mapping.clientContactField || !mapping.contactEmailField) return null
+      try {
+        const page = await client.pages.retrieve({ page_id: pageId })
+        if (!("properties" in page)) return null
+        const props = (page as any).properties
+        const relProp = props[mapping.clientContactField]
+        const relatedIds: string[] = relProp?.relation?.map((r: any) => r.id) ?? []
+        const targetId = relatedIds[0]
+        if (!targetId) return null
+
+        const contactPage = await client.pages.retrieve({ page_id: targetId })
+        if (!("properties" in contactPage)) return null
+        const cp = (contactPage as any).properties
+
+        // Find the title property on the contact page (Notion calls this
+        // type "title" — there's exactly one per DB but the name varies).
+        let name: string | null = null
+        for (const v of Object.values(cp)) {
+          if ((v as any)?.type === "title") {
+            const arr = (v as any).title as Array<{ plain_text?: string }>
+            name = arr.map((t) => t.plain_text ?? "").join("").trim() || null
+            break
+          }
+        }
+
+        const emailVal = readContactProp(cp[mapping.contactEmailField])
+        const phoneVal = mapping.contactPhoneField
+          ? readContactProp(cp[mapping.contactPhoneField])
+          : null
+
+        return { name, email: emailVal, phone: phoneVal }
+      } catch (e) {
+        console.warn(`[notion.resolveContact] failed for ${pageId}: ${e}`)
+        return null
+      }
     },
 
     async getPostById(pageId: string, mapping: FieldMapping): Promise<NotionPost | null> {
@@ -331,4 +431,36 @@ function getFiles(prop: any): string[] {
       f.type === "external" ? f.external.url : f.file?.url ?? null
     )
     .filter(Boolean)
+}
+
+// Reads a contact-info property regardless of how the user typed it in
+// Notion. Email property → string. Phone property → string. Rich text
+// or title → joined plain text. Rollup → first string-bearing element.
+// Returns trimmed non-empty string or null. Used by resolveContact for
+// email + phone lookup on Contatos pages.
+export function readContactProp(prop: any): string | null {
+  if (!prop) return null
+  if (typeof prop.email === "string") return prop.email.trim() || null
+  if (typeof prop.phone_number === "string") return prop.phone_number.trim() || null
+  if (typeof prop.url === "string") return prop.url.trim() || null
+  if (Array.isArray(prop.rich_text)) {
+    const s = prop.rich_text.map((r: any) => r.plain_text ?? "").join("").trim()
+    return s || null
+  }
+  if (Array.isArray(prop.title)) {
+    const s = prop.title.map((r: any) => r.plain_text ?? "").join("").trim()
+    return s || null
+  }
+  if (prop.rollup) {
+    const arr = prop.rollup.array as any[] | undefined
+    if (Array.isArray(arr)) {
+      for (const item of arr) {
+        const v = readContactProp(item)
+        if (v) return v
+      }
+    }
+    if (typeof prop.rollup.string === "string") return prop.rollup.string.trim() || null
+  }
+  if (typeof prop.formula?.string === "string") return prop.formula.string.trim() || null
+  return null
 }
