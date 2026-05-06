@@ -60,9 +60,17 @@ export const client = pgTable("client", {
   // optional — when set, the cron uses ManyChat API to send the approval
   // request to the subscriber matching the contact's phone (read from the
   // Notion Contatos DB via fieldMapping.contactPhoneField). When not set,
-  // approval requests fall back to email only.
+  // the agency uses the click-to-chat WA button manually from /scheduled
+  // (email path was removed by design — WA-only).
   manychatApiKey: text("manychat_api_key"),
   manychatApprovalFlowNs: text("manychat_approval_flow_ns"),
+  // Permanent client-facing calendar token. Used in the public URL
+  // /c/{token} that the agency shares with the client (one link, never
+  // expires) showing pending approvals + scheduled + published posts of
+  // this client. Generated lazily on first /clients/{id} request via
+  // getOrCreateClientCalendarToken. Different from approvalLink.token,
+  // which is short-lived and post-specific.
+  publicCalendarToken: text("public_calendar_token").unique(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
