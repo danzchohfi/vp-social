@@ -84,7 +84,7 @@ export function notifyPublishFailureAsync(
   })
 }
 
-// ─── Invite email ──────────────────────────────────────
+// ─── Invite email ────────────────────────────────────
 
 type InviteEmail = {
   to: string
@@ -125,35 +125,4 @@ function esc(s: string): string {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;")
-}
-
-// ─── Approval request email ──────────────────────────────
-
-type ApprovalEmail = {
-  to: string
-  contactName: string | null
-  agencyName: string | null
-  postTitle: string
-  approvalUrl: string
-}
-
-export async function sendApprovalRequestEmail(opts: ApprovalEmail): Promise<void> {
-  const greeting = opts.contactName ? `Olá ${esc(opts.contactName)}` : "Olá"
-  const fromAgency = opts.agencyName ? ` da ${esc(opts.agencyName)}` : ""
-  const subject = `Aprovar conteúdo: ${opts.postTitle || "novo post"}`
-
-  const html = `<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#111">
-    <h2 style="margin:0 0 16px;font-size:20px">${greeting},</h2>
-    <p style="margin:0 0 12px">A equipe${fromAgency} preparou um conteúdo e está aguardando a sua aprovação:</p>
-    <div style="background:#f8f8fa;border:1px solid #e5e5ea;border-radius:8px;padding:14px 16px;margin:12px 0">
-      <p style="margin:0;font-weight:600">${esc(opts.postTitle || "Novo post")}</p>
-    </div>
-    <p style="margin:24px 0">
-      <a href="${opts.approvalUrl}" style="background:#5b3df5;color:#fff;padding:12px 24px;border-radius:8px;text-decoration:none;display:inline-block;font-weight:600">Ver e aprovar</a>
-    </p>
-    <p style="color:#666;font-size:13px">Você poderá ver o post completo (mídia + legenda + onde será publicado) e aprovar ou pedir alterações.</p>
-    <p style="color:#999;font-size:12px;margin-top:32px">Se você não esperava este pedido, pode ignorar este email — o link expira em 14 dias.</p>
-  </div>`
-
-  await sendEmail(opts.to, subject, html, "approval-request")
 }

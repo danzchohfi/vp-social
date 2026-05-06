@@ -5,7 +5,7 @@ import { and, eq, isNull } from "drizzle-orm"
 import * as schema from "../lib/db/schema"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "../lib/notion"
 import { publishToPlatform, saveLog } from "../lib/publisher"
-import { notifyPublishFailureAsync, sendApprovalRequestEmail } from "../lib/email-notifications"
+import { notifyPublishFailureAsync } from "../lib/email-notifications"
 import { sendApprovalRequest } from "../lib/manychat"
 import { generateId } from "../lib/utils"
 
@@ -260,12 +260,14 @@ export const publishForConnection = task({
   },
 })
 
-// ─── Approval sweep helper ──────────────────────────────────────────
+// ─── Approval sweep helper ─────────────────────────────────
 // Detects posts in mapping.awaitingApprovalValue, creates approvalLink
-// rows for new ones, and notifies the client (ManyChat WA → email
-// fallback). Idempotent on the partial unique index (notionPageId)
-// WHERE decision IS NULL: re-running on the next tick won't double-
-// notify a post that's still pending.
+// rows for new ones, and notifies the client via ManyChat (WhatsApp
+// only — email was explicitly cut). Idempotent on the partial unique
+// index (notionPageId) WHERE decision IS NULL: re-running on the next
+// tick won't double-notify a post that's still pending. When ManyChat
+// can't deliver, sentVia="none" and agency uses the click-to-chat WA
+// button manually from /scheduled.
 
 type SweepArgs = {
   db: ReturnType<typeof getDb>
@@ -345,8 +347,11 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       continue
     }
 
-    // Notify: ManyChat first (if configured + we have phone), email second.
-    let sentVia: "manychat" | "email" | "none" = "none"
+    // Notify via ManyChat (WhatsApp). Email path was removed by design —
+    // agency wants WA-only because the whole client conversation already
+    // lives in WA (ManyChat onboarding). If ManyChat fails, sentVia stays
+    // "none" and the agency uses the click-to-chat WA button in /scheduled.
+    let sentVia: "manychat" | "none" = "none"
 
     if (contact.phone && manychatApiKey && manychatFlowNs) {
       const result = await sendApprovalRequest({
@@ -361,27 +366,19 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       } else {
         logger.warn(`[approval] ManyChat falhou para "${post.title}": ${result.reason}`)
       }
-    }
-
-    if (sentVia === "none" && contact.email) {
-      try {
-        await sendApprovalRequestEmail({
-          to: contact.email,
-          contactName: contact.name,
-          agencyName: clientName,
-          postTitle: post.title || "novo post",
-          approvalUrl,
-        })
-        sentVia = "email"
-        logger.info(`[approval] Email enviado para ${contact.email} (${post.title})`)
-      } catch (e) {
-        logger.warn(`[approval] Email falhou para "${post.title}": ${e}`)
-      }
+    } else if (!manychatApiKey || !manychatFlowNs) {
+      logger.warn(`[approval] ManyChat não configurado para este cliente — agência precisa enviar manualmente via /scheduled`)
+    } else if (!contact.phone) {
+      logger.warn(`[approval] Contato sem telefone — agência precisa enviar manualmente via /scheduled`)
     }
 
     if (sentVia === "none") {
-      logger.warn(`[approval] Nenhum canal funcionou para "${post.title}" — agência precisa enviar manualmente`)
+      logger.warn(`[approval] Notificação automática não funcionou para "${post.title}" — agência precisa enviar manualmente`)
     }
+
+    // clientName is referenced for logging context downstream; reading
+    // it here keeps the SweepArgs interface honest for future use.
+    void clientName
 
     await db
       .update(schema.approvalLink)
