@@ -12,6 +12,7 @@ type InviteInfo = {
   clientId: string
   email: string
   role: string
+  scope: string
   clientName: string
   clientLogoUrl: string | null
   invitedByName: string
@@ -115,14 +116,19 @@ export default function InviteAcceptPage() {
                 )}
                 <div>
                   <CardTitle className="text-lg">{invite.clientName}</CardTitle>
-                  <p className="text-xs text-muted-foreground capitalize">
+                  <p className="text-xs text-muted-foreground">
                     Convite como {invite.role === "admin" ? "Admin" : "Membro"}
+                    {invite.scope === "agency" && " · acesso de agência"}
                   </p>
                 </div>
               </div>
               <CardDescription>
                 <strong>{invite.invitedByName}</strong> ({invite.invitedByEmail}) está convidando você
-                para acessar o cliente <strong>{invite.clientName}</strong> no VP Social.
+                {invite.scope === "agency" ? (
+                  <> para acessar <strong>todos os clientes da agência</strong> de {invite.invitedByName} no VP Social.</>
+                ) : (
+                  <> para acessar o cliente <strong>{invite.clientName}</strong> no VP Social.</>
+                )}
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">

@@ -44,6 +44,9 @@ export async function POST(
       clientId: invite.clientId,
       userId: session.user.id,
       role: invite.role,
+      // Carry the invite scope through. Without this, "agency" invites
+      // silently degrade to "client" scope on accept.
+      scope: invite.scope,
       invitedByUserId: invite.invitedByUserId,
     })
   }

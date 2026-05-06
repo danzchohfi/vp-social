@@ -23,6 +23,7 @@ export async function GET(
       id: clientMember.id,
       userId: clientMember.userId,
       role: clientMember.role,
+      scope: clientMember.scope,
       createdAt: clientMember.createdAt,
       userName: user.name,
       userEmail: user.email,

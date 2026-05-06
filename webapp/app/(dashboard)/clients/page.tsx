@@ -23,12 +23,14 @@ type Member = {
   userEmail: string
   userImage: string | null
   role: string
+  scope: string
 }
 
 type Invite = {
   id: string
   email: string
   role: string
+  scope: string
   token: string
   expiresAt: string
 }
@@ -311,7 +313,10 @@ function MembersPanel({ clientId, canManage }: { clientId: string; canManage: bo
   const [showInvite, setShowInvite] = useState(false)
   const [inviteEmail, setInviteEmail] = useState("")
   const [inviteRole, setInviteRole] = useState<"member" | "admin">("member")
+  const [inviteScope, setInviteScope] = useState<"client" | "agency">("client")
   const [inviting, setInviting] = useState(false)
+  const [editingMemberId, setEditingMemberId] = useState<string | null>(null)
+  const [savingMemberId, setSavingMemberId] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
@@ -334,13 +339,14 @@ function MembersPanel({ clientId, canManage }: { clientId: string; canManage: bo
       const res = await fetch(`/api/clients/${clientId}/invites`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inviteEmail.trim().toLowerCase(), role: inviteRole }),
+        body: JSON.stringify({ email: inviteEmail.trim().toLowerCase(), role: inviteRole, scope: inviteScope }),
       })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Erro")
       await navigator.clipboard.writeText(data.inviteUrl).catch(() => {})
       toast.success("Convite criado e link copiado para a área de transferência")
       setInviteEmail("")
+      setInviteScope("client")
       setShowInvite(false)
       load()
     } catch (e) {
@@ -357,6 +363,26 @@ function MembersPanel({ clientId, canManage }: { clientId: string; canManage: bo
     if (!res.ok) { toast.error(data.error ?? "Erro"); return }
     toast.success("Membro removido")
     load()
+  }
+
+  async function updateMember(memberId: string, role: "member" | "admin", scope: "client" | "agency") {
+    setSavingMemberId(memberId)
+    try {
+      const res = await fetch(`/api/clients/${clientId}/members/${memberId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ role, scope }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Erro")
+      toast.success("Permissões atualizadas")
+      setEditingMemberId(null)
+      load()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro")
+    } finally {
+      setSavingMemberId(null)
+    }
   }
 
   async function revokeInvite(inviteId: string) {
@@ -401,11 +427,22 @@ function MembersPanel({ clientId, canManage }: { clientId: string; canManage: bo
             <Label className="text-xs">Papel</Label>
             <select
               value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as any)}
+              onChange={(e) => setInviteRole(e.target.value as "member" | "admin")}
               className="w-full h-8 rounded border bg-background px-2 text-sm"
             >
               <option value="member">Membro (acesso ao cliente)</option>
               <option value="admin">Admin (mesmas permissões do owner, exceto excluir cliente)</option>
+            </select>
+          </div>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Escopo</Label>
+            <select
+              value={inviteScope}
+              onChange={(e) => setInviteScope(e.target.value as "client" | "agency")}
+              className="w-full h-8 rounded border bg-background px-2 text-sm"
+            >
+              <option value="client">Apenas este cliente</option>
+              <option value="agency">Agência — todos os clientes do owner</option>
             </select>
           </div>
           <div className="flex gap-2">
@@ -428,31 +465,62 @@ function MembersPanel({ clientId, canManage }: { clientId: string; canManage: bo
       ) : (
         <>
           <div className="space-y-1.5">
-            {members.map((m) => (
-              <div key={m.id} className="flex items-center justify-between rounded-lg border px-3 py-2">
-                <div className="flex items-center gap-3 min-w-0">
-                  {m.userImage ? (
-                    <img src={m.userImage} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
-                  ) : (
-                    <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
-                      {m.userName?.charAt(0).toUpperCase() ?? "?"}
+            {members.map((m) => {
+              const isEditing = editingMemberId === m.id
+              const saving = savingMemberId === m.id
+              return (
+                <div key={m.id} className="rounded-lg border px-3 py-2">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      {m.userImage ? (
+                        <img src={m.userImage} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
+                      ) : (
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                          {m.userName?.charAt(0).toUpperCase() ?? "?"}
+                        </div>
+                      )}
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{m.userName}</p>
+                        <p className="text-xs text-muted-foreground truncate">{m.userEmail}</p>
+                      </div>
                     </div>
-                  )}
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium truncate">{m.userName}</p>
-                    <p className="text-xs text-muted-foreground truncate">{m.userEmail}</p>
+                    <div className="flex flex-wrap items-center gap-1.5 shrink-0">
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                        {m.role === "owner" ? "Owner" : m.role === "admin" ? "Admin" : "Membro"}
+                      </span>
+                      {m.role !== "owner" && (
+                        <span className={cn(
+                          "rounded-full px-2 py-0.5 text-xs",
+                          m.scope === "agency" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
+                        )}>
+                          {m.scope === "agency" ? "Agência" : "Cliente"}
+                        </span>
+                      )}
+                      {canManage && m.role !== "owner" && !isEditing && (
+                        <>
+                          <Button variant="ghost" size="icon" onClick={() => setEditingMemberId(m.id)} className="h-7 w-7" title="Editar permissões">
+                            <Pencil className="h-3.5 w-3.5" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => removeMember(m.id, m.userName)} className="text-destructive hover:text-destructive h-7 w-7" title="Remover">
+                            <X className="h-3.5 w-3.5" />
+                          </Button>
+                        </>
+                      )}
+                    </div>
                   </div>
-                </div>
-                <div className="flex items-center gap-2 shrink-0">
-                  <span className="text-xs text-muted-foreground capitalize">{m.role === "owner" ? "Owner" : m.role === "admin" ? "Admin" : "Membro"}</span>
-                  {canManage && m.role !== "owner" && (
-                    <Button variant="ghost" size="icon" onClick={() => removeMember(m.id, m.userName)} className="text-destructive hover:text-destructive h-7 w-7">
-                      <X className="h-3.5 w-3.5" />
-                    </Button>
+
+                  {isEditing && (
+                    <MemberEditRow
+                      initialRole={m.role === "admin" ? "admin" : "member"}
+                      initialScope={m.scope === "agency" ? "agency" : "client"}
+                      saving={saving}
+                      onCancel={() => setEditingMemberId(null)}
+                      onSave={(role, scope) => updateMember(m.id, role, scope)}
+                    />
                   )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
 
           {invites.length > 0 && (
@@ -466,7 +534,9 @@ function MembersPanel({ clientId, canManage }: { clientId: string; canManage: bo
                       <div className="min-w-0">
                         <p className="text-sm font-medium truncate">{inv.email}</p>
                         <p className="text-xs text-muted-foreground">
-                          {inv.role === "admin" ? "Admin" : "Membro"} · expira {new Date(inv.expiresAt).toLocaleDateString("pt-BR")}
+                          {inv.role === "admin" ? "Admin" : "Membro"}
+                          {inv.scope === "agency" ? " · Agência" : ""}
+                          {" · expira "}{new Date(inv.expiresAt).toLocaleDateString("pt-BR")}
                         </p>
                       </div>
                     </div>
@@ -487,6 +557,59 @@ function MembersPanel({ clientId, canManage }: { clientId: string; canManage: bo
           )}
         </>
       )}
+    </div>
+  )
+}
+
+function MemberEditRow({
+  initialRole,
+  initialScope,
+  saving,
+  onSave,
+  onCancel,
+}: {
+  initialRole: "member" | "admin"
+  initialScope: "client" | "agency"
+  saving: boolean
+  onSave: (role: "member" | "admin", scope: "client" | "agency") => void
+  onCancel: () => void
+}) {
+  const [role, setRole] = useState<"member" | "admin">(initialRole)
+  const [scope, setScope] = useState<"client" | "agency">(initialScope)
+  const dirty = role !== initialRole || scope !== initialScope
+  return (
+    <div className="mt-3 grid gap-2 rounded-md bg-muted/30 p-2 sm:grid-cols-2">
+      <div className="space-y-1">
+        <Label className="text-xs">Papel</Label>
+        <select
+          value={role}
+          onChange={(e) => setRole(e.target.value as "member" | "admin")}
+          className="w-full h-8 rounded border bg-background px-2 text-sm"
+        >
+          <option value="member">Membro</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div className="space-y-1">
+        <Label className="text-xs">Escopo</Label>
+        <select
+          value={scope}
+          onChange={(e) => setScope(e.target.value as "client" | "agency")}
+          className="w-full h-8 rounded border bg-background px-2 text-sm"
+        >
+          <option value="client">Apenas este cliente</option>
+          <option value="agency">Agência (todos os clientes do owner)</option>
+        </select>
+      </div>
+      <div className="flex gap-2 sm:col-span-2">
+        <Button size="sm" onClick={() => onSave(role, scope)} disabled={saving || !dirty}>
+          {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+          Salvar
+        </Button>
+        <Button size="sm" variant="outline" onClick={onCancel}>
+          Cancelar
+        </Button>
+      </div>
     </div>
   )
 }

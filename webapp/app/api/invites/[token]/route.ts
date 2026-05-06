@@ -15,6 +15,7 @@ export async function GET(
       clientId: clientInvite.clientId,
       email: clientInvite.email,
       role: clientInvite.role,
+      scope: clientInvite.scope,
       acceptedAt: clientInvite.acceptedAt,
       expiresAt: clientInvite.expiresAt,
       clientName: client.name,
