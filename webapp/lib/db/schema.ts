@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, boolean, uniqueIndex, integer } from "drizzle-orm/pg-core"
+import { pgTable, text, timestamp, boolean, uniqueIndex, integer, index } from "drizzle-orm/pg-core"
 
 // ─── Better Auth tables (matches Better Auth schema) ─────────
 
@@ -193,4 +193,14 @@ export const publishLog = pgTable("publish_log", {
   metricsReach: integer("metrics_reach"),
   metricsSaves: integer("metrics_saves"),
   metricsImpressions: integer("metrics_impressions"),
-})
+}, (t) => ({
+  // publish_log was the most-queried table with zero secondary indexes —
+  // dashboard, /scheduled, /history, analytics worker all hit it. These two
+  // are zero-risk additions; the (connectionId, notionPageId, platform)
+  // unique partial that doubles as an idempotency lock is intentionally
+  // deferred to a follow-up commit because it could fail at db:push time
+  // if existing duplicate "published" rows exist (legacy bug, fixed in
+  // b18a1ea). We'll ship that index after a one-time cleanup pass.
+  byClientPublished: index("publish_log_client_published_idx").on(t.clientId, t.publishedAt),
+  byStatus: index("publish_log_status_idx").on(t.status),
+}))
