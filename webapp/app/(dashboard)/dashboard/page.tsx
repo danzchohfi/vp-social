@@ -7,11 +7,77 @@ import { eq, desc, count, inArray, and, gte, max } from "drizzle-orm"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, Zap, ArrowRight, Facebook, Youtube, Linkedin, CalendarClock, LayoutGrid, Building2, AlertTriangle, MoonStar } from "lucide-react"
+import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, Zap, ArrowRight, Facebook, Youtube, Linkedin, CalendarClock, LayoutGrid, Building2, AlertTriangle, MoonStar, ExternalLink } from "lucide-react"
 import Link from "next/link"
 import { PublishButton } from "@/components/dashboard/publish-button"
+import { SwitchClientButton } from "@/components/dashboard/switch-client-button"
+import { AgencyClientCard } from "@/components/dashboard/agency-client-card"
+import { RecentActivityActions } from "@/components/dashboard/recent-activity-actions"
+import { DashboardPublishNow } from "@/components/dashboard/dashboard-publish-now"
 import { getActiveClientScope } from "@/lib/active-client"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "@/lib/notion"
+
+// Inline issue computation for the next-publications widget. Lighter than
+// /scheduled's postIssues (which has full targetChecks): we only know the
+// post's conta is connected (otherwise it'd be filtered out earlier), and
+// per-target account presence is computed against the dashboard's account
+// list. Each issue carries a one-click fix link.
+type DashboardPostIssue = {
+  message: string
+  actionLabel: string
+  actionHref: string
+  actionExternal?: boolean
+}
+
+function notionUrlFor(p: { pageId: string; notionUrl?: string | null }): string {
+  return p.notionUrl || `https://www.notion.so/${p.pageId.replace(/-/g, "")}`
+}
+
+function computeNextPostIssues(
+  post: NotionPost,
+  accounts: Array<{ platform: string; conta: string; active: boolean }>,
+): DashboardPostIssue[] {
+  const issues: DashboardPostIssue[] = []
+  if (!post.scheduledDate) {
+    issues.push({
+      message: "Sem data de publicação",
+      actionLabel: "Definir no Notion",
+      actionHref: notionUrlFor(post),
+      actionExternal: true,
+    })
+  }
+  if (!post.publishTargets.length) {
+    issues.push({
+      message: 'Campo "Publicar em" vazio',
+      actionLabel: "Definir no Notion",
+      actionHref: notionUrlFor(post),
+      actionExternal: true,
+    })
+    return issues
+  }
+  const contaLower = (post.conta || "").toLowerCase()
+  const missing: string[] = []
+  for (const target of post.publishTargets) {
+    const matched = accounts.some(
+      (a) => a.active && a.platform === target.platform && a.conta.toLowerCase() === contaLower,
+    )
+    if (!matched) missing.push(target.raw)
+  }
+  if (missing.length === post.publishTargets.length) {
+    issues.push({
+      message: `Sem conta conectada para ${post.conta || "este post"}`,
+      actionLabel: "Conectar conta",
+      actionHref: "/accounts",
+    })
+  } else if (missing.length > 0) {
+    issues.push({
+      message: `Sem conta para: ${missing.join(", ")}`,
+      actionLabel: "Conectar conta",
+      actionHref: "/accounts",
+    })
+  }
+  return issues
+}
 
 // Read-only fetch of upcoming posts from each connection. We fan out so a
 // single slow Notion call doesn't block the others, and we cap the result
@@ -109,6 +175,7 @@ export default async function DashboardPage() {
         platform: publishLog.platform,
         publishedAt: publishLog.publishedAt,
         error: publishLog.error,
+        notionPageId: publishLog.notionPageId,
       })
       .from(publishLog)
       .where(and(logsFilter, eq(publishLog.status, "failed"), gte(publishLog.publishedAt, sevenDaysAgo)))
@@ -238,6 +305,13 @@ export default async function DashboardPage() {
                             <p className="mt-0.5 text-xs text-destructive/80 truncate font-mono">{f.error}</p>
                           )}
                         </div>
+                        <Link
+                          href={`/scheduled?postId=${encodeURIComponent(f.notionPageId)}`}
+                          title="Abrir no calendário"
+                          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-warning hover:bg-warning/15"
+                        >
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
                       </li>
                     )
                   })}
@@ -255,6 +329,7 @@ export default async function DashboardPage() {
                 <ul className="mt-1.5 space-y-1">
                   {inactiveClients.map((c) => {
                     const last = lastByClient.get(c.id)
+                    const isActiveAlready = scope.mode === "single" && scope.client.id === c.id
                     return (
                       <li key={c.id} className="flex items-center gap-2 text-sm">
                         <MoonStar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
@@ -262,6 +337,17 @@ export default async function DashboardPage() {
                         <span className="text-xs text-muted-foreground">
                           {last ? `· última em ${last.toLocaleDateString("pt-BR")}` : "· nenhuma publicação"}
                         </span>
+                        {!isActiveAlready && (
+                          <SwitchClientButton
+                            clientId={c.id}
+                            className="ml-auto inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning hover:bg-warning/20"
+                          >
+                            <span className="inline-flex items-center gap-1">
+                              Abrir cliente
+                              <ArrowRight className="h-3 w-3" />
+                            </span>
+                          </SwitchClientButton>
+                        )}
                       </li>
                     )
                   })}
@@ -290,10 +376,7 @@ export default async function DashboardPage() {
               const inactive = inactiveClients.some((x) => x.id === c.id)
               const hasNotionConfigured = clientHasConnection.has(c.id)
               return (
-                <div
-                  key={c.id}
-                  className={`flex flex-col gap-3 rounded-xl border bg-card p-4 transition-colors ${inactive ? "border-warning/40" : ""}`}
-                >
+                <AgencyClientCard key={c.id} clientId={c.id} inactive={inactive}>
                   <div className="flex items-center gap-2.5 min-w-0">
                     {c.logoUrl ? (
                       <img src={c.logoUrl} alt="" className="h-8 w-8 shrink-0 rounded-lg object-cover" />
@@ -303,6 +386,7 @@ export default async function DashboardPage() {
                       </div>
                     )}
                     <p className="font-medium truncate flex-1">{c.name}</p>
+                    <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
                   </div>
                   {!hasNotionConfigured ? (
                     <p className="text-xs text-muted-foreground">Notion não configurado</p>
@@ -329,7 +413,7 @@ export default async function DashboardPage() {
                       </p>
                     </>
                   )}
-                </div>
+                </AgencyClientCard>
               )
             })}
           </div>
@@ -337,7 +421,14 @@ export default async function DashboardPage() {
       )}
 
       {scope.mode === "single" && !isReady && (() => {
-        const items = [
+        const items: Array<{
+          done: boolean
+          blocked?: boolean
+          blockedReason?: string
+          label: string
+          description: string
+          cta: { href: string; label: string; icon: any }
+        }> = [
           {
             done: notionConnected,
             label: "Conectar Notion",
@@ -347,6 +438,7 @@ export default async function DashboardPage() {
           {
             done: notionHasDb,
             blocked: !notionConnected,
+            blockedReason: "Conectar Notion",
             label: "Selecionar banco de dados",
             description: "Escolha o database do Notion onde estão os posts.",
             cta: { href: "/settings", label: "Selecionar banco", icon: BookOpen },
@@ -354,6 +446,7 @@ export default async function DashboardPage() {
           {
             done: hasMapping,
             blocked: !notionHasDb,
+            blockedReason: "Selecionar banco de dados",
             label: "Configurar mapeamento",
             description: "Diga ao app quais colunas são título, data, conta, mídia, etc.",
             cta: { href: "/settings", label: "Configurar campos", icon: Zap },
@@ -410,7 +503,11 @@ export default async function DashboardPage() {
                             {item.label}
                           </p>
                           {!item.done && (
-                            <p className="text-xs text-muted-foreground">{item.description}</p>
+                            <p className="text-xs text-muted-foreground">
+                              {item.blocked && item.blockedReason
+                                ? <>Aguardando: <span className="font-medium">{item.blockedReason}</span></>
+                                : item.description}
+                            </p>
                           )}
                         </div>
                         {!item.done && isNext && (
@@ -431,36 +528,51 @@ export default async function DashboardPage() {
       })()}
 
       <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Agendados</CardDescription>
-            <CardTitle className="font-display text-4xl font-normal text-primary">{upcomingCount}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">prontos para publicar</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Publicados</CardDescription>
-            <CardTitle className="font-display text-4xl font-normal text-success">{totalPublished}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">{statSubtitle}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardHeader className="pb-2">
-            <CardDescription>Com erro</CardDescription>
-            <CardTitle className="font-display text-4xl font-normal text-destructive">{totalFailed}</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p className="text-xs text-muted-foreground">{statSubtitle}</p>
-          </CardContent>
-        </Card>
+        <Link href="/scheduled?filter=upcoming" className="group">
+          <Card className="transition-colors group-hover:border-primary/40 group-hover:bg-primary/[0.03]">
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center justify-between">
+                Agendados
+                <ArrowRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-60" />
+              </CardDescription>
+              <CardTitle className="font-display text-4xl font-normal text-primary">{upcomingCount}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">prontos para publicar</p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/scheduled?filter=published" className="group">
+          <Card className="transition-colors group-hover:border-success/40 group-hover:bg-success/[0.03]">
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center justify-between">
+                Publicados
+                <ArrowRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-60" />
+              </CardDescription>
+              <CardTitle className="font-display text-4xl font-normal text-success">{totalPublished}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">{statSubtitle}</p>
+            </CardContent>
+          </Card>
+        </Link>
+        <Link href="/scheduled?filter=errors" className="group">
+          <Card className="transition-colors group-hover:border-destructive/40 group-hover:bg-destructive/[0.03]">
+            <CardHeader className="pb-2">
+              <CardDescription className="flex items-center justify-between">
+                Com erro
+                <ArrowRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-60" />
+              </CardDescription>
+              <CardTitle className="font-display text-4xl font-normal text-destructive">{totalFailed}</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <p className="text-xs text-muted-foreground">{statSubtitle}</p>
+            </CardContent>
+          </Card>
+        </Link>
       </div>
 
-      {nextFive.length > 0 && (
+      {(isReady || isAgency) && (
         <Card className="mb-8">
           <CardHeader className="flex flex-row items-center justify-between">
             <div>
@@ -474,43 +586,123 @@ export default async function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            <div className="space-y-2">
-              {nextFive.map((p) => {
-                const owning = p.clientId ? clientById.get(p.clientId) : null
-                return (
-                  <div key={`${p.connectionId}-${p.pageId}`} className="flex items-center justify-between gap-3 rounded-lg border p-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <p className="text-sm font-medium truncate">{p.title || "Sem título"}</p>
-                        {isAgency && owning && (
-                          <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
-                            {owning.logoUrl ? (
-                              <img src={owning.logoUrl} alt="" className="h-3 w-3 rounded-full object-cover" />
-                            ) : (
-                              <Building2 className="h-3 w-3" />
+            {nextFive.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-8 text-center">
+                <CalendarClock className="mb-3 h-8 w-8 text-muted-foreground/40" />
+                <p className="text-sm font-medium">Nenhum post na fila</p>
+                <p className="mt-1 text-xs text-muted-foreground">
+                  Marque posts como &quot;Agendamento&quot; no Notion para vê-los aqui.
+                </p>
+                {!isAgency && notion[0]?.databaseId && (
+                  <a
+                    href={`https://www.notion.so/${notion[0].databaseId.replace(/-/g, "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                  >
+                    <BookOpen className="h-3.5 w-3.5" />
+                    Abrir Notion
+                  </a>
+                )}
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {nextFive.map((p) => {
+                  const owning = p.clientId ? clientById.get(p.clientId) : null
+                  const issues = computeNextPostIssues(p, accounts)
+                  const isDue = p.scheduledDate ? new Date(p.scheduledDate) <= new Date() : false
+                  const canPublishNow = isDue && issues.length === 0
+                  return (
+                    <div
+                      key={`${p.connectionId}-${p.pageId}`}
+                      className={`rounded-lg border p-3 ${issues.length > 0 ? "border-warning/40 bg-warning/5" : ""}`}
+                    >
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <p className="text-sm font-medium break-words">{p.title || "Sem título"}</p>
+                            {isAgency && owning && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                                {owning.logoUrl ? (
+                                  <img src={owning.logoUrl} alt="" className="h-3 w-3 rounded-full object-cover" />
+                                ) : (
+                                  <Building2 className="h-3 w-3" />
+                                )}
+                                {owning.name}
+                              </span>
                             )}
-                            {owning.name}
-                          </span>
+                          </div>
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            {p.conta} {p.publishTargets.length > 0 && (
+                              <>· {p.publishTargets.map((t) => t.raw).join(", ")}</>
+                            )}
+                          </p>
+                        </div>
+                        <div className="text-right shrink-0">
+                          <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                            <CalendarClock className="h-3 w-3" />
+                            {p.scheduledDate
+                              ? new Date(p.scheduledDate).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+                              : "Sem data"}
+                          </p>
+                        </div>
+                      </div>
+                      {issues.length > 0 && (
+                        <ul className="mt-2 space-y-1.5">
+                          {issues.map((issue) => (
+                            <li key={issue.message} className="flex flex-wrap items-start gap-x-2 gap-y-1 text-xs text-warning">
+                              <span className="flex items-start gap-1.5">
+                                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                                <span>{issue.message}</span>
+                              </span>
+                              {issue.actionExternal ? (
+                                <a
+                                  href={issue.actionHref}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="ml-auto inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning hover:bg-warning/20"
+                                >
+                                  {issue.actionLabel}
+                                  <ExternalLink className="h-3 w-3" />
+                                </a>
+                              ) : (
+                                <Link
+                                  href={issue.actionHref}
+                                  className="ml-auto inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning hover:bg-warning/20"
+                                >
+                                  {issue.actionLabel}
+                                </Link>
+                              )}
+                            </li>
+                          ))}
+                        </ul>
+                      )}
+                      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                        <a
+                          href={notionUrlFor(p)}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs font-medium hover:bg-accent"
+                        >
+                          <ExternalLink className="h-3 w-3" />
+                          Notion
+                        </a>
+                        <Link
+                          href={`/scheduled?postId=${encodeURIComponent(p.pageId)}`}
+                          className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs font-medium hover:bg-accent"
+                        >
+                          <CalendarClock className="h-3 w-3" />
+                          Calendário
+                        </Link>
+                        {canPublishNow && p.connectionId && (
+                          <DashboardPublishNow pageId={p.pageId} connectionId={p.connectionId} />
                         )}
                       </div>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
-                        {p.conta} {p.publishTargets.length > 0 && (
-                          <>· {p.publishTargets.map((t) => t.raw).join(", ")}</>
-                        )}
-                      </p>
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
-                        <CalendarClock className="h-3 w-3" />
-                        {p.scheduledDate
-                          ? new Date(p.scheduledDate).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
-                          : "Sem data"}
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
+                  )
+                })}
+              </div>
+            )}
           </CardContent>
         </Card>
       )}
@@ -595,12 +787,12 @@ export default async function DashboardPage() {
                 const owning = log.clientId ? clientById.get(log.clientId) : null
                 return (
                   <div key={log.id} className="rounded-lg border p-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3 min-w-0">
+                    <div className="flex items-center justify-between gap-3">
+                      <div className="flex items-center gap-3 min-w-0 flex-1">
                         {log.status === "published" && <CheckCircle2 className="h-5 w-5 shrink-0 text-success" />}
                         {log.status === "failed" && <XCircle className="h-5 w-5 shrink-0 text-destructive" />}
                         {log.status === "skipped" && <Clock className="h-5 w-5 shrink-0 text-muted-foreground" />}
-                        <div className="min-w-0">
+                        <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
                             <p className="text-sm font-medium truncate">{log.postTitle || "Post sem título"}</p>
                             {isAgency && owning && (
@@ -617,9 +809,16 @@ export default async function DashboardPage() {
                           <p className="text-xs text-muted-foreground">{log.conta} · {new Date(log.publishedAt).toLocaleString("pt-BR")}</p>
                         </div>
                       </div>
-                      <Badge className="shrink-0 ml-3" variant={log.status === "published" ? "success" : log.status === "failed" ? "destructive" : "secondary"}>
-                        {log.status === "published" ? "Publicado" : log.status === "failed" ? "Erro" : "Ignorado"}
-                      </Badge>
+                      <div className="flex items-center gap-2 shrink-0">
+                        <Badge variant={log.status === "published" ? "success" : log.status === "failed" ? "destructive" : "secondary"}>
+                          {log.status === "published" ? "Publicado" : log.status === "failed" ? "Erro" : "Ignorado"}
+                        </Badge>
+                        <RecentActivityActions
+                          notionPageId={log.notionPageId}
+                          connectionId={log.connectionId}
+                          status={log.status}
+                        />
+                      </div>
                     </div>
                     {log.status === "failed" && log.error && (
                       <p className="mt-2 rounded bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
