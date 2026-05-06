@@ -33,7 +33,7 @@ export const publishScheduled = schedules.task({
   },
 })
 
-// ─── Task por workspace/conexão ────────────────────────────────
+// ─── Task por workspace/conexão ────────────────
 
 export const publishForConnection = task({
   id: "publish-for-connection",
@@ -128,12 +128,39 @@ export const publishForConnection = task({
       // same post every 5 minutes because the filter still matches.
       let anyPublished = false
       let anyFailed = false
+      // True when the idempotency pre-check found a target already
+      // published in a previous run. Triggers a recovery markPublished
+      // so the cron stops re-matching this post.
+      let anyPreviouslyDone = false
       // Collect all published-platform URLs so we can write them to the
       // Notion link field as a single rich_text block — multiple platforms
       // would otherwise overwrite each other.
       const publishedLinks: Array<{ platform: string; url: string }> = []
 
+      // Idempotency pre-check: skip targets that already have a successful
+      // publish_log row for this (connection, page). Defends against the
+      // cron + manual /publish-now racing on the same post (e.g. user
+      // clicked publish during the 30s window before the status flip).
+      const previouslyPublished = await db
+        .select({ platform: schema.publishLog.platform })
+        .from(schema.publishLog)
+        .where(and(
+          eq(schema.publishLog.connectionId, connectionId),
+          eq(schema.publishLog.notionPageId, post.pageId),
+          eq(schema.publishLog.status, "published"),
+        ))
+      const alreadyDone = new Set(
+        previouslyPublished.map((r) => r.platform).filter((p): p is string => !!p)
+      )
+
       for (const target of post.publishTargets) {
+        if (alreadyDone.has(target.raw)) {
+          logger.warn(`[${target.raw}] "${post.title}" já publicado — pulando para evitar duplicata.`)
+          anyPreviouslyDone = true
+          results.skipped++
+          continue
+        }
+
         const key = `${target.platform}:${post.conta.toLowerCase()}`
         const account = accountMap.get(key)
 
@@ -172,8 +199,11 @@ export const publishForConnection = task({
       // (Notion API 5xx, wrong field type, integration access removed),
       // the unhandled throw used to skip the status flip and the cron
       // would republish the same post every 5 min.
+      // Recovery case: if the pre-check skipped everything because the
+      // post was already published in an earlier run, also flip to
+      // Publicado so the post leaves the ready filter.
       try {
-        if (anyPublished) await notion.markPublished(post.pageId, mapping)
+        if (anyPublished || anyPreviouslyDone) await notion.markPublished(post.pageId, mapping)
         else if (anyFailed) await notion.markFailed(post.pageId, mapping)
       } catch (e) {
         logger.error(`CRÍTICO: falha ao flipar status no Notion para "${post.title}" — pode reproduzir em 5min: ${e}`)

@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { notionConnection, fieldMapping, instagramAccount } from "@/lib/db/schema"
-import { eq } from "drizzle-orm"
+import { notionConnection, fieldMapping, instagramAccount, publishLog } from "@/lib/db/schema"
+import { and, eq } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING } from "@/lib/notion"
@@ -86,6 +86,10 @@ export async function POST(req: Request) {
   const results: Array<{ platform: string; status: "published" | "failed" | "skipped"; postId?: string; postUrl?: string | null; error?: string }> = []
   let anyPublished = false
   let anyFailed = false
+  // True when the pre-check found at least one target that was already
+  // published in a previous run. Used to flip Notion status to Publicado
+  // (recovery case) instead of Erro when nothing new happened this run.
+  let anyPreviouslyDone = false
   // Collect all published-platform URLs so we can write them to the Notion
   // link field as a single rich_text block. Multiple platforms otherwise
   // overwrite each other.
@@ -98,7 +102,35 @@ export async function POST(req: Request) {
     )
   }
 
+  // Idempotency pre-check: skip targets that already have a successful
+  // publish_log row for this (connection, page). Defends against double-
+  // click, retry-loops, and cron + manual click racing on the same post.
+  // True DB-level idempotency comes from a partial unique index on
+  // (connection_id, notion_page_id, platform) WHERE status='published',
+  // pending a one-time cleanup pass.
+  const previouslyPublished = await db
+    .select({ platform: publishLog.platform })
+    .from(publishLog)
+    .where(and(
+      eq(publishLog.connectionId, connectionId),
+      eq(publishLog.notionPageId, post.pageId),
+      eq(publishLog.status, "published"),
+    ))
+  const alreadyDone = new Set(
+    previouslyPublished.map((r) => r.platform).filter((p): p is string => !!p)
+  )
+
   for (const target of post.publishTargets) {
+    if (alreadyDone.has(target.raw)) {
+      anyPreviouslyDone = true
+      results.push({
+        platform: target.raw,
+        status: "skipped",
+        error: "Já publicado anteriormente — ignorado para evitar duplicata",
+      })
+      continue
+    }
+
     const key = `${target.platform}:${post.conta.toLowerCase()}`
     const account = accountMap.get(key)
 
@@ -123,12 +155,15 @@ export async function POST(req: Request) {
     }
   }
 
-  // Same split as trigger/publish.ts (b18a1ea): status flip MUST run before
-  // link writeback so that a setPostUrls failure doesn't strand the post in
-  // republish-loop hell. Empty-result case (everything skipped) flips to
-  // failed so the post leaves the cron filter.
+  // Status flip decision tree:
+  //  - any new success this run → Publicado
+  //  - any "already published" hit during pre-check → Publicado (recovery
+  //    from a previous run whose status flip failed)
+  //  - else (only failures or skipped-for-other-reasons) → Erro
+  // Same split as trigger/publish.ts (b18a1ea): flip MUST run before link
+  // writeback so that setPostUrls failures can't strand the post.
   try {
-    if (anyPublished) await notion.markPublished(post.pageId, mapping)
+    if (anyPublished || anyPreviouslyDone) await notion.markPublished(post.pageId, mapping)
     else if (anyFailed || results.length) await notion.markFailed(post.pageId, mapping)
   } catch (e) {
     console.error(`[publish-now] CRITICAL: failed to flip Notion status for "${post.title}":`, e)
