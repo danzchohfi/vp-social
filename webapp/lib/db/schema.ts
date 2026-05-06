@@ -1,4 +1,5 @@
 import { pgTable, text, timestamp, boolean, uniqueIndex, integer, index } from "drizzle-orm/pg-core"
+import { sql } from "drizzle-orm"
 
 // ─── Better Auth tables (matches Better Auth schema) ─────────
 
@@ -194,13 +195,18 @@ export const publishLog = pgTable("publish_log", {
   metricsSaves: integer("metrics_saves"),
   metricsImpressions: integer("metrics_impressions"),
 }, (t) => ({
+  // DB-level idempotency lock: at most one published row per
+  // (connection, page, platform). Combined with the app-level pre-check
+  // in trigger/publish.ts and api/posts/publish-now/route.ts (a3c4366),
+  // this makes duplicate publishing physically impossible — the second
+  // INSERT fails with a unique violation, the catch path logs and skips.
+  // Existing dupes were cleaned via /api/admin/dedupe-publish-log on
+  // 2026-05-06 (13 rows removed).
+  publishedDedup: uniqueIndex("publish_log_published_dedup_uniq")
+    .on(t.connectionId, t.notionPageId, t.platform)
+    .where(sql`${t.status} = 'published'`),
   // publish_log was the most-queried table with zero secondary indexes —
-  // dashboard, /scheduled, /history, analytics worker all hit it. These two
-  // are zero-risk additions; the (connectionId, notionPageId, platform)
-  // unique partial that doubles as an idempotency lock is intentionally
-  // deferred to a follow-up commit because it could fail at db:push time
-  // if existing duplicate "published" rows exist (legacy bug, fixed in
-  // b18a1ea). We'll ship that index after a one-time cleanup pass.
+  // dashboard, /scheduled, /history, analytics worker all hit it.
   byClientPublished: index("publish_log_client_published_idx").on(t.clientId, t.publishedAt),
   byStatus: index("publish_log_status_idx").on(t.status),
 }))
