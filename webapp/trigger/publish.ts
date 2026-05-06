@@ -5,6 +5,7 @@ import { and, eq } from "drizzle-orm"
 import * as schema from "../lib/db/schema"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "../lib/notion"
 import { publishToPlatform, saveLog } from "../lib/publisher"
+import { notifyPublishFailureAsync } from "../lib/email-notifications"
 
 function getDb() {
   const sql = neon(process.env.DATABASE_URL!)
@@ -32,7 +33,7 @@ export const publishScheduled = schedules.task({
   },
 })
 
-// ─── Task por workspace/conexão ──────────────────────────────────
+// ─── Task por workspace/conexão ────────────────────────────────
 
 export const publishForConnection = task({
   id: "publish-for-connection",
@@ -51,6 +52,17 @@ export const publishForConnection = task({
     }
 
     const { userId } = connection
+
+    // Look up the owning client's name once so failure emails can include it.
+    // Cheap query; avoids passing it through every saveLog callsite.
+    let clientName: string | null = null
+    if (connection.clientId) {
+      const [c] = await db
+        .select({ name: schema.client.name })
+        .from(schema.client)
+        .where(eq(schema.client.id, connection.clientId))
+      clientName = c?.name ?? null
+    }
 
     const [mappingRow] = await db
       .select()
@@ -136,6 +148,14 @@ export const publishForConnection = task({
           const message = error instanceof Error ? error.message : String(error)
           logger.error(`[${target.raw}/${post.conta}] ✗ "${post.title}": ${message}`)
           await saveLog(db, userId, connectionId, post, null, null, target.raw, "failed", message, connection.clientId)
+          // Fire-and-forget email — never blocks the publish loop. One email
+          // per failed platform; aggregation can be added later if it gets noisy.
+          notifyPublishFailureAsync(userId, clientName, {
+            postTitle: post.title,
+            conta: post.conta,
+            platform: target.raw,
+            error: message,
+          })
           results.failed++
           anyFailed = true
         }
