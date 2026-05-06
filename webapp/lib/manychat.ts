@@ -135,6 +135,57 @@ export async function sendApprovalRequest(args: SendApprovalArgs): Promise<SendR
   }
 }
 
+// Validates a ManyChat API key by hitting /fb/page/getInfo. Returns
+// the page name + WhatsApp number (when connected) so the agency UI
+// can confirm "yes, this token is valid for X". ManyChat keys are
+// per-page, so a successful response also tells you WHICH page the
+// key controls — useful when the agency manages multiple pages.
+//
+// Note: ManyChat does NOT offer OAuth — only Personal API Tokens, one
+// per page. Auto-listing flows or Meta-approved WhatsApp templates is
+// not exposed by their public API. The agency creates the flow in
+// ManyChat (which uses their pre-approved template) and pastes the
+// flow namespace; we only trigger it.
+export type ManychatPageInfo = {
+  ok: true
+  page: {
+    name: string
+    id: string | number | null
+    timezone: string | null
+    avatarLink: string | null
+  }
+} | {
+  ok: false
+  reason: string
+}
+
+export async function validateManychatToken(apiKey: string): Promise<ManychatPageInfo> {
+  if (!apiKey || !apiKey.trim()) return { ok: false, reason: "API key vazio" }
+  try {
+    const res = await fetch(`${MANYCHAT_BASE}/fb/page/getInfo`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${apiKey.trim()}` },
+    })
+    const data: any = await res.json().catch(() => null)
+    if (!res.ok || data?.status !== "success") {
+      const reason = data?.message || data?.error || `HTTP ${res.status}`
+      return { ok: false, reason: typeof reason === "string" ? reason : JSON.stringify(reason).slice(0, 200) }
+    }
+    const page = data.data ?? {}
+    return {
+      ok: true,
+      page: {
+        name: page.name ?? page.title ?? "(sem nome)",
+        id: page.id ?? null,
+        timezone: page.timezone ?? null,
+        avatarLink: page.avatar_link ?? null,
+      },
+    }
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : String(e) }
+  }
+}
+
 // Builds a wa.me click-to-chat URL with a pre-filled message.
 // Used by the agency UI as a fallback button when ManyChat fails or
 // isn't configured. Phone gets normalized to digits only (wa.me's
