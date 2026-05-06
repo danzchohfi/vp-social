@@ -67,6 +67,15 @@ type PastPost = {
 
 type AnyPost = ScheduledPost | PastPost
 type Filter = "all" | "upcoming" | "published" | "errors"
+// Each detected problem on a scheduled post pairs the human-readable label
+// with an inline "fix it" action so the user is one click from resolving.
+type PostIssue = {
+  message: string
+  actionLabel: string
+  actionHref: string
+  // Notion links open in a new tab; in-app links navigate normally.
+  actionExternal?: boolean
+}
 
 function isPast(p: AnyPost): p is PastPost { return p.kind === "past" }
 function postDate(p: AnyPost): string | null {
@@ -124,7 +133,7 @@ export default function ScheduledPage() {
   const [configured, setConfigured] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [agencyMode, setAgencyMode] = useState(false)
-  const [view, setView] = useState<"list" | "calendar">("list")
+  const [view, setView] = useState<"list" | "calendar">("calendar")
   const [filter, setFilter] = useState<Filter>("all")
 
   async function load() {
@@ -166,21 +175,48 @@ export default function ScheduledPage() {
 
   const now = new Date()
 
-  function postIssues(p: ScheduledPost): string[] {
-    const issues: string[] = []
-    if (!p.scheduledDate) issues.push('Sem data de publicação')
+  // Issue with an inline "fix it" action so the user is one click from
+  // resolving the problem (Notion card / accounts page) instead of having
+  // to figure out what to do.
+  function postIssues(p: ScheduledPost): PostIssue[] {
+    const issues: PostIssue[] = []
+    if (!p.scheduledDate) {
+      issues.push({
+        message: "Sem data de publicação",
+        actionLabel: "Definir no Notion",
+        actionHref: p.notionUrl || `https://www.notion.so/${p.pageId.replace(/-/g, "")}`,
+        actionExternal: true,
+      })
+    }
     const checks = p.targetChecks ?? []
     if (checks.length === 0) {
-      issues.push('Campo "Publicar em" vazio')
+      issues.push({
+        message: 'Campo "Publicar em" vazio',
+        actionLabel: "Definir no Notion",
+        actionHref: p.notionUrl || `https://www.notion.so/${p.pageId.replace(/-/g, "")}`,
+        actionExternal: true,
+      })
       if (p.conta && p.contaConnected === false) {
-        issues.push(`Conta "${p.conta}" não encontrada nas contas conectadas`)
+        issues.push({
+          message: `Conta "${p.conta}" não conectada`,
+          actionLabel: "Conectar conta",
+          actionHref: "/accounts",
+        })
       }
     } else if (checks.every((c) => !c.configured)) {
-      issues.push(`Conta "${p.conta || "—"}" não conectada em nenhuma plataforma selecionada`)
+      issues.push({
+        message: `Conta "${p.conta || "—"}" não conectada em nenhuma plataforma selecionada`,
+        actionLabel: "Conectar conta",
+        actionHref: "/accounts",
+      })
     } else {
       const unconfigured = checks.filter((c) => !c.configured)
       if (unconfigured.length > 0) {
-        issues.push(`${unconfigured.length} plataforma(s) sem conta conectada: ${unconfigured.map((c) => c.raw).join(", ")}`)
+        issues.push({
+          message: `Sem conta conectada para: ${unconfigured.map((c) => c.raw).join(", ")}`,
+          actionLabel: "Conectar conta",
+          actionHref: "/accounts",
+        })
       }
     }
     return issues
@@ -697,7 +733,7 @@ function PastPlatformBadge({ pl }: { pl: PastPlatform }) {
   )
 }
 
-function ContaGroup({ conta, posts, canPublishNow, onPublished, issuesFn }: { conta: string; posts: ScheduledPost[]; canPublishNow?: boolean; onPublished?: () => void; issuesFn?: (p: ScheduledPost) => string[] }) {
+function ContaGroup({ conta, posts, canPublishNow, onPublished, issuesFn }: { conta: string; posts: ScheduledPost[]; canPublishNow?: boolean; onPublished?: () => void; issuesFn?: (p: ScheduledPost) => PostIssue[] }) {
   const ws = posts[0]?.workspaceName
   return (
     <div className="space-y-2">
@@ -738,7 +774,7 @@ function TargetBadge({ check }: { check: TargetCheck }) {
   )
 }
 
-function PostRow({ post, canPublishNow, onPublished, issues }: { post: ScheduledPost; canPublishNow?: boolean; onPublished?: () => void; issues?: string[] }) {
+function PostRow({ post, canPublishNow, onPublished, issues }: { post: ScheduledPost; canPublishNow?: boolean; onPublished?: () => void; issues?: PostIssue[] }) {
   const { label, isPast } = timeUntil(post.scheduledDate)
   const checks = post.targetChecks ?? []
   const noTargets = checks.length === 0
@@ -815,11 +851,31 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
       </div>
 
       {issues && issues.length > 0 && (
-        <ul className="mt-3 space-y-1">
+        <ul className="mt-3 space-y-1.5">
           {issues.map((issue) => (
-            <li key={issue} className="flex items-start gap-2 text-xs text-warning">
-              <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
-              <span>{issue}</span>
+            <li key={issue.message} className="flex flex-wrap items-start gap-x-2 gap-y-1 text-xs text-warning">
+              <span className="flex items-start gap-2">
+                <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
+                <span>{issue.message}</span>
+              </span>
+              {issue.actionExternal ? (
+                <a
+                  href={issue.actionHref}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="ml-5 inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning hover:bg-warning/20"
+                >
+                  {issue.actionLabel}
+                  <ExternalLink className="h-3 w-3" />
+                </a>
+              ) : (
+                <Link
+                  href={issue.actionHref}
+                  className="ml-5 inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning hover:bg-warning/20"
+                >
+                  {issue.actionLabel}
+                </Link>
+              )}
             </li>
           ))}
         </ul>
@@ -833,11 +889,6 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
           </span>
         ) : (
           checks.map((c) => <TargetBadge key={c.raw} check={c} />)
-        )}
-        {hasIssue && !noTargets && (
-          <Link href="/accounts" className="ml-1 text-xs text-warning underline">
-            Configurar conta
-          </Link>
         )}
         <div className="flex flex-wrap items-center gap-2 sm:ml-auto">
           <Button size="sm" variant="outline" onClick={() => setPreviewOpen(true)} title="Ver como o post vai sair em cada plataforma">
@@ -889,12 +940,30 @@ function PreviewDialog({ post, onClose }: { post: ScheduledPost; onClose: () => 
   const targets = post.targetChecks ?? []
   const caption = post.fullCaption ?? post.caption ?? ""
 
-  function mediaForTarget(t: TargetCheck): string | null {
+  // Pick the best media URL + kind per target. The previous version returned
+  // a video URL for reel/story/youtube targets and rendered it inside <img>,
+  // which broke (browsers can't display a video inside <img>). Now we prefer
+  // post.thumbnailUrl for video targets, and fall back to a real <video>
+  // element only if no thumbnail exists.
+  function mediaForTarget(t: TargetCheck): { kind: "image" | "video"; url: string } | null {
     const tipo = t.tipo.toLowerCase()
-    if (tipo === "feed" || tipo === "carrossel") return post.feedImageUrls?.[0] ?? post.thumbnailUrl ?? null
-    if (tipo === "reel" || tipo === "story" || tipo === "youtube short") return post.verticalUrls?.[0] ?? post.thumbnailUrl ?? null
-    if (tipo === "youtube") return post.horizontalUrls?.[0] ?? post.thumbnailUrl ?? null
-    return post.feedImageUrls?.[0] ?? post.verticalUrls?.[0] ?? post.thumbnailUrl ?? null
+    const isVideoTarget = tipo === "reel" || tipo === "story" || tipo === "youtube short" || tipo === "youtube"
+
+    if (isVideoTarget) {
+      // Notion's "Thumbnail" field is built for this. If filled, render it
+      // as an image with a play overlay.
+      if (post.thumbnailUrl) return { kind: "image", url: post.thumbnailUrl }
+      // No thumbnail → render the video itself (poster missing, but better
+      // than a broken image icon). Vertical for reel/story/short, horizontal
+      // for regular YouTube.
+      const videoUrl = tipo === "youtube" ? post.horizontalUrls?.[0] : post.verticalUrls?.[0]
+      if (videoUrl) return { kind: "video", url: videoUrl }
+      return null
+    }
+
+    // Static-media targets — feed/carrossel (or unknown). Always image.
+    const url = post.feedImageUrls?.[0] ?? post.thumbnailUrl ?? post.verticalUrls?.[0] ?? null
+    return url ? { kind: "image", url } : null
   }
 
   function aspectClass(t: TargetCheck): string {
@@ -934,7 +1003,7 @@ function PreviewDialog({ post, onClose }: { post: ScheduledPost; onClose: () => 
           <div className="grid gap-4 sm:grid-cols-2">
             {targets.map((t) => {
               const media = mediaForTarget(t)
-              const isVideo = ["reel", "story", "youtube short", "youtube"].includes(t.tipo.toLowerCase())
+              const isVideoTarget = ["reel", "story", "youtube short", "youtube"].includes(t.tipo.toLowerCase())
               return (
                 <div key={t.raw} className="rounded-lg border bg-card overflow-hidden">
                   <div className="flex items-center gap-2 border-b px-3 py-2 text-xs">
@@ -948,21 +1017,31 @@ function PreviewDialog({ post, onClose }: { post: ScheduledPost; onClose: () => 
                     )}
                   </div>
                   <div className={cn("relative bg-muted", aspectClass(t))}>
-                    {media ? (
-                      <>
-                        <img src={media} alt="" className="absolute inset-0 h-full w-full object-cover" />
-                        {isVideo && (
-                          <div className="absolute inset-0 flex items-center justify-center">
-                            <div className="rounded-full bg-black/50 p-3">
-                              <Play className="h-6 w-6 text-white" fill="white" />
-                            </div>
-                          </div>
-                        )}
-                      </>
-                    ) : (
+                    {media?.kind === "image" && (
+                      <img src={media.url} alt="" className="absolute inset-0 h-full w-full object-cover" />
+                    )}
+                    {media?.kind === "video" && (
+                      <video
+                        src={media.url}
+                        className="absolute inset-0 h-full w-full object-cover"
+                        muted
+                        playsInline
+                        preload="metadata"
+                      />
+                    )}
+                    {media && isVideoTarget && (
+                      <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <div className="rounded-full bg-black/50 p-3">
+                          <Play className="h-6 w-6 text-white" fill="white" />
+                        </div>
+                      </div>
+                    )}
+                    {!media && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
                         <AlertTriangle className="h-6 w-6 mb-1" />
-                        <span className="text-xs">Sem mídia</span>
+                        <span className="text-xs">
+                          {isVideoTarget ? "Sem thumbnail nem vídeo" : "Sem mídia"}
+                        </span>
                       </div>
                     )}
                   </div>
