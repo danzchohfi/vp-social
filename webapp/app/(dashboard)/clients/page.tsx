@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { Building2, Check, Loader2, Plus, Trash2, Pencil, X, Users, Mail, Copy } from "lucide-react"
+import { Building2, Check, Loader2, Plus, Trash2, Pencil, X, Users, Mail, Copy, MessageCircle } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -48,6 +48,7 @@ export default function ClientsPage() {
   const [editLogo, setEditLogo] = useState("")
   const [savingEdit, setSavingEdit] = useState(false)
   const [membersOpen, setMembersOpen] = useState<string | null>(null)
+  const [approvalOpen, setApprovalOpen] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
@@ -271,6 +272,16 @@ export default function ClientsPage() {
                           <Users className="h-4 w-4" />
                         </Button>
                         {isOwner && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setApprovalOpen(approvalOpen === c.id ? null : c.id)}
+                            title="Aprovação cliente (link calendário + ManyChat)"
+                          >
+                            <MessageCircle className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {isOwner && (
                           <>
                             <Button variant="ghost" size="icon" onClick={() => startEdit(c)} title="Editar">
                               <Pencil className="h-4 w-4" />
@@ -294,6 +305,12 @@ export default function ClientsPage() {
                   {showMembers && !isEditing && (
                     <div className="mt-4 pt-4 border-t">
                       <MembersPanel clientId={c.id} canManage={isOwner} />
+                    </div>
+                  )}
+
+                  {approvalOpen === c.id && !isEditing && isOwner && (
+                    <div className="mt-4 pt-4 border-t">
+                      <ApprovalPanel clientId={c.id} clientName={c.name} />
                     </div>
                   )}
                 </CardContent>
@@ -555,6 +572,136 @@ function MembersPanel({ clientId, canManage }: { clientId: string; canManage: bo
               </div>
             </>
           )}
+        </>
+      )}
+    </div>
+  )
+}
+
+function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName: string }) {
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [calendarPath, setCalendarPath] = useState("")
+  const [apiKey, setApiKey] = useState("")
+  const [flowNs, setFlowNs] = useState("")
+  // Track originals to know if anything is dirty.
+  const [origApiKey, setOrigApiKey] = useState("")
+  const [origFlowNs, setOrigFlowNs] = useState("")
+
+  async function load() {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/clients/${clientId}/approval-config`)
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? "Erro ao carregar config de aprovação")
+        return
+      }
+      setCalendarPath(data.calendarPath ?? "")
+      setApiKey(data.manychatApiKey ?? "")
+      setFlowNs(data.manychatApprovalFlowNs ?? "")
+      setOrigApiKey(data.manychatApiKey ?? "")
+      setOrigFlowNs(data.manychatApprovalFlowNs ?? "")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load() }, [clientId])
+
+  function copyCalendarUrl() {
+    if (!calendarPath) return
+    const url = `${window.location.origin}${calendarPath}`
+    navigator.clipboard.writeText(url).then(() => toast.success("Link copiado"))
+  }
+
+  async function save() {
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/clients/${clientId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          manychatApiKey: apiKey.trim() || null,
+          manychatApprovalFlowNs: flowNs.trim() || null,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error ?? "Erro ao salvar")
+      }
+      toast.success("ManyChat configurado")
+      setOrigApiKey(apiKey.trim())
+      setOrigFlowNs(flowNs.trim())
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const dirty = apiKey.trim() !== origApiKey || flowNs.trim() !== origFlowNs
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <p className="text-sm font-semibold">Aprovação do cliente</p>
+        <p className="text-xs text-muted-foreground">
+          Toda vez que um post entrar no status &quot;aguardando aprovação&quot; (configurado em <a href="/settings" className="underline">/settings</a>), o app dispara um link de aprovação por WhatsApp via ManyChat. O cliente também pode acessar o calendário inteiro pelo link permanente abaixo.
+        </p>
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
+      ) : (
+        <>
+          <div className="space-y-1.5">
+            <Label className="text-xs">Link permanente do calendário</Label>
+            <p className="text-xs text-muted-foreground">
+              Mande este link uma vez para {clientName} no WhatsApp. O cliente vê pendentes de aprovação, agendados e publicados — sem precisar logar.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                readOnly
+                value={typeof window !== "undefined" && calendarPath ? `${window.location.origin}${calendarPath}` : calendarPath}
+                className="font-mono text-xs"
+              />
+              <Button variant="outline" size="sm" onClick={copyCalendarUrl} disabled={!calendarPath}>
+                <Copy className="h-3.5 w-3.5" />
+                Copiar
+              </Button>
+            </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">ManyChat API Key</Label>
+            <p className="text-xs text-muted-foreground">
+              Pegue em Settings → API → Your API Key na conta ManyChat do {clientName}.
+            </p>
+            <Input
+              type="password"
+              placeholder="123456:abcdef..."
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-xs">Flow Namespace de aprovação</Label>
+            <p className="text-xs text-muted-foreground">
+              Crie um Flow no ManyChat que dispare o WhatsApp com a variável <code className="rounded bg-muted px-1 font-mono text-[10px]">approval_url</code>. Cole aqui o namespace (ex.: <code className="rounded bg-muted px-1 font-mono text-[10px]">content20240501123456_abc123</code>).
+            </p>
+            <Input
+              placeholder="content20240501123456_abc123"
+              value={flowNs}
+              onChange={(e) => setFlowNs(e.target.value)}
+            />
+          </div>
+
+          <Button onClick={save} disabled={saving || !dirty} size="sm">
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+            Salvar ManyChat
+          </Button>
         </>
       )}
     </div>
