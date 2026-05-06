@@ -1,11 +1,16 @@
 import { schedules, task, logger } from "@trigger.dev/sdk"
 import { neon } from "@neondatabase/serverless"
 import { drizzle } from "drizzle-orm/neon-http"
-import { and, eq } from "drizzle-orm"
+import { and, eq, isNull } from "drizzle-orm"
 import * as schema from "../lib/db/schema"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "../lib/notion"
 import { publishToPlatform, saveLog } from "../lib/publisher"
-import { notifyPublishFailureAsync } from "../lib/email-notifications"
+import { notifyPublishFailureAsync, sendApprovalRequestEmail } from "../lib/email-notifications"
+import { sendApprovalRequest } from "../lib/manychat"
+import { generateId } from "../lib/utils"
+
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
+const APPROVAL_TTL_DAYS = 14
 
 function getDb() {
   const sql = neon(process.env.DATABASE_URL!)
@@ -53,15 +58,23 @@ export const publishForConnection = task({
 
     const { userId } = connection
 
-    // Owning client name once — feeds the failure email so the recipient
-    // knows which client failed without opening the dashboard.
+    // Owning client name + ManyChat config — fetched once per connection so
+    // we don't N+1 inside the per-post loop.
     let clientName: string | null = null
+    let manychatApiKey: string | null = null
+    let manychatFlowNs: string | null = null
     if (connection.clientId) {
       const [c] = await db
-        .select({ name: schema.client.name })
+        .select({
+          name: schema.client.name,
+          manychatApiKey: schema.client.manychatApiKey,
+          manychatApprovalFlowNs: schema.client.manychatApprovalFlowNs,
+        })
         .from(schema.client)
         .where(eq(schema.client.id, connection.clientId))
       clientName = c?.name ?? null
+      manychatApiKey = c?.manychatApiKey ?? null
+      manychatFlowNs = c?.manychatApprovalFlowNs ?? null
     }
 
     const [mappingRow] = await db
@@ -70,6 +83,29 @@ export const publishForConnection = task({
       .where(eq(schema.fieldMapping.connectionId, connectionId))
 
     const mapping: FieldMapping = mappingRow ?? DEFAULT_MAPPING
+
+    const notion = createNotionClient(connection.accessToken)
+
+    // Approval sweep — runs before the publish sweep so that if a post has
+    // already been approved (status flipped to ready) we publish it on the
+    // same tick instead of waiting another 5 min. Opt-in: only runs when
+    // mapping.awaitingApprovalValue is configured.
+    if (mapping.awaitingApprovalValue && connection.clientId) {
+      try {
+        await runApprovalSweep({
+          db,
+          notion,
+          connectionId,
+          clientId: connection.clientId,
+          clientName,
+          mapping,
+          manychatApiKey,
+          manychatFlowNs,
+        })
+      } catch (e) {
+        logger.error(`Falha no approval sweep (workspace ${connection.workspaceName}): ${e}`)
+      }
+    }
 
     const igAccounts = await db
       .select()
@@ -90,7 +126,7 @@ export const publishForConnection = task({
       activeAccounts.map((a) => [`${a.platform}:${a.conta.toLowerCase()}`, a])
     )
 
-    const notion = createNotionClient(connection.accessToken)
+    // notion client is reused from the approval sweep above (same connection).
 
     let posts: NotionPost[]
     try {
@@ -223,3 +259,133 @@ export const publishForConnection = task({
     return results
   },
 })
+
+// ─── Approval sweep helper ──────────────────────────────────────────
+// Detects posts in mapping.awaitingApprovalValue, creates approvalLink
+// rows for new ones, and notifies the client (ManyChat WA → email
+// fallback). Idempotent on the partial unique index (notionPageId)
+// WHERE decision IS NULL: re-running on the next tick won't double-
+// notify a post that's still pending.
+
+type SweepArgs = {
+  db: ReturnType<typeof getDb>
+  notion: ReturnType<typeof createNotionClient>
+  connectionId: string
+  clientId: string
+  clientName: string | null
+  mapping: FieldMapping
+  manychatApiKey: string | null
+  manychatFlowNs: string | null
+}
+
+async function runApprovalSweep(a: SweepArgs): Promise<void> {
+  const { db, notion, connectionId, clientId, clientName, mapping, manychatApiKey, manychatFlowNs } = a
+  if (!mapping.awaitingApprovalValue) return
+  const connection = await db
+    .select()
+    .from(schema.notionConnection)
+    .where(eq(schema.notionConnection.id, connectionId))
+    .then((r) => r[0])
+  if (!connection?.databaseId) return
+
+  const posts = await notion.getPostsByStatus(connection.databaseId, mapping, mapping.awaitingApprovalValue)
+  if (!posts.length) {
+    logger.info(`Nenhum post aguardando aprovação no workspace ${connection.workspaceName}.`)
+    return
+  }
+
+  logger.info(`${posts.length} post(s) aguardando aprovação no workspace ${connection.workspaceName}.`)
+
+  for (const post of posts) {
+    // Idempotency check: a pending link already exists → cron already
+    // notified, don't spam. The unique partial index in schema would
+    // reject the INSERT anyway, but checking first avoids the noise.
+    const existing = await db
+      .select({ id: schema.approvalLink.id })
+      .from(schema.approvalLink)
+      .where(and(
+        eq(schema.approvalLink.notionPageId, post.pageId),
+        isNull(schema.approvalLink.decision),
+      ))
+      .limit(1)
+    if (existing.length > 0) continue
+
+    // Resolve contact via Notion relation (clientContactField → Contatos
+    // page → email/phone). Returns null when the relation isn't set or
+    // the rollup hasn't resolved.
+    const contact = await notion.resolveContact(post.pageId, mapping)
+    if (!contact?.email && !contact?.phone) {
+      logger.warn(`Post "${post.title}" sem contato resolvível — pulei. Configure a relação cliente no Notion.`)
+      continue
+    }
+
+    const token = generateId() + generateId().replace(/-/g, "")
+    const approvalUrl = `${APP_URL}/approve/${token}`
+    const linkRow = {
+      id: generateId(),
+      token,
+      clientId,
+      connectionId,
+      notionPageId: post.pageId,
+      postTitle: post.title || "Sem título",
+      contactName: contact.name,
+      contactEmail: contact.email,
+      contactPhone: contact.phone,
+      sentVia: "none" as const,
+      sentAt: null as Date | null,
+      expiresAt: new Date(Date.now() + APPROVAL_TTL_DAYS * 24 * 60 * 60 * 1000),
+    }
+
+    // Insert with onConflictDoNothing on the partial unique index.
+    // Concurrent ticks would race; the index ensures only one wins.
+    try {
+      await db.insert(schema.approvalLink).values(linkRow).onConflictDoNothing()
+    } catch (e) {
+      logger.warn(`Falha ao criar approvalLink para "${post.title}": ${e}`)
+      continue
+    }
+
+    // Notify: ManyChat first (if configured + we have phone), email second.
+    let sentVia: "manychat" | "email" | "none" = "none"
+
+    if (contact.phone && manychatApiKey && manychatFlowNs) {
+      const result = await sendApprovalRequest({
+        apiKey: manychatApiKey,
+        flowNs: manychatFlowNs,
+        phone: contact.phone,
+        customFields: { approval_url: approvalUrl, post_title: post.title || "" },
+      })
+      if (result.ok) {
+        sentVia = "manychat"
+        logger.info(`[approval] ManyChat enviado para ${contact.phone} (${post.title})`)
+      } else {
+        logger.warn(`[approval] ManyChat falhou para "${post.title}": ${result.reason}`)
+      }
+    }
+
+    if (sentVia === "none" && contact.email) {
+      try {
+        await sendApprovalRequestEmail({
+          to: contact.email,
+          contactName: contact.name,
+          agencyName: clientName,
+          postTitle: post.title || "novo post",
+          approvalUrl,
+        })
+        sentVia = "email"
+        logger.info(`[approval] Email enviado para ${contact.email} (${post.title})`)
+      } catch (e) {
+        logger.warn(`[approval] Email falhou para "${post.title}": ${e}`)
+      }
+    }
+
+    if (sentVia === "none") {
+      logger.warn(`[approval] Nenhum canal funcionou para "${post.title}" — agência precisa enviar manualmente`)
+    }
+
+    await db
+      .update(schema.approvalLink)
+      .set({ sentVia, sentAt: sentVia === "none" ? null : new Date() })
+      .where(eq(schema.approvalLink.token, token))
+  }
+}
