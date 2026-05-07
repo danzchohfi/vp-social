@@ -587,6 +587,15 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
   // Track originals to know if anything is dirty.
   const [origApiKey, setOrigApiKey] = useState("")
   const [origFlowNs, setOrigFlowNs] = useState("")
+  // Test-dispatch panel state.
+  const [testPageId, setTestPageId] = useState("")
+  const [testConnectionId, setTestConnectionId] = useState("")
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState<any>(null)
+  const [connections, setConnections] = useState<Array<{ id: string; workspaceName: string; databaseName: string | null }>>([])
+  // Validate-token state.
+  const [validating, setValidating] = useState(false)
+  const [validateResult, setValidateResult] = useState<any>(null)
 
   async function load() {
     setLoading(true)
@@ -602,6 +611,10 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
       setFlowNs(data.manychatApprovalFlowNs ?? "")
       setOrigApiKey(data.manychatApiKey ?? "")
       setOrigFlowNs(data.manychatApprovalFlowNs ?? "")
+      const conns = Array.isArray(data.connections) ? data.connections : []
+      setConnections(conns)
+      // Pre-select the only connection if there's just one — saves a click.
+      if (conns.length === 1) setTestConnectionId(conns[0].id)
     } finally {
       setLoading(false)
     }
@@ -642,6 +655,59 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
 
   const dirty = apiKey.trim() !== origApiKey || flowNs.trim() !== origFlowNs
 
+  async function validateToken() {
+    if (!apiKey.trim()) {
+      toast.error("Cole a API key primeiro")
+      return
+    }
+    setValidating(true)
+    setValidateResult(null)
+    try {
+      const res = await fetch(`/api/clients/${clientId}/manychat-validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: apiKey.trim() }),
+      })
+      const data = await res.json()
+      setValidateResult(data)
+      if (data.ok) toast.success(`Conectado: ${data.page?.name ?? "página ManyChat"}`)
+      else toast.error(`ManyChat rejeitou: ${data.reason}`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro de rede")
+    } finally {
+      setValidating(false)
+    }
+  }
+
+  async function runTest(dispatch: boolean) {
+    if (!testPageId.trim() || !testConnectionId) {
+      toast.error("Preencha pageId + escolha o workspace")
+      return
+    }
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const res = await fetch("/api/admin/test-approval-sweep", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pageId: testPageId.trim(),
+          connectionId: testConnectionId,
+          dispatch,
+        }),
+      })
+      const data = await res.json()
+      setTestResult(data)
+      if (!res.ok) toast.error(data.error ?? "Teste falhou — veja o resultado abaixo")
+      else if (dispatch && !data.ok) toast.warning("Token criado, mas ManyChat falhou — veja resultado")
+      else toast.success(dispatch ? "ManyChat disparado" : "Token criado — abra wa.me abaixo")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro de rede")
+    } finally {
+      setTesting(false)
+    }
+  }
+
   return (
     <div className="space-y-4">
       <div>
@@ -674,22 +740,44 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs">ManyChat API Key</Label>
+            <Label className="text-xs">ManyChat API Key (token da página)</Label>
             <p className="text-xs text-muted-foreground">
-              Pegue em Settings → API → Your API Key na conta ManyChat do {clientName}.
+              Settings → API → Your API Key na conta ManyChat de {clientName}. ManyChat não suporta OAuth — é um token por página.
             </p>
-            <Input
-              type="password"
-              placeholder="123456:abcdef..."
-              value={apiKey}
-              onChange={(e) => setApiKey(e.target.value)}
-            />
+            <div className="flex gap-2">
+              <Input
+                type="password"
+                placeholder="123456:abcdef..."
+                value={apiKey}
+                onChange={(e) => { setApiKey(e.target.value); setValidateResult(null) }}
+                className="flex-1"
+              />
+              <Button variant="outline" size="sm" onClick={validateToken} disabled={validating || !apiKey.trim()}>
+                {validating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Validar
+              </Button>
+            </div>
+            {validateResult && (
+              <div className={cn(
+                "rounded border px-2 py-1.5 text-xs",
+                validateResult.ok ? "border-success/30 bg-success/10 text-success" : "border-destructive/30 bg-destructive/10 text-destructive"
+              )}>
+                {validateResult.ok ? (
+                  <span>
+                    Token válido — conectado a <strong>{validateResult.page?.name ?? "página"}</strong>
+                    {validateResult.page?.timezone ? ` (${validateResult.page.timezone})` : ""}
+                  </span>
+                ) : (
+                  <span>Falhou: {validateResult.reason}</span>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="space-y-1.5">
             <Label className="text-xs">Flow Namespace de aprovação</Label>
             <p className="text-xs text-muted-foreground">
-              Crie um Flow no ManyChat que dispare o WhatsApp com a variável <code className="rounded bg-muted px-1 font-mono text-[10px]">approval_url</code>. Cole aqui o namespace (ex.: <code className="rounded bg-muted px-1 font-mono text-[10px]">content20240501123456_abc123</code>).
+              No ManyChat, crie um Flow que use o template do WhatsApp aprovado pela Meta (criado na sua Meta Business Manager → WhatsApp Manager). O Flow injeta as variáveis dinâmicas — inclua <code className="rounded bg-muted px-1 font-mono text-[10px]">approval_url</code> e <code className="rounded bg-muted px-1 font-mono text-[10px]">post_title</code> como custom fields. Depois copie o namespace do Flow (ex.: <code className="rounded bg-muted px-1 font-mono text-[10px]">content20240501123456_abc123</code>).
             </p>
             <Input
               placeholder="content20240501123456_abc123"
@@ -702,6 +790,108 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
             Salvar ManyChat
           </Button>
+
+          <div className="rounded-lg border border-dashed bg-muted/20 p-3 space-y-3">
+            <div>
+              <p className="text-sm font-semibold">Testar dispatch (debug)</p>
+              <p className="text-xs text-muted-foreground">
+                Roda o sweep manualmente pra UM post (sem esperar o cron de 5 min). Pega o pageId no Notion: clique &quot;⋯&quot; → Copiar link → cole, e a parte depois do título (32 hex) é o pageId.
+              </p>
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">Workspace</Label>
+              {connections.length === 0 ? (
+                <p className="text-xs text-muted-foreground">Nenhum Notion conectado para este cliente.</p>
+              ) : (
+                <select
+                  value={testConnectionId}
+                  onChange={(e) => setTestConnectionId(e.target.value)}
+                  className="w-full h-8 rounded border bg-background px-2 text-sm"
+                >
+                  <option value="">— Escolher workspace —</option>
+                  {connections.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.workspaceName}{c.databaseName ? ` (${c.databaseName})` : ""}
+                    </option>
+                  ))}
+                </select>
+              )}
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-xs">pageId do Notion</Label>
+              <Input
+                placeholder="abc12345-def6-7890-1234-567890abcdef"
+                value={testPageId}
+                onChange={(e) => setTestPageId(e.target.value)}
+                className="font-mono text-xs"
+              />
+            </div>
+            <div className="flex flex-wrap gap-2">
+              <Button size="sm" variant="outline" onClick={() => runTest(false)} disabled={testing || !testPageId.trim() || !testConnectionId}>
+                {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Dry-run (só gera token)
+              </Button>
+              <Button size="sm" onClick={() => runTest(true)} disabled={testing || !testPageId.trim() || !testConnectionId}>
+                {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageCircle className="h-3.5 w-3.5" />}
+                Disparar ManyChat
+              </Button>
+            </div>
+
+            {testResult && (
+              <div className="space-y-2 rounded border bg-background p-2">
+                {testResult.error && (
+                  <p className="text-xs text-destructive break-words">
+                    <strong>Erro:</strong> {String(testResult.error)}
+                  </p>
+                )}
+                {testResult.contact && testResult.contact.resolved !== false && (
+                  <div className="text-xs">
+                    <p className="font-medium">Contato resolvido:</p>
+                    <p className="text-muted-foreground">
+                      {testResult.contact.name ?? "(sem nome)"} · {testResult.contact.email ?? "(sem email)"} · {testResult.contact.phone ?? "(sem telefone)"}
+                    </p>
+                  </div>
+                )}
+                {testResult.approvalLink && (
+                  <div className="text-xs space-y-1">
+                    <p className="font-medium">
+                      Token {testResult.approvalLink.reused ? "(reaproveitado — já existia pendente)" : "(novo)"}:
+                    </p>
+                    <a
+                      href={testResult.approvalLink.approvalUrl}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block break-all font-mono text-[11px] text-primary underline"
+                    >
+                      {testResult.approvalLink.approvalUrl}
+                    </a>
+                  </div>
+                )}
+                {testResult.waClickToChat && (
+                  <a
+                    href={testResult.waClickToChat}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-success/15 px-2.5 py-1 text-xs font-medium text-success hover:bg-success/25"
+                  >
+                    <MessageCircle className="h-3.5 w-3.5" />
+                    Abrir wa.me (mandar pelo seu WhatsApp)
+                  </a>
+                )}
+                {testResult.manychat && (
+                  <div className="text-xs">
+                    <p className="font-medium">ManyChat:</p>
+                    <pre className="mt-1 overflow-x-auto rounded bg-muted/40 p-2 font-mono text-[10px]">
+{JSON.stringify(testResult.manychat.result, null, 2)}
+                    </pre>
+                  </div>
+                )}
+                {testResult.hint && (
+                  <p className="text-xs italic text-muted-foreground">{testResult.hint}</p>
+                )}
+              </div>
+            )}
+          </div>
         </>
       )}
     </div>
