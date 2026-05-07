@@ -236,6 +236,13 @@ export default async function DashboardPage() {
     const expiresMs = new Date(r.expiresAt).getTime()
     const decidedMs = r.decidedAt ? new Date(r.decidedAt).getTime() : 0
     const sentMs = r.sentAt ? new Date(r.sentAt).getTime() : new Date(r.createdAt).getTime()
+    // decision='expired' is the cron's synthetic marker for aged-out
+    // pending links. Count it in `expired`, not in the recent-decisions
+    // feed (it wasn't a real client decision).
+    if (r.decision === "expired") {
+      approvalsExpired.push(r)
+      continue
+    }
     if (r.decision !== null) {
       if (decidedMs >= sevenDaysAgo.getTime()) {
         approvalsDecided7d.push(r)
