@@ -2,12 +2,12 @@ import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
-import { fieldMapping, instagramAccount, notionConnection, publishLog } from "@/lib/db/schema"
+import { approvalLink, fieldMapping, instagramAccount, notionConnection, publishLog } from "@/lib/db/schema"
 import { eq, desc, count, inArray, and, gte, max } from "drizzle-orm"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, Zap, ArrowRight, Facebook, Youtube, Linkedin, CalendarClock, LayoutGrid, Building2, AlertTriangle, MoonStar, ExternalLink } from "lucide-react"
+import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, Zap, ArrowRight, Facebook, Youtube, Linkedin, CalendarClock, LayoutGrid, Building2, AlertTriangle, MoonStar, ExternalLink, MessageCircle, ThumbsUp } from "lucide-react"
 import Link from "next/link"
 import { PublishButton } from "@/components/dashboard/publish-button"
 import { SwitchClientButton } from "@/components/dashboard/switch-client-button"
@@ -16,6 +16,7 @@ import { RecentActivityActions } from "@/components/dashboard/recent-activity-ac
 import { DashboardPublishNow } from "@/components/dashboard/dashboard-publish-now"
 import { getActiveClientScope } from "@/lib/active-client"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "@/lib/notion"
+import { cn } from "@/lib/utils"
 
 // Inline issue computation for the next-publications widget. Lighter than
 // /scheduled's postIssues (which has full targetChecks): we only know the
@@ -165,7 +166,14 @@ export default async function DashboardPage() {
   const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
 
-  const [recentFailures, lastPerClient, monthByClient] = await Promise.all([
+  // Approval activity (last 14d). One query, bucketed in JS — these tables
+  // stay small per-client so it's cheap. Drives the new "Aprovações"
+  // widget below the health panel.
+  const approvalFilter = isAgency
+    ? inArray(approvalLink.clientId, clientIds)
+    : eq(approvalLink.clientId, clientIds[0])
+
+  const [recentFailures, lastPerClient, monthByClient, approvalRows] = await Promise.all([
     // Most recent failures (across scope) — drives the "needs review" item.
     db
       .select({
@@ -193,7 +201,64 @@ export default async function DashboardPage() {
       .from(publishLog)
       .where(and(logsFilter, eq(publishLog.status, "published"), gte(publishLog.publishedAt, startOfMonth)))
       .groupBy(publishLog.clientId),
+    // Approval rows from last 14d (covers stale + recent decisions). Bucketed
+    // in JS — each client typically has < 50 rows in this window so the
+    // savings of an aggregate-side bucket aren't worth the SQL complexity.
+    db
+      .select({
+        clientId: approvalLink.clientId,
+        decision: approvalLink.decision,
+        expiresAt: approvalLink.expiresAt,
+        sentAt: approvalLink.sentAt,
+        createdAt: approvalLink.createdAt,
+        decidedAt: approvalLink.decidedAt,
+        postTitle: approvalLink.postTitle,
+        contactName: approvalLink.contactName,
+        contactPhone: approvalLink.contactPhone,
+        token: approvalLink.token,
+        notionPageId: approvalLink.notionPageId,
+      })
+      .from(approvalLink)
+      .where(and(approvalFilter, gte(approvalLink.createdAt, fourteenDaysAgo))),
   ])
+
+  // Bucket approval rows for the widget below.
+  const STALE_MS = 3 * 24 * 60 * 60 * 1000
+  const nowMs = Date.now()
+  const approvalsPending: typeof approvalRows = []
+  const approvalsStale: typeof approvalRows = []
+  const approvalsExpired: typeof approvalRows = []
+  const approvalsDecided7d: typeof approvalRows = []
+  const approvalsApproved7d: typeof approvalRows = []
+  const pendingByClient = new Map<string, number>()
+  const staleByClient = new Map<string, number>()
+  for (const r of approvalRows) {
+    const expiresMs = new Date(r.expiresAt).getTime()
+    const decidedMs = r.decidedAt ? new Date(r.decidedAt).getTime() : 0
+    const sentMs = r.sentAt ? new Date(r.sentAt).getTime() : new Date(r.createdAt).getTime()
+    if (r.decision !== null) {
+      if (decidedMs >= sevenDaysAgo.getTime()) {
+        approvalsDecided7d.push(r)
+        if (r.decision === "approved") approvalsApproved7d.push(r)
+      }
+      continue
+    }
+    if (expiresMs <= nowMs) {
+      approvalsExpired.push(r)
+      continue
+    }
+    approvalsPending.push(r)
+    pendingByClient.set(r.clientId ?? "", (pendingByClient.get(r.clientId ?? "") ?? 0) + 1)
+    if (nowMs - sentMs > STALE_MS) {
+      approvalsStale.push(r)
+      staleByClient.set(r.clientId ?? "", (staleByClient.get(r.clientId ?? "") ?? 0) + 1)
+    }
+  }
+  // Show the widget only when there's something to act on or recently
+  // decided activity worth surfacing — keeps the dashboard quiet for
+  // clients that don't use the approval flow.
+  const showApprovalsWidget =
+    approvalsPending.length > 0 || approvalsExpired.length > 0 || approvalsDecided7d.length > 0
 
   const lastByClient = new Map(lastPerClient.map((r) => [r.clientId, r.lastAt ? new Date(r.lastAt) : null]))
   const monthCountByClient = new Map(monthByClient.map((r) => [r.clientId, Number(r.total)]))
@@ -355,6 +420,190 @@ export default async function DashboardPage() {
               </div>
             )}
           </div>
+        </div>
+      )}
+
+      {showApprovalsWidget && (
+        <div className="mb-8 rounded-xl border bg-card p-5">
+          <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="flex items-center gap-2">
+              <MessageCircle className="h-4 w-4 text-amber-500" />
+              <p className="text-sm font-semibold">Aprovações</p>
+            </div>
+            <Link
+              href="/scheduled?filter=approval"
+              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+            >
+              Ver tudo no calendário
+              <ArrowRight className="h-3 w-3" />
+            </Link>
+          </div>
+
+          {/* Top-line counts. Stale highlights the chase signal — without
+              this people see "5 pendentes" and assume everything is fine. */}
+          <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-lg bg-muted/40 p-2.5">
+              <p className="font-display text-2xl leading-none">{approvalsPending.length}</p>
+              <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">Pendentes</p>
+            </div>
+            <div className={cn(
+              "rounded-lg p-2.5",
+              approvalsStale.length > 0 ? "bg-warning/10" : "bg-muted/40"
+            )}>
+              <p className={cn(
+                "font-display text-2xl leading-none",
+                approvalsStale.length > 0 ? "text-warning" : "",
+              )}>
+                {approvalsStale.length}
+              </p>
+              <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">Parados +3d</p>
+            </div>
+            <div className="rounded-lg bg-muted/40 p-2.5">
+              <p className="font-display text-2xl leading-none text-success">{approvalsApproved7d.length}</p>
+              <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">Aprovados 7d</p>
+            </div>
+            <div className="rounded-lg bg-muted/40 p-2.5">
+              <p className={cn(
+                "font-display text-2xl leading-none",
+                approvalsExpired.length > 0 ? "text-destructive" : "",
+              )}>
+                {approvalsExpired.length}
+              </p>
+              <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">Expirados</p>
+            </div>
+          </div>
+
+          {/* Per-client breakdown — only in agency mode. Single-client view
+              already knows whose approvals these are. */}
+          {isAgency && pendingByClient.size > 0 && (
+            <div className="mb-3">
+              <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Por cliente
+              </p>
+              <div className="flex flex-wrap gap-1.5">
+                {Array.from(pendingByClient.entries())
+                  .sort((a, b) => b[1] - a[1])
+                  .map(([cid, n]) => {
+                    const c = clientById.get(cid)
+                    const stale = staleByClient.get(cid) ?? 0
+                    return (
+                      <span
+                        key={cid}
+                        className={cn(
+                          "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs",
+                          stale > 0 ? "border-warning/50 bg-warning/10 text-warning" : "border-muted bg-muted/30",
+                        )}
+                      >
+                        {c?.logoUrl ? (
+                          <img src={c.logoUrl} alt="" className="h-3 w-3 rounded-full object-cover" />
+                        ) : (
+                          <Building2 className="h-3 w-3 opacity-60" />
+                        )}
+                        <span className="font-medium">{c?.name ?? "(removido)"}</span>
+                        <span className="font-mono text-[10px] opacity-80">
+                          {n}{stale > 0 ? ` (${stale} parado)` : ""}
+                        </span>
+                      </span>
+                    )
+                  })}
+              </div>
+            </div>
+          )}
+
+          {/* Top stale rows — most actionable. Cap at 5; anything more goes
+              to /scheduled?filter=approval. */}
+          {approvalsStale.length > 0 && (
+            <div>
+              <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-warning">
+                Precisa cobrar ({approvalsStale.length})
+              </p>
+              <ul className="space-y-1">
+                {approvalsStale.slice(0, 5).map((r) => {
+                  const owning = r.clientId ? clientById.get(r.clientId) : null
+                  const sentAgo = r.sentAt
+                    ? Math.floor((nowMs - new Date(r.sentAt).getTime()) / (24 * 60 * 60 * 1000))
+                    : Math.floor((nowMs - new Date(r.createdAt).getTime()) / (24 * 60 * 60 * 1000))
+                  return (
+                    <li key={r.token} className="flex items-start gap-2 text-sm">
+                      <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+                      <div className="min-w-0 flex-1">
+                        <span className="truncate">{r.postTitle || "Post sem título"}</span>
+                        {scope.mode === "all" && owning && (
+                          <span className="ml-1.5 text-xs text-muted-foreground">· {owning.name}</span>
+                        )}
+                        {r.contactName && (
+                          <span className="ml-1.5 text-xs text-muted-foreground">· {r.contactName}</span>
+                        )}
+                        <span className="ml-1.5 text-xs text-warning">· há {sentAgo}d</span>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-1">
+                        {r.contactPhone && (
+                          <a
+                            href={`https://wa.me/${r.contactPhone.replace(/\D/g, "")}?text=${encodeURIComponent(`Olá${r.contactName ? ` ${r.contactName}` : ""}! Lembrete pra aprovar o post "${r.postTitle ?? ""}":`)}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            title="Abrir WhatsApp"
+                            className="inline-flex h-6 items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-1.5 text-[10px] font-medium text-warning hover:bg-warning/20"
+                          >
+                            <MessageCircle className="h-3 w-3" />
+                            WA
+                          </a>
+                        )}
+                        <Link
+                          href={`/scheduled?postId=${encodeURIComponent(r.notionPageId)}`}
+                          title="Abrir no calendário"
+                          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-warning hover:bg-warning/15"
+                        >
+                          <ArrowRight className="h-3.5 w-3.5" />
+                        </Link>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+              {approvalsStale.length > 5 && (
+                <Link
+                  href="/scheduled?filter=approval"
+                  className="mt-2 inline-block text-xs text-warning underline hover:no-underline"
+                >
+                  + {approvalsStale.length - 5} outros parados →
+                </Link>
+              )}
+            </div>
+          )}
+
+          {/* Recent decisions — social proof / activity heartbeat. Hidden
+              if there's nothing in the last 7 days, to keep the widget small. */}
+          {approvalsDecided7d.length > 0 && (
+            <div className={cn(approvalsStale.length > 0 ? "mt-3 border-t pt-3" : "")}>
+              <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+                Decisões recentes (7d)
+              </p>
+              <ul className="space-y-1 text-sm">
+                {approvalsDecided7d.slice(0, 5).map((r) => {
+                  const owning = r.clientId ? clientById.get(r.clientId) : null
+                  const Icon = r.decision === "approved" ? ThumbsUp : XCircle
+                  const tone = r.decision === "approved" ? "text-success" : "text-warning"
+                  const decidedDate = r.decidedAt ? new Date(r.decidedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : ""
+                  return (
+                    <li key={r.token} className="flex items-start gap-2">
+                      <Icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", tone)} />
+                      <div className="min-w-0 flex-1">
+                        <span className="truncate">{r.postTitle || "Post sem título"}</span>
+                        {scope.mode === "all" && owning && (
+                          <span className="ml-1.5 text-xs text-muted-foreground">· {owning.name}</span>
+                        )}
+                        <span className="ml-1.5 text-xs text-muted-foreground">
+                          · {r.decision === "approved" ? "aprovou" : r.decision === "rejected" ? "rejeitou" : "pediu alterações"}
+                        </span>
+                      </div>
+                      <span className="shrink-0 text-xs text-muted-foreground">{decidedDate}</span>
+                    </li>
+                  )
+                })}
+              </ul>
+            </div>
+          )}
         </div>
       )}
 
