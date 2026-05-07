@@ -578,6 +578,31 @@ function MembersPanel({ clientId, canManage }: { clientId: string; canManage: bo
   )
 }
 
+// Notion accepts a page ID as either a 32-char hex blob or a UUID with
+// dashes. The "Copy link" UI gives a URL like
+// .../Some-Title-{32hex}?v=… — we extract the 32hex (and dash-format
+// it for clarity, since both work with the API).
+function extractNotionPageId(input: string): string {
+  const trimmed = input.trim()
+  // 32-hex no dashes
+  const hexMatch = trimmed.match(/[0-9a-f]{32}/i)
+  if (hexMatch) {
+    const h = hexMatch[0].toLowerCase()
+    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
+  }
+  // UUID with dashes
+  const uuidMatch = trimmed.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)
+  if (uuidMatch) return uuidMatch[0].toLowerCase()
+  return trimmed
+}
+
+const STARTER_TEMPLATE = `Olá {{1}}, você tem 1 post aguardando sua aprovação:
+
+📝 *{{2}}*
+
+Aprovar ou pedir alterações:
+{{3}}`
+
 function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName: string }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -596,6 +621,8 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
   // Validate-token state.
   const [validating, setValidating] = useState(false)
   const [validateResult, setValidateResult] = useState<any>(null)
+  // Toggle for the Meta template + Flow setup instructions block.
+  const [showFlowGuide, setShowFlowGuide] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -680,7 +707,8 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
   }
 
   async function runTest(dispatch: boolean) {
-    if (!testPageId.trim() || !testConnectionId) {
+    const pageId = extractNotionPageId(testPageId)
+    if (!pageId || !testConnectionId) {
       toast.error("Preencha pageId + escolha o workspace")
       return
     }
@@ -691,7 +719,7 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          pageId: testPageId.trim(),
+          pageId,
           connectionId: testConnectionId,
           dispatch,
         }),
@@ -791,6 +819,74 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
             Salvar ManyChat
           </Button>
 
+          <div className="rounded-lg border bg-muted/10">
+            <button
+              onClick={() => setShowFlowGuide((v) => !v)}
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium hover:bg-muted/20"
+            >
+              <span>📋 Como criar o Flow + template Meta-aprovado</span>
+              <span className="text-xs text-muted-foreground">{showFlowGuide ? "ocultar" : "ver passo a passo"}</span>
+            </button>
+            {showFlowGuide && (
+              <div className="space-y-3 border-t px-3 py-3 text-xs">
+                <div>
+                  <p className="font-semibold">1. Criar template no Meta WhatsApp Manager</p>
+                  <p className="text-muted-foreground">
+                    Em <a href="https://business.facebook.com/wa/manage/message-templates/" target="_blank" rel="noopener noreferrer" className="underline">business.facebook.com → Mensagens → Modelos</a>, crie um template categoria <strong>Utilidade</strong>. Cole o texto abaixo (Meta aprova em até 24h):
+                  </p>
+                  <div className="mt-1.5 flex items-stretch gap-1.5">
+                    <pre className="flex-1 overflow-x-auto rounded border bg-background p-2 font-mono text-[11px] whitespace-pre-wrap">{STARTER_TEMPLATE}</pre>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => {
+                        navigator.clipboard.writeText(STARTER_TEMPLATE)
+                        toast.success("Template copiado")
+                      }}
+                      className="shrink-0"
+                    >
+                      <Copy className="h-3.5 w-3.5" />
+                    </Button>
+                  </div>
+                  <p className="mt-1 text-muted-foreground">
+                    Variáveis: <strong>{"{{1}}"}</strong> = nome do contato, <strong>{"{{2}}"}</strong> = título do post, <strong>{"{{3}}"}</strong> = link de aprovação.
+                  </p>
+                </div>
+
+                <div>
+                  <p className="font-semibold">2. Criar custom fields no ManyChat</p>
+                  <p className="text-muted-foreground">
+                    Settings → Audience → Custom User Fields → New. Crie 4 campos do tipo <strong>Text</strong> (case-sensitive):
+                  </p>
+                  <ul className="mt-1 ml-4 list-disc space-y-0.5 font-mono text-[11px]">
+                    <li>approval_url</li>
+                    <li>post_title</li>
+                    <li>contact_name</li>
+                    <li>post_url</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <p className="font-semibold">3. Criar o Flow no ManyChat</p>
+                  <ol className="ml-4 list-decimal space-y-0.5 text-muted-foreground">
+                    <li>Automation → New Flow → escolha o canal <strong>WhatsApp</strong>.</li>
+                    <li>Adicione um bloco <strong>Send Message Template</strong> (não Free Form).</li>
+                    <li>Selecione o template aprovado pela Meta.</li>
+                    <li>Mapeie as variáveis: {"{{1}}"} → <code className="rounded bg-muted px-1 font-mono">contact_name</code>, {"{{2}}"} → <code className="rounded bg-muted px-1 font-mono">post_title</code>, {"{{3}}"} → <code className="rounded bg-muted px-1 font-mono">approval_url</code>.</li>
+                    <li>Salve. Clique em ⋯ → <strong>Get API Reference</strong> → copie o <code className="rounded bg-muted px-1 font-mono">flow_ns</code> e cole acima.</li>
+                  </ol>
+                </div>
+
+                <div className="rounded border border-warning/30 bg-warning/5 p-2 text-warning">
+                  <p className="font-semibold">⚠ Pré-requisito do WhatsApp Business</p>
+                  <p className="text-foreground/80">
+                    O cliente final precisa ter conversado com a página antes (mesmo que uma mensagem só). Sem isso, a Meta bloqueia o template — só números <em>opted-in</em> recebem.
+                  </p>
+                </div>
+              </div>
+            )}
+          </div>
+
           <div className="rounded-lg border border-dashed bg-muted/20 p-3 space-y-3">
             <div>
               <p className="text-sm font-semibold">Testar dispatch (debug)</p>
@@ -818,11 +914,16 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
               )}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">pageId do Notion</Label>
+              <Label className="text-xs">URL ou pageId do Notion</Label>
               <Input
-                placeholder="abc12345-def6-7890-1234-567890abcdef"
+                placeholder="Cole a URL do post (⋯ → Copiar link no Notion) ou o pageId direto"
                 value={testPageId}
-                onChange={(e) => setTestPageId(e.target.value)}
+                onChange={(e) => {
+                  // Auto-strip the URL to just the pageId so the agency
+                  // can paste raw Notion links without thinking.
+                  const next = e.target.value
+                  setTestPageId(next.includes("notion.so") ? extractNotionPageId(next) : next)
+                }}
                 className="font-mono text-xs"
               />
             </div>
