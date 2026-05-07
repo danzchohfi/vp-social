@@ -1,11 +1,12 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { fieldMapping, instagramAccount, notionConnection } from "@/lib/db/schema"
+import { client as clientTable, fieldMapping, instagramAccount, notionConnection } from "@/lib/db/schema"
 import { and, eq } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING } from "@/lib/notion"
 import { getActiveClientId } from "@/lib/active-client"
+import { validateManychatToken } from "@/lib/manychat"
 import { Client } from "@notionhq/client"
 
 type CheckResult = {
@@ -180,7 +181,118 @@ export async function GET() {
       })
     }
 
-    // 4. At least 1 post in "ready" state?
+    // 4. Approval flow (only when configured) — validates the mapping
+    // before posts hit the cron. Catches the most common setup errors:
+    // typo in awaitingApprovalValue, wrong column type for clientContactField.
+    if (mapping.awaitingApprovalValue) {
+      const statusProp = dbProps[mapping.statusField]
+      const statusOptions: string[] =
+        statusProp?.type === "status"
+          ? (statusProp.status?.options ?? []).map((o: any) => o.name)
+          : statusProp?.type === "select"
+            ? (statusProp.select?.options ?? []).map((o: any) => o.name)
+            : []
+
+      const awaitingExists = statusOptions.includes(mapping.awaitingApprovalValue)
+      const revisionExists = !mapping.revisionRequestedValue || statusOptions.includes(mapping.revisionRequestedValue)
+
+      if (!awaitingExists) {
+        checks.push({
+          id: `approval-status:${conn.id}`,
+          label: `Aprovação · status disparador`,
+          status: "error",
+          message: `Status "${mapping.awaitingApprovalValue}" não existe nas opções do campo "${mapping.statusField}"`,
+          details: statusOptions.length ? `Opções: ${statusOptions.join(", ")}` : "Campo de status não retornou opções",
+        })
+      } else {
+        checks.push({
+          id: `approval-status:${conn.id}`,
+          label: `Aprovação · status disparador`,
+          status: "ok",
+          message: `"${mapping.awaitingApprovalValue}" encontrado nas opções de status`,
+        })
+      }
+
+      if (mapping.revisionRequestedValue && !revisionExists) {
+        checks.push({
+          id: `approval-revision:${conn.id}`,
+          label: `Aprovação · status "Pedir alterações"`,
+          status: "error",
+          message: `Status "${mapping.revisionRequestedValue}" não existe nas opções do campo "${mapping.statusField}"`,
+        })
+      }
+
+      // clientContactField must be a Relation property — that's what
+      // resolveContact() walks. Anything else and the cron silently skips.
+      if (mapping.clientContactField) {
+        const contactProp = dbProps[mapping.clientContactField]
+        if (!contactProp) {
+          checks.push({
+            id: `approval-contact:${conn.id}`,
+            label: `Aprovação · coluna de Contato`,
+            status: "error",
+            message: `Coluna "${mapping.clientContactField}" não existe no banco`,
+          })
+        } else if (contactProp.type !== "relation") {
+          checks.push({
+            id: `approval-contact:${conn.id}`,
+            label: `Aprovação · coluna de Contato`,
+            status: "error",
+            message: `Coluna "${mapping.clientContactField}" é tipo "${contactProp.type}" — precisa ser Relation pra apontar pra DB de Contato`,
+          })
+        } else {
+          checks.push({
+            id: `approval-contact:${conn.id}`,
+            label: `Aprovação · coluna de Contato`,
+            status: "ok",
+            message: `Relation OK (aponta pra DB com ${contactProp.relation?.database_id ? "id " + String(contactProp.relation.database_id).slice(0, 8) + "…" : "destino"})`,
+          })
+        }
+      } else {
+        checks.push({
+          id: `approval-contact:${conn.id}`,
+          label: `Aprovação · coluna de Contato`,
+          status: "warn",
+          message: `clientContactField vazio em /settings → Aprovação. Sem ele o cron não consegue resolver o contato.`,
+        })
+      }
+
+      // ManyChat token check — runs once per request (not per workspace).
+      // Skip if already pushed for this client from a previous connection.
+      const alreadyChecked = checks.some((c) => c.id === "approval-manychat")
+      if (!alreadyChecked && clientId) {
+        const [c] = await db
+          .select({
+            apiKey: clientTable.manychatApiKey,
+            flowNs: clientTable.manychatApprovalFlowNs,
+          })
+          .from(clientTable)
+          .where(eq(clientTable.id, clientId))
+
+        if (!c?.apiKey || !c?.flowNs) {
+          checks.push({
+            id: "approval-manychat",
+            label: `Aprovação · ManyChat`,
+            status: "warn",
+            message: c?.apiKey
+              ? "API key salvo mas Flow Namespace vazio"
+              : "ManyChat não configurado — vai criar token mas não envia WhatsApp (use o wa.me click-to-chat).",
+          })
+        } else {
+          const result = await validateManychatToken(c.apiKey)
+          checks.push({
+            id: "approval-manychat",
+            label: `Aprovação · ManyChat`,
+            status: result.ok ? "ok" : "error",
+            message: result.ok
+              ? `Token válido — conectado a "${result.page.name}"`
+              : `Token rejeitado: ${result.reason}`,
+          })
+        }
+      }
+    }
+
+    // 5. At least 1 post in "ready" state?
     try {
       const notion = createNotionClient(conn.accessToken)
       const ready = await notion.getReadyPosts(conn.databaseId, mapping)
