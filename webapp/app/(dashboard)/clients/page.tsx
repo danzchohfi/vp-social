@@ -993,8 +993,242 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
               </div>
             )}
           </div>
+
+          <ApprovalHistory clientId={clientId} />
         </>
       )}
+    </div>
+  )
+}
+
+// Histórico de aprovações — fetches /api/clients/[id]/approvals on demand
+// (collapsed by default to keep the panel scannable). Renders 4 buckets:
+// pending (highlighting stale ones), decided (last 30d, with the client's
+// comment inline), expired. Owner-only — the endpoint enforces and the
+// caller (ApprovalPanel) is already gated by isOwner upstream.
+
+type ApprovalRow = {
+  id: string
+  token: string
+  notionPageId: string
+  connectionId: string | null
+  postTitle: string | null
+  contactName: string | null
+  contactEmail: string | null
+  contactPhone: string | null
+  sentVia: string | null
+  sentAt: string | null
+  decision: "approved" | "rejected" | "revision" | null
+  decidedAt: string | null
+  comment: string | null
+  expiresAt: string
+  createdAt: string
+}
+
+function ApprovalHistory({ clientId }: { clientId: string }) {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [data, setData] = useState<{
+    pending: ApprovalRow[]
+    stale: ApprovalRow[]
+    decided: ApprovalRow[]
+    expired: ApprovalRow[]
+    counts: { pending: number; stale: number; decided: number; expired: number }
+  } | null>(null)
+
+  async function load() {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/clients/${clientId}/approvals`)
+      const json = await res.json()
+      if (!res.ok) throw new Error(json.error ?? "Erro ao carregar histórico")
+      setData(json)
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function toggle() {
+    const next = !open
+    setOpen(next)
+    if (next && !data && !loading) load()
+  }
+
+  // Stale rows are a subset of pending — render them in the pending list
+  // with a warning border instead of a separate section. Saves vertical space.
+  const staleIds = new Set(data?.stale.map((r) => r.id) ?? [])
+
+  return (
+    <div className="rounded-lg border bg-muted/10">
+      <button
+        onClick={toggle}
+        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium hover:bg-muted/20"
+      >
+        <span className="flex items-center gap-2">
+          📜 Histórico de aprovações
+          {data && (
+            <span className="text-[11px] font-normal text-muted-foreground">
+              · {data.counts.pending} pendente{data.counts.pending !== 1 ? "s" : ""}
+              {data.counts.stale > 0 && <span className="text-warning"> ({data.counts.stale} parado{data.counts.stale > 1 ? "s" : ""})</span>}
+              {" · "}{data.counts.decided} decidido{data.counts.decided !== 1 ? "s" : ""}
+              {data.counts.expired > 0 && <> · {data.counts.expired} expirado{data.counts.expired > 1 ? "s" : ""}</>}
+            </span>
+          )}
+        </span>
+        <span className="text-xs text-muted-foreground">{open ? "ocultar" : "ver"}</span>
+      </button>
+
+      {open && (
+        <div className="space-y-3 border-t px-3 py-3 text-xs">
+          {loading && (
+            <div className="flex justify-center py-4">
+              <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+            </div>
+          )}
+          {error && (
+            <p className="text-xs text-destructive">{error}</p>
+          )}
+          {data && !loading && (
+            <>
+              {data.pending.length === 0 && data.decided.length === 0 && data.expired.length === 0 && (
+                <p className="text-muted-foreground">
+                  Nenhum link de aprovação criado para este cliente nos últimos 30 dias.
+                </p>
+              )}
+
+              {data.pending.length > 0 && (
+                <ApprovalHistorySection
+                  title="Pendentes"
+                  rows={data.pending}
+                  staleIds={staleIds}
+                  tone="pending"
+                />
+              )}
+              {data.decided.length > 0 && (
+                <ApprovalHistorySection
+                  title="Decididos (últimos 30 dias)"
+                  rows={data.decided}
+                  staleIds={staleIds}
+                  tone="decided"
+                />
+              )}
+              {data.expired.length > 0 && (
+                <ApprovalHistorySection
+                  title="Expirados sem resposta"
+                  rows={data.expired}
+                  staleIds={staleIds}
+                  tone="expired"
+                />
+              )}
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function ApprovalHistorySection({
+  title,
+  rows,
+  staleIds,
+  tone,
+}: {
+  title: string
+  rows: ApprovalRow[]
+  staleIds: Set<string>
+  tone: "pending" | "decided" | "expired"
+}) {
+  return (
+    <div>
+      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+        {title} ({rows.length})
+      </p>
+      <ul className="space-y-1.5">
+        {rows.map((r) => {
+          const isStale = staleIds.has(r.id)
+          const decisionLabel = r.decision === "approved" ? "Aprovado"
+            : r.decision === "rejected" ? "Rejeitado"
+            : r.decision === "revision" ? "Pediu alterações"
+            : null
+          const decisionTone = r.decision === "approved" ? "bg-success/15 text-success"
+            : r.decision === "rejected" ? "bg-destructive/15 text-destructive"
+            : "bg-warning/15 text-warning"
+          return (
+            <li
+              key={r.id}
+              className={cn(
+                "rounded border bg-background px-2 py-1.5",
+                tone === "pending" && isStale && "border-warning/50",
+                tone === "expired" && "border-destructive/30 bg-destructive/5",
+                tone === "decided" && r.decision === "approved" && "border-success/30",
+              )}
+            >
+              <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                <span className="font-medium">{r.postTitle || "Sem título"}</span>
+                {r.contactName && <span className="text-muted-foreground">· {r.contactName}</span>}
+                {decisionLabel && (
+                  <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium", decisionTone)}>
+                    {decisionLabel}
+                  </span>
+                )}
+                {tone === "pending" && isStale && (
+                  <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                    Parado +3d
+                  </span>
+                )}
+                {r.sentVia === "none" && tone === "pending" && (
+                  <span className="text-[10px] text-warning">WA não foi enviado auto</span>
+                )}
+                <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+                  {tone === "decided" && r.decidedAt
+                    ? new Date(r.decidedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
+                    : new Date(r.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
+                </span>
+              </div>
+              {r.comment && (
+                <p className="mt-1 break-words text-[11px] text-muted-foreground italic">
+                  &quot;{r.comment}&quot;
+                </p>
+              )}
+              <div className="mt-1 flex flex-wrap gap-1.5 text-[10px]">
+                <a
+                  href={`/approve/${r.token}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-primary underline hover:no-underline"
+                >
+                  abrir link
+                </a>
+                {r.contactPhone && (
+                  <a
+                    href={`https://wa.me/${r.contactPhone.replace(/\D/g, "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary underline hover:no-underline"
+                  >
+                    wa.me
+                  </a>
+                )}
+                {r.notionPageId && (
+                  <a
+                    href={`https://www.notion.so/${r.notionPageId.replace(/-/g, "")}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-muted-foreground underline hover:no-underline"
+                  >
+                    Notion
+                  </a>
+                )}
+              </div>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }
