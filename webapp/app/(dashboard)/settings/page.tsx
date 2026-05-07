@@ -459,13 +459,13 @@ export default function SettingsPage() {
                   <StatusValueSelect label='Status quando "pedir alterações"' value={mapping.revisionRequestedValue} options={statusOptions} onChange={(v) => setField("revisionRequestedValue", v)} />
                 </div>
                 <p className="text-xs text-muted-foreground">
-                  Para descobrir o contato do cliente, criamos uma <strong>relação</strong> no post para a sua DB de Contatos (com colunas Email e Telefone). O app segue a relação e lê o email/telefone na DB de Contatos.
+                  Para descobrir o contato, criamos uma <strong>relação</strong> no post apontando para a sua DB de <strong>Contato</strong> (com colunas para email e WhatsApp). O app segue a relação e lê os campos lá. Os nomes das colunas variam por workspace — preencha exatamente como aparecem no seu Notion.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <SelectField label="Coluna de relação cliente" value={mapping.clientContactField} options={propNames} onChange={(v) => setField("clientContactField", v)} hint="Propriedade do tipo Relation no post → DB de Contatos" />
+                  <SelectField label="Coluna de relação Contato (no post)" value={mapping.clientContactField} options={propNames} onChange={(v) => setField("clientContactField", v)} hint="Propriedade Relation no post → DB de Contato (ex.: &quot;Contato&quot;, &quot;Cliente&quot;)" />
                   <div className="space-y-1">
-                    <Label className="text-sm">Coluna de email no contato</Label>
-                    <p className="text-xs text-muted-foreground">Nome da propriedade na DB de Contatos (ex.: &quot;Email&quot;).</p>
+                    <Label className="text-sm">Coluna de email (na DB Contato)</Label>
+                    <p className="text-xs text-muted-foreground">Nome exato da propriedade Email/Texto na DB de Contato (ex.: &quot;Email&quot;, &quot;E-mail&quot;).</p>
                     <Input
                       placeholder="Email"
                       value={mapping.contactEmailField}
@@ -473,10 +473,10 @@ export default function SettingsPage() {
                     />
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-sm">Coluna de telefone no contato</Label>
-                    <p className="text-xs text-muted-foreground">Nome da propriedade na DB de Contatos (ex.: &quot;Telefone&quot;). Formato com DDI: <code className="rounded bg-muted px-1 font-mono text-[10px]">+5511999999999</code>.</p>
+                    <Label className="text-sm">Coluna de WhatsApp (na DB Contato)</Label>
+                    <p className="text-xs text-muted-foreground">Nome exato da propriedade Phone/Texto (ex.: &quot;Celular&quot;, &quot;WhatsApp&quot;, &quot;Telefone&quot;). Valor com DDI: <code className="rounded bg-muted px-1 font-mono text-[10px]">+5511999999999</code>.</p>
                     <Input
-                      placeholder="Telefone"
+                      placeholder="Celular / WhatsApp"
                       value={mapping.contactPhoneField}
                       onChange={(e) => setField("contactPhoneField", e.target.value)}
                     />
