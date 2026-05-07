@@ -226,13 +226,25 @@ export function createNotionClient(accessToken: string) {
       name: string | null
       email: string | null
       phone: string | null
+      // True when the relation linked >1 contact pages — we use the first.
+      // Surfaced in test/Histórico UI so agency knows other links were ignored.
+      multipleContacts?: boolean
     } | null> {
       // Walk: post → relation property (clientContactField) → first related
-      // Contatos page → read email/phone/title.
-      // Returns null when the relation can't be resolved (no relation set,
-      // mapping incomplete, or related page missing). The cron handles null
-      // by skipping notification and logging — no link gets created since
-      // we have nothing to send to.
+      // Contato page → read email/phone/title.
+      //
+      // Return semantics:
+      //   null           — relation not configured, post not found, relation
+      //                    empty, or related page missing. Cron skips entirely.
+      //   { …, email/phone all null }
+      //                  — contact row was found but has no usable contact
+      //                    info. Cron logs the specific case so agency can
+      //                    fix the Contato page (vs blank relation case).
+      //   { …, email/phone present }
+      //                  — happy path.
+      //   multipleContacts: true
+      //                  — relation linked multiple Contato rows; we used
+      //                    the first. Surface in UI as a warning.
       if (!mapping.clientContactField || !mapping.contactEmailField) return null
       try {
         const page = await client.pages.retrieve({ page_id: pageId })
@@ -242,6 +254,13 @@ export function createNotionClient(accessToken: string) {
         const relatedIds: string[] = relProp?.relation?.map((r: any) => r.id) ?? []
         const targetId = relatedIds[0]
         if (!targetId) return null
+
+        const multipleContacts = relatedIds.length > 1
+        if (multipleContacts) {
+          console.warn(
+            `[notion.resolveContact] post ${pageId} has ${relatedIds.length} linked contacts; using first (${targetId})`
+          )
+        }
 
         const contactPage = await client.pages.retrieve({ page_id: targetId })
         if (!("properties" in contactPage)) return null
@@ -263,7 +282,7 @@ export function createNotionClient(accessToken: string) {
           ? readContactProp(cp[mapping.contactPhoneField])
           : null
 
-        return { name, email: emailVal, phone: phoneVal }
+        return { name, email: emailVal, phone: phoneVal, multipleContacts }
       } catch (e) {
         console.warn(`[notion.resolveContact] failed for ${pageId}: ${e}`)
         return null
