@@ -1,6 +1,6 @@
 import { db } from "@/lib/db"
 import { approvalLink, client as clientTable, fieldMapping, notionConnection } from "@/lib/db/schema"
-import { and, eq, isNull } from "drizzle-orm"
+import { and, eq, gt, isNull, ne } from "drizzle-orm"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping } from "@/lib/notion"
 import {
@@ -78,11 +78,29 @@ export async function GET(
     post = null
   }
 
+  // Count other pending approvals for this same client — drives the
+  // sibling banner ("Você tem 2 outros posts pendentes"). Excludes the
+  // current token + any decided/expired rows. Cheap query (per-client
+  // approval_link table stays small) and uses approval_link_client_idx.
+  const now = new Date()
+  const siblings = await db
+    .select({ id: approvalLink.id })
+    .from(approvalLink)
+    .where(and(
+      eq(approvalLink.clientId, client.id),
+      isNull(approvalLink.decision),
+      gt(approvalLink.expiresAt, now),
+      ne(approvalLink.token, token),
+    ))
+
   return NextResponse.json({
     state: result.kind, // "ok" | "decided" | "expired"
     decision: row.decision,
     decidedAt: row.decidedAt,
+    sentAt: row.sentAt,
+    expiresAt: row.expiresAt,
     contactName: row.contactName,
+    pendingSiblings: siblings.length,
     client: {
       name: client.name,
       logoUrl: client.logoUrl,
