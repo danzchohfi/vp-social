@@ -4,9 +4,11 @@
   "private": true,
   "scripts": {
     "dev": "next dev --turbopack",
+    "prebuild": "node scripts/generate-icons.mjs",
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
+    "generate:icons": "node scripts/generate-icons.mjs",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
@@ -50,6 +52,7 @@
     "postcss": "^8.5.0",
     "drizzle-kit": "^0.31.4",
     "eslint": "^9.0.0",
-    "eslint-config-next": "^15.3.0"
+    "eslint-config-next": "^15.3.0",
+    "sharp": "^0.33.5"
   }
 }
