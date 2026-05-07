@@ -219,7 +219,12 @@ export async function POST(req: Request) {
     apiKey: clientRow.manychatApiKey,
     flowNs: clientRow.manychatApprovalFlowNs,
     phone: contact.phone,
-    customFields: { approval_url: approvalUrl, post_title: post.title || "" },
+    customFields: {
+      approval_url: approvalUrl,
+      post_title: post.title || "",
+      contact_name: contact.name || "",
+      post_url: post.notionUrl || "",
+    },
   })
 
   if (result.ok) {
