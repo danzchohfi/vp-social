@@ -312,13 +312,21 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       .limit(1)
     if (existing.length > 0) continue
 
-    // Resolve contact via Notion relation (clientContactField → Contatos
-    // page → email/phone). Returns null when the relation isn't set or
-    // the rollup hasn't resolved.
+    // Resolve contact via Notion relation (clientContactField → Contato
+    // page → email/phone). Returns null when relation isn't configured or
+    // empty; returns object with all-nulls when contact row exists but
+    // lacks email/phone.
     const contact = await notion.resolveContact(post.pageId, mapping)
-    if (!contact?.email && !contact?.phone) {
-      logger.warn(`Post "${post.title}" sem contato resolvível — pulei. Configure a relação cliente no Notion.`)
+    if (!contact) {
+      logger.warn(`Post "${post.title}" sem relação de Contato configurada/preenchida no Notion — pulei.`)
       continue
+    }
+    if (!contact.email && !contact.phone) {
+      logger.warn(`Post "${post.title}" tem relação de Contato mas a página ${contact.name ? `"${contact.name}"` : ""} não tem email nem WhatsApp — pulei.`)
+      continue
+    }
+    if (contact.multipleContacts) {
+      logger.warn(`Post "${post.title}" tem múltiplos contatos vinculados na relação — usando o primeiro (${contact.name ?? contact.phone ?? contact.email}).`)
     }
 
     const token = generateId() + generateId().replace(/-/g, "")
