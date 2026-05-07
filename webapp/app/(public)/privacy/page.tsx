@@ -5,6 +5,26 @@ export const metadata = { title: "Política de Privacidade – VP Social" }
 export default function PrivacyPage() {
   return (
     <div className="mx-auto max-w-3xl px-4 py-16">
+      {/* App branding header — required by TikTok app review (icon must be
+          visible at top of TOS + Privacy pages AND match the favicon and
+          the icon submitted in TikTok Developer Portal Basic Info). */}
+      <div className="mb-8 flex items-center gap-3 border-b pb-6">
+        <img
+          src="/icon.svg"
+          alt="VP Social"
+          width={48}
+          height={48}
+          className="h-12 w-12 rounded-xl"
+        />
+        <div>
+          <p className="text-lg font-semibold tracking-tight">
+            <span>VP</span>
+            <span className="ml-1 italic font-display">Social</span>
+          </p>
+          <p className="text-xs text-muted-foreground">posts.vitaminapublicitaria.com.br</p>
+        </div>
+      </div>
+
       <Link href="/" className="mb-8 inline-block text-sm text-muted-foreground hover:text-foreground">← Voltar</Link>
       <h1 className="mb-2 text-3xl font-semibold tracking-tight">Política de Privacidade</h1>
       <p className="mb-8 text-sm text-muted-foreground">Última atualização: 2 de maio de 2026</p>
