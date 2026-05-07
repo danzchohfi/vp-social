@@ -100,7 +100,7 @@ export function createInstagramPublisher(accountId: string, accessToken: string)
   }
 }
 
-// ─── Helpers ──────────────────────────────────────────────────
+// ─── Helpers ────────────────────────────────────
 
 async function createContainer(
   accountId: string,
@@ -129,13 +129,36 @@ async function waitForContainer(
 
     if (code === "FINISHED") return
     if (code === "ERROR" || code === "EXPIRED") {
-      throw new Error(`Erro no container ${containerId}: ${data.status ?? code}`)
+      const status = (data.status as string) ?? code
+      const hint = describeIgError(status)
+      throw new Error(`Erro no container ${containerId}: ${status}${hint ? ` — ${hint}` : ""}`)
     }
 
     // IN_PROGRESS ou PUBLISHED → aguarda
     await sleep(4000 * (i + 1))
   }
   throw new Error(`Container ${containerId} não ficou pronto a tempo`)
+}
+
+// Map known Meta media-upload error codes to actionable hints (pt-BR).
+// Codes documented at developers.facebook.com/docs/instagram-platform/troubleshooting.
+function describeIgError(status: string): string | null {
+  if (status.includes("2207082")) {
+    return "Mídia em formato/proporção não suportada. Story exige MP4 H.264 9:16 3–60s ≤100MB (vídeo) ou JPG/PNG 9:16 ≤30MB (imagem). Reel exige MP4 H.264 9:16 3–90s ≤1GB."
+  }
+  if (status.includes("2207003")) {
+    return "URL da mídia inacessível ou expirou antes do download. Confirme que a URL é pública e estável (sem auth, sem redirect quebrando)."
+  }
+  if (status.includes("2207004")) {
+    return "Codec de vídeo não suportado. Re-encode como MP4 H.264 + áudio AAC (ex: ffmpeg -i in.mov -c:v libx264 -c:a aac out.mp4)."
+  }
+  if (status.includes("2207026")) {
+    return "Vídeo excede duração máxima. Story 60s, Reel 90s, Feed 60min."
+  }
+  if (status.includes("2207020")) {
+    return "Resolução de vídeo abaixo do mínimo. IG exige 540×960 (9:16) ou superior."
+  }
+  return null
 }
 
 async function postGraph(
@@ -165,7 +188,7 @@ export async function fetchInstagramPermalink(mediaId: string, token: string): P
   }
 }
 
-// ─── Analytics ─────────────────────────────────────────────────
+// ─── Analytics ───────────────────────────────────
 
 export interface PostMetrics {
   likes: number | null
