@@ -73,7 +73,12 @@ export type LookupResult =
 
 /** Lookup a per-post approval token and classify its state. The caller
  * decides what to render (page) or status to return (API). Centralized
- * so both the page (server-rendered) and the API agree. */
+ * so both the page (server-rendered) and the API agree.
+ *
+ * Special case: decision='expired' is a synthetic value the cron sets
+ * when an old pending link expires without a decision (so it can release
+ * the partial unique index slot and create a fresh link). We classify it
+ * as "expired", not "decided", so the UI shows the right state. */
 export async function lookupApprovalLink(token: string): Promise<LookupResult> {
   const [row] = await db
     .select()
@@ -81,6 +86,7 @@ export async function lookupApprovalLink(token: string): Promise<LookupResult> {
     .where(eq(approvalLink.token, token))
 
   if (!row) return { kind: "not_found" }
+  if (row.decision === "expired") return { kind: "expired", row }
   if (row.decision !== null) return { kind: "decided", row }
   if (isApprovalExpired(row.expiresAt)) return { kind: "expired", row }
   return { kind: "ok", row }
