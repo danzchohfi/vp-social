@@ -226,7 +226,10 @@ export async function GET() {
         const expiresMs = new Date(link.expiresAt).getTime()
         const sentMs = link.sentAt ? new Date(link.sentAt).getTime() : new Date(link.createdAt).getTime()
         let state: "pending" | "stale" | "decided" | "expired"
-        if (link.decision !== null) state = "decided"
+        // decision='expired' is the cron's synthetic marker for aged-out
+        // pending links — surface as expired, not as a real decision.
+        if (link.decision === "expired") state = "expired"
+        else if (link.decision !== null) state = "decided"
         else if (expiresMs <= now) state = "expired"
         else if (now - sentMs > STALE_MS) state = "stale"
         else state = "pending"
