@@ -10,7 +10,7 @@ export default function PrivacyPage() {
           the icon submitted in TikTok Developer Portal Basic Info). */}
       <div className="mb-8 flex items-center gap-3 border-b pb-6">
         <img
-          src="/icon.svg"
+          src="/icon-192.png"
           alt="VP Social"
           width={48}
           height={48}
