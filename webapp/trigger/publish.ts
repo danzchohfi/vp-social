@@ -358,7 +358,15 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
         apiKey: manychatApiKey,
         flowNs: manychatFlowNs,
         phone: contact.phone,
-        customFields: { approval_url: approvalUrl, post_title: post.title || "" },
+        customFields: {
+          approval_url: approvalUrl,
+          post_title: post.title || "",
+          // Optional fields the WA template may want. Agency creates the
+          // matching custom fields in ManyChat — undefined names get
+          // surfaced as setCustomFields errors (see lib/manychat.ts).
+          contact_name: contact.name || "",
+          post_url: post.notionUrl || "",
+        },
       })
       if (result.ok) {
         sentVia = "manychat"
