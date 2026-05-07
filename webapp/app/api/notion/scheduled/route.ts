@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { notionConnection, fieldMapping, instagramAccount, publishLog } from "@/lib/db/schema"
+import { notionConnection, fieldMapping, instagramAccount, publishLog, approvalLink } from "@/lib/db/schema"
 import { eq, and, gte, inArray } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
@@ -95,13 +95,23 @@ export async function GET() {
 
         const mapping = mappingRow ?? DEFAULT_MAPPING
         const notion = createNotionClient(connection.accessToken)
-        const posts = await notion.getScheduledPosts(connection.databaseId!, mapping)
+
+        // Fetch ready-to-publish posts and (if configured) awaiting-approval
+        // posts in parallel. Awaiting posts surface in the same upcoming list
+        // tagged with workflowState="awaiting" so the UI can render an
+        // approval banner instead of a "publish now" CTA.
+        const [readyPosts, awaitingPosts] = await Promise.all([
+          notion.getScheduledPosts(connection.databaseId!, mapping),
+          mapping.awaitingApprovalValue
+            ? notion.getPostsByStatus(connection.databaseId!, mapping, mapping.awaitingApprovalValue).catch(() => [])
+            : Promise.resolve([]),
+        ])
 
         // Write the back-link URL to Notion's "Social VP" field for any post
         // whose stored value differs from the expected one. Fire-and-forget so
         // it doesn't block the response.
         if (appUrl && mapping.socialVpField) {
-          for (const p of posts) {
+          for (const p of [...readyPosts, ...awaitingPosts]) {
             const expected = `${appUrl}/scheduled?postId=${p.pageId}`
             if (p.socialVpUrl !== expected) {
               notion.setSocialVpUrl(p.pageId, mapping, expected).catch(() => {})
@@ -110,7 +120,7 @@ export async function GET() {
         }
 
         const owningClient = clientById.get(connection.clientId ?? "")
-        return posts.map((p) => {
+        const shape = (p: typeof readyPosts[number], workflowState: "ready" | "awaiting") => {
           const targetChecks: TargetCheck[] = p.publishTargets.map((t) => {
             const key = `${t.platform}:${p.conta?.toLowerCase() ?? ""}`
             const account = accountMap.get(key)
@@ -131,8 +141,9 @@ export async function GET() {
           // /scheduled with stuff that isn't going to publish from this view.
           const belongsToClient = !!contaKey && clientContas.has(contaKey)
           return {
-            kind: "upcoming",
+            kind: "upcoming" as const,
             ...p,
+            workflowState,
             workspaceName: connection.workspaceName,
             connectionId: connection.id,
             clientId: connection.clientId,
@@ -142,7 +153,11 @@ export async function GET() {
             belongsToClient,
             contaConnected,
           }
-        })
+        }
+        return [
+          ...readyPosts.map((p) => shape(p, "ready")),
+          ...awaitingPosts.map((p) => shape(p, "awaiting")),
+        ]
       })
     )
 
@@ -171,6 +186,69 @@ export async function GET() {
         clientName: p.clientName ?? null,
         suggestion: suggestMatch(p.conta, accounts.filter((a) => a.active).map((a) => a.conta)),
       }))
+
+    // Merge approval-link state into each upcoming post. We pull the most
+    // recent row per notionPageId scoped to the user's accessible clients
+    // and tag each post with { state, decision, token, sentVia, ... }. UI
+    // uses this to render a banner ("Aguardando há 2d", "Aprovado há 4h",
+    // "Reenviar WhatsApp") and to filter the new "Aprovação" chip.
+    const pageIds = upcoming.map((p) => p.pageId)
+    if (pageIds.length) {
+      const links = await db
+        .select()
+        .from(approvalLink)
+        .where(and(
+          inArray(approvalLink.notionPageId, pageIds),
+          isAgency
+            ? inArray(approvalLink.clientId, clientIds)
+            : eq(approvalLink.clientId, clientIds[0]),
+        ))
+
+      // Pick the most recent row per page (a previously-decided link could
+      // co-exist with a fresh pending one if the agency reopened the cycle).
+      const linkByPage = new Map<string, typeof links[number]>()
+      for (const row of links) {
+        const existing = linkByPage.get(row.notionPageId)
+        if (!existing || new Date(row.createdAt).getTime() > new Date(existing.createdAt).getTime()) {
+          linkByPage.set(row.notionPageId, row)
+        }
+      }
+
+      const STALE_MS = 3 * 24 * 60 * 60 * 1000
+      const now = Date.now()
+      upcoming = upcoming.map((p) => {
+        const link = linkByPage.get(p.pageId)
+        if (!link) {
+          // Awaiting-approval status with NO link row → cron hasn't run yet
+          // or contact resolution failed. UI surfaces this as a soft warning.
+          return { ...p, approval: p.workflowState === "awaiting" ? { state: "no_link" as const } : null }
+        }
+        const expiresMs = new Date(link.expiresAt).getTime()
+        const sentMs = link.sentAt ? new Date(link.sentAt).getTime() : new Date(link.createdAt).getTime()
+        let state: "pending" | "stale" | "decided" | "expired"
+        if (link.decision !== null) state = "decided"
+        else if (expiresMs <= now) state = "expired"
+        else if (now - sentMs > STALE_MS) state = "stale"
+        else state = "pending"
+
+        return {
+          ...p,
+          approval: {
+            state,
+            token: link.token,
+            decision: link.decision,
+            comment: link.comment,
+            sentVia: link.sentVia,
+            sentAt: link.sentAt,
+            decidedAt: link.decidedAt,
+            expiresAt: link.expiresAt,
+            contactName: link.contactName,
+            contactPhone: link.contactPhone,
+            approvalUrl: appUrl ? `${appUrl}/approve/${link.token}` : null,
+          },
+        }
+      })
+    }
   }
 
   // ─── Past (publishLog) ────────────────────────────────────────────────
