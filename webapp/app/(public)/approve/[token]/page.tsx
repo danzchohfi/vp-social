@@ -37,7 +37,15 @@ type ApiResponse = {
   state: "ok" | "decided" | "expired"
   decision: "approved" | "changes_requested" | null
   decidedAt: string | null
+  // sentAt = when ManyChat (or manual WA) actually delivered the link.
+  // expiresAt = 14d from creation. Both shown in the meta-line so the
+  // client knows when it was sent and how long they have to respond.
+  sentAt: string | null
+  expiresAt: string | null
   contactName: string | null
+  // Other pending approvals for the same client. When >0, we show a
+  // sibling banner so the client knows there's more in the queue.
+  pendingSiblings: number
   client: {
     name: string
     logoUrl: string | null
@@ -45,6 +53,30 @@ type ApiResponse = {
   }
   post: PostInfo | null
   error?: string
+}
+
+// Common quick-edit phrases. Tapping a chip appends to the textarea
+// (or replaces if empty). Phrased to be specific — generic "ajustar"
+// without context defeats the purpose.
+const QUICK_CHIPS = [
+  "Trocar a thumb",
+  "Ajustar a legenda",
+  "Trocar a mídia",
+  "Mudar a data/horário",
+  "Texto está pequeno demais",
+  "Conteúdo OK, só pequenos ajustes",
+] as const
+
+function formatRelative(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime()
+  const isPast = diff > 0
+  const abs = Math.abs(diff)
+  const mins = Math.floor(abs / 60000)
+  const hours = Math.floor(mins / 60)
+  const days = Math.floor(hours / 24)
+  if (days > 0) return isPast ? `há ${days}d` : `em ${days}d`
+  if (hours > 0) return isPast ? `há ${hours}h` : `em ${hours}h`
+  return isPast ? `há ${mins}min` : `em ${mins}min`
 }
 
 const PLATFORM_COLORS: Record<string, string> = {
@@ -177,8 +209,15 @@ export default function ApprovalPage() {
                 {new Date(data.decidedAt).toLocaleString("pt-BR")}
               </p>
             )}
+            {data.pendingSiblings > 0 && (
+              <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+                Você ainda tem <strong>{data.pendingSiblings}</strong> outro{data.pendingSiblings > 1 ? "s" : ""} post{data.pendingSiblings > 1 ? "s" : ""} aguardando sua aprovação.
+              </p>
+            )}
             <Button asChild className="mt-6">
-              <a href={data.client.calendarUrl}>Ver agenda completa</a>
+              <a href={data.client.calendarUrl}>
+                {data.pendingSiblings > 0 ? "Ver pendentes" : "Ver agenda completa"}
+              </a>
             </Button>
           </CardContent>
         </Card>
@@ -224,9 +263,37 @@ export default function ApprovalPage() {
       </div>
 
       <div className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
+        {/* Sibling banner — when there are other pending approvals, surface
+            the count + a link to the full calendar so the client can batch
+            their decisions. Shown above the contact greeting so it's the
+            first thing they see if there's a queue. */}
+        {data.pendingSiblings > 0 && (
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300/50 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-100">
+            <MessageCircle className="h-4 w-4 shrink-0" />
+            <span>
+              Você tem <strong>{data.pendingSiblings + 1}</strong> posts aguardando sua aprovação no total.
+            </span>
+            <a
+              href={data.client.calendarUrl}
+              className="ml-auto rounded-md border border-amber-700/30 bg-amber-100 px-2 py-0.5 text-xs font-medium hover:bg-amber-200 dark:bg-amber-900/40 dark:hover:bg-amber-900/60"
+            >
+              Ver todos
+            </a>
+          </div>
+        )}
+
         {data.contactName && (
-          <p className="mb-6 text-sm text-muted-foreground">
+          <p className="mb-2 text-sm text-muted-foreground">
             Olá <strong className="text-foreground">{data.contactName}</strong>, esse post está aguardando a sua aprovação:
+          </p>
+        )}
+
+        {/* Meta-line: when sent + when expires. Helps the client gauge urgency. */}
+        {(data.sentAt || data.expiresAt) && (
+          <p className="mb-6 text-xs text-muted-foreground">
+            {data.sentAt && <>Enviado {formatRelative(data.sentAt)}</>}
+            {data.sentAt && data.expiresAt && " · "}
+            {data.expiresAt && <>Link expira {formatRelative(data.expiresAt)}</>}
           </p>
         )}
 
@@ -296,6 +363,30 @@ export default function ApprovalPage() {
           <div className="space-y-3">
             <div className="rounded-lg border p-4 bg-card">
               <label className="text-sm font-medium block mb-2">O que precisa ajustar?</label>
+              {/* Quick chips — tap appends to the textarea. Discourages
+                  vague replies ("ajustar"); each chip is a phrased starter
+                  the client can flesh out. */}
+              <div className="mb-2 flex flex-wrap gap-1.5">
+                {QUICK_CHIPS.map((chip) => (
+                  <button
+                    key={chip}
+                    type="button"
+                    onClick={() => {
+                      setComment((prev) => {
+                        const trimmed = prev.trim()
+                        if (!trimmed) return chip
+                        // Avoid duplicating the same chip if the user taps twice.
+                        if (trimmed.toLowerCase().includes(chip.toLowerCase())) return prev
+                        return `${trimmed}\n${chip}`
+                      })
+                    }}
+                    disabled={submitting !== null}
+                    className="rounded-full border bg-background px-2.5 py-1 text-xs font-medium hover:bg-muted disabled:opacity-50"
+                  >
+                    + {chip}
+                  </button>
+                ))}
+              </div>
               <textarea
                 autoFocus
                 value={comment}
