@@ -90,7 +90,7 @@ export async function sendApprovalRequest(args: SendApprovalArgs): Promise<SendR
   // custom fields. We pre-set our fields then trigger the flow.
   if (args.customFields && Object.keys(args.customFields).length > 0) {
     try {
-      await fetch(`${MANYCHAT_BASE}/fb/subscriber/setCustomFields`, {
+      const res = await fetch(`${MANYCHAT_BASE}/fb/subscriber/setCustomFields`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${args.apiKey}`,
@@ -104,6 +104,14 @@ export async function sendApprovalRequest(args: SendApprovalArgs): Promise<SendR
           })),
         }),
       })
+      // ManyChat returns 200 with status:error when a field name doesn't
+      // exist on the page. Without this check we'd silently skip variable
+      // injection and the WA template would render with empty placeholders.
+      const data: any = await res.json().catch(() => null)
+      if (!res.ok || data?.status !== "success") {
+        const reason = data?.message || data?.error || `HTTP ${res.status}`
+        return { ok: false, reason: `setCustomFields rejeitou: ${typeof reason === "string" ? reason : JSON.stringify(reason).slice(0, 200)}. Verifique se os custom fields (${Object.keys(args.customFields).join(", ")}) estão criados na página ManyChat.` }
+      }
     } catch (e) {
       return { ok: false, reason: `setCustomFields falhou: ${e}` }
     }
