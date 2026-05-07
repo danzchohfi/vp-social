@@ -4,7 +4,7 @@ import { useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { CalendarClock, Loader2, RefreshCw, Zap, Clock, CheckCircle2, AlertTriangle, ChevronLeft, ChevronRight, List, Calendar as CalendarIcon, X, XCircle, ExternalLink, Eye, Play } from "lucide-react"
+import { CalendarClock, Loader2, RefreshCw, Zap, Clock, CheckCircle2, AlertTriangle, ChevronLeft, ChevronRight, List, Calendar as CalendarIcon, X, XCircle, ExternalLink, Eye, Play, MessageCircle, Copy, ThumbsUp, ThumbsDown, MessageSquareWarning } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -17,6 +17,22 @@ type TargetCheck = {
   pageName?: string | null
 }
 
+type ApprovalState = {
+  // "no_link" = post is in awaiting-approval status but no approval_link
+  // row exists yet (cron hasn't run, or contact resolve failed). UI soft-warns.
+  state: "pending" | "stale" | "decided" | "expired" | "no_link"
+  token?: string | null
+  decision?: "approved" | "rejected" | "revision" | null
+  comment?: string | null
+  sentVia?: "manychat" | "none" | null
+  sentAt?: string | null
+  decidedAt?: string | null
+  expiresAt?: string | null
+  contactName?: string | null
+  contactPhone?: string | null
+  approvalUrl?: string | null
+}
+
 type ScheduledPost = {
   kind: "upcoming"
   pageId: string
@@ -25,6 +41,12 @@ type ScheduledPost = {
   scheduledDate: string | null
   workspaceName?: string
   connectionId?: string
+  // "ready" = status maps to mapping.statusReadyValue (Agendamento). The cron
+  // will publish at scheduledDate. "awaiting" = status equals
+  // mapping.awaitingApprovalValue (Aguardando aprovação). The cron creates
+  // an approval link instead and publishes only after the client approves.
+  workflowState?: "ready" | "awaiting"
+  approval?: ApprovalState | null
   // Agency-view metadata (only present when /api/notion/scheduled is in
   // mode: "all"). Used to render a small client badge per row.
   clientId?: string | null
@@ -66,7 +88,7 @@ type PastPost = {
 }
 
 type AnyPost = ScheduledPost | PastPost
-type Filter = "all" | "upcoming" | "published" | "errors"
+type Filter = "all" | "upcoming" | "approval" | "published" | "errors"
 // Each detected problem on a scheduled post pairs the human-readable label
 // with an inline "fix it" action so the user is one click from resolving.
 type PostIssue = {
@@ -233,11 +255,20 @@ export default function ScheduledPage() {
   // view (single client or agency). What arrives here is what should show.
   const upcomingScoped = upcomingAll
 
+  // Posts in awaiting-approval state get their own bucket above the
+  // ready ones — they don't publish until the client approves, and the
+  // typical agency workflow needs to know which ones are still waiting
+  // (vs stale, vs decided). Filter chip "Aprovação" narrows to this bucket.
+  const awaitingApproval = upcomingScoped.filter((p) => p.workflowState === "awaiting")
+  const readyScoped = upcomingScoped.filter((p) => p.workflowState !== "awaiting")
+
   // Apply status filter
   const visibleUpcoming = filter === "published" || filter === "errors"
     ? []
-    : upcomingScoped
-  const visiblePast = filter === "upcoming"
+    : filter === "approval"
+      ? awaitingApproval
+      : upcomingScoped
+  const visiblePast = filter === "upcoming" || filter === "approval"
     ? []
     : filter === "published"
       ? pastAll.filter((p) => p.platforms.some((pl) => pl.status === "published") && !p.platforms.some((pl) => pl.status === "failed"))
@@ -251,10 +282,11 @@ export default function ScheduledPage() {
     (p.targetChecks ?? []).some((c) => c.raw?.toLowerCase().includes("tiktok"))
   )
 
-  const willPublishPosts = upcomingScoped.filter(willPublish)
-  const needsAttention = upcomingScoped.filter((p) => !willPublish(p))
+  const willPublishPosts = readyScoped.filter(willPublish)
+  const needsAttention = readyScoped.filter((p) => !willPublish(p))
   const readyNow = willPublishPosts.filter((p) => p.scheduledDate && new Date(p.scheduledDate) <= now)
   const upcomingFuture = willPublishPosts.filter((p) => p.scheduledDate && new Date(p.scheduledDate) > now)
+  const staleApprovals = awaitingApproval.filter((p) => p.approval?.state === "stale" || p.approval?.state === "expired" || p.approval?.state === "no_link").length
 
   function groupByConta(list: ScheduledPost[]): Array<{ conta: string; posts: ScheduledPost[] }> {
     const map = new Map<string, ScheduledPost[]>()
@@ -271,9 +303,10 @@ export default function ScheduledPage() {
 
   const errorCount = pastAll.filter((p) => p.platforms.some((pl) => pl.status === "failed")).length
   const publishedCount = pastAll.filter((p) => p.platforms.some((pl) => pl.status === "published")).length
-  const filterOptions: Array<{ value: Filter; label: string; count?: number }> = [
+  const filterOptions: Array<{ value: Filter; label: string; count?: number; warn?: number }> = [
     { value: "all", label: "Tudo" },
-    { value: "upcoming", label: "Agendados", count: upcomingScoped.length },
+    { value: "upcoming", label: "Agendados", count: readyScoped.length },
+    { value: "approval", label: "Aguardando aprovação", count: awaitingApproval.length, warn: staleApprovals },
     { value: "published", label: "Publicados", count: publishedCount },
     { value: "errors", label: "Com erro", count: errorCount },
   ]
@@ -290,6 +323,12 @@ export default function ScheduledPage() {
           )}
           <p className="text-muted-foreground">
             {willPublishPosts.length} prontos para publicar
+            {awaitingApproval.length > 0 && (
+              <span className={cn(staleApprovals > 0 ? "text-warning" : "text-muted-foreground")}>
+                {" · "}{awaitingApproval.length} aguardando aprovação
+                {staleApprovals > 0 && <> ({staleApprovals} parada{staleApprovals > 1 ? "s" : ""} há +3d)</>}
+              </span>
+            )}
             {needsAttention.length > 0 && <span className="text-warning"> · {needsAttention.length} precisam de ajustes</span>}
             {publishedCount > 0 && <span className="text-success"> · {publishedCount} publicados nos últimos 90 dias</span>}
           </p>
@@ -343,6 +382,14 @@ export default function ScheduledPage() {
               )}>
                 {opt.count}
               </span>
+            )}
+            {/* Stale-approval warning dot — surfaces "agency needs to chase the
+                client" without forcing the user to enter the chip first. */}
+            {typeof opt.warn === "number" && opt.warn > 0 && (
+              <span
+                className="inline-flex h-1.5 w-1.5 rounded-full bg-warning"
+                title={`${opt.warn} aprovação${opt.warn > 1 ? "ões" : ""} parada${opt.warn > 1 ? "s" : ""} há mais de 3 dias`}
+              />
             )}
           </button>
         ))}
@@ -448,6 +495,28 @@ export default function ScheduledPage() {
         <CalendarView upcoming={visibleUpcoming} past={visiblePast} willPublish={willPublish} onPublished={load} />
       ) : (
         <div className="space-y-8">
+          {/* Awaiting-approval section — shown above the publish-ready ones
+              because the agency needs to chase stale ones (3d+ no decision)
+              before they hold up the calendar. */}
+          {(filter === "all" || filter === "approval") && awaitingApproval.length > 0 && (
+            <section>
+              <div className="mb-4 flex items-center gap-2">
+                <MessageCircle className="h-4 w-4 text-amber-500" />
+                <h2 className="text-sm font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                  Aguardando aprovação ({awaitingApproval.length})
+                </h2>
+              </div>
+              <p className="mb-3 text-xs text-muted-foreground">
+                Posts que estão no status &quot;aguardando aprovação&quot; no Notion. O cliente recebe link via WhatsApp; quando aprovar, o post entra no fluxo normal.
+              </p>
+              <div className="space-y-6">
+                {groupByConta(awaitingApproval).map(({ conta, posts: ps }) => (
+                  <ContaGroup key={`approval-${conta}`} conta={conta} posts={ps} onPublished={load} />
+                ))}
+              </div>
+            </section>
+          )}
+
           {/* Upcoming sections (only when filter allows) */}
           {(filter === "all" || filter === "upcoming") && readyNow.length > 0 && (
             <section>
@@ -850,6 +919,8 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
         </div>
       </div>
 
+      {post.approval && <ApprovalBanner post={post} approval={post.approval} onAction={onPublished} />}
+
       {issues && issues.length > 0 && (
         <ul className="mt-3 space-y-1.5">
           {issues.map((issue) => (
@@ -927,6 +998,145 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
         </div>
       </div>
       {previewOpen && <PreviewDialog post={post} onClose={() => setPreviewOpen(false)} />}
+    </div>
+  )
+}
+
+// ─── Approval banner ────────────────────────────────
+// Surfaces the lifecycle of an approval_link row (pending / stale /
+// decided / expired / no_link) inline on the post card. Owners use this
+// to know whether they need to chase the client (stale, expired, no_link)
+// or just wait. Click "Reenviar WA" → wa.me deep-link with pre-filled msg
+// referencing the original token. Click "Copiar link" → puts the approval
+// URL on the clipboard (handy when ManyChat failed but they have another
+// channel to send it).
+
+function ApprovalBanner({
+  post,
+  approval,
+  onAction,
+}: {
+  post: ScheduledPost
+  approval: ApprovalState
+  onAction?: () => void
+}) {
+  const [resending, setResending] = useState(false)
+
+  // Visual treatment per state. "decided" intentionally renders even after
+  // the agency moves the post forward — it lets them see "approved 4h ago"
+  // until the post leaves awaiting status (next cron tick).
+  const tone = (() => {
+    switch (approval.state) {
+      case "pending":  return "border-amber-300/50 bg-amber-50 text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-100"
+      case "stale":    return "border-warning/40 bg-warning/10 text-warning"
+      case "expired":  return "border-destructive/40 bg-destructive/10 text-destructive"
+      case "decided":  return approval.decision === "approved"
+                          ? "border-success/40 bg-success/10 text-success"
+                          : "border-warning/40 bg-warning/10 text-warning"
+      case "no_link":  return "border-warning/40 bg-warning/5 text-warning"
+    }
+  })()
+
+  const sentAgo = approval.sentAt
+    ? timeUntil(approval.sentAt).label
+    : null
+  const decidedAgo = approval.decidedAt
+    ? timeUntil(approval.decidedAt).label
+    : null
+
+  const headline = (() => {
+    switch (approval.state) {
+      case "pending":  return `Aguardando há ${sentAgo ?? "instantes"}`
+      case "stale":    return `Parado há ${sentAgo ?? "+3 dias"} — provavelmente precisa cobrar`
+      case "expired":  return `Link expirou — gere um novo (mover status no Notion)`
+      case "decided":  return approval.decision === "approved"
+                          ? `Aprovado ${decidedAgo ? `há ${decidedAgo.replace("atrás", "").trim()}` : ""}`.trim()
+                          : approval.decision === "revision"
+                            ? `Cliente pediu alterações ${decidedAgo ? `há ${decidedAgo.replace("atrás", "").trim()}` : ""}`.trim()
+                            : `Rejeitado ${decidedAgo ? `há ${decidedAgo.replace("atrás", "").trim()}` : ""}`.trim()
+      case "no_link":  return "Aguardando criação do link de aprovação (cron roda a cada 5 min)"
+    }
+  })()
+
+  async function copyLink() {
+    if (!approval.approvalUrl) return
+    try {
+      await navigator.clipboard.writeText(approval.approvalUrl)
+      toast.success("Link copiado")
+    } catch {
+      toast.error("Não consegui copiar — selecione no campo acima")
+    }
+  }
+
+  async function resendViaWa() {
+    if (!approval.approvalUrl) {
+      toast.error("Sem link de aprovação ainda — espera o próximo ciclo do cron")
+      return
+    }
+    if (!approval.contactPhone) {
+      toast.error("Contato sem telefone no Notion")
+      return
+    }
+    setResending(true)
+    // Open wa.me with a pre-filled message. We don't go through ManyChat
+    // here because if it failed once, it'll fail again — manual deep-link
+    // bypasses that and lets the agency owner send from their phone.
+    const phoneDigits = approval.contactPhone.replace(/\D/g, "")
+    const msg = `Olá${approval.contactName ? ` ${approval.contactName}` : ""}! Link pra você aprovar o post "${post.title}":\n${approval.approvalUrl}`
+    const waUrl = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(msg)}`
+    window.open(waUrl, "_blank")
+    setResending(false)
+    onAction?.()
+  }
+
+  return (
+    <div className={cn("mt-3 rounded-md border px-3 py-2 text-xs", tone)}>
+      <div className="flex flex-wrap items-center gap-2">
+        {approval.state === "decided" && approval.decision === "approved" ? (
+          <ThumbsUp className="h-3.5 w-3.5 shrink-0" />
+        ) : approval.state === "decided" && approval.decision === "rejected" ? (
+          <ThumbsDown className="h-3.5 w-3.5 shrink-0" />
+        ) : approval.state === "decided" && approval.decision === "revision" ? (
+          <MessageSquareWarning className="h-3.5 w-3.5 shrink-0" />
+        ) : (
+          <MessageCircle className="h-3.5 w-3.5 shrink-0" />
+        )}
+        <span className="font-medium">{headline}</span>
+        {approval.contactName && approval.state !== "decided" && (
+          <span className="text-[11px] opacity-80">· {approval.contactName}</span>
+        )}
+        {approval.sentVia === "none" && (approval.state === "pending" || approval.state === "stale") && (
+          <span className="text-[11px] opacity-80">· WhatsApp não foi enviado automaticamente</span>
+        )}
+        <div className="ml-auto flex items-center gap-1.5">
+          {approval.approvalUrl && approval.state !== "decided" && approval.state !== "expired" && (
+            <button
+              onClick={copyLink}
+              className="inline-flex items-center gap-1 rounded border border-current/20 bg-background/50 px-1.5 py-0.5 text-[11px] font-medium hover:bg-background"
+              title="Copiar link de aprovação"
+            >
+              <Copy className="h-3 w-3" />
+              Copiar
+            </button>
+          )}
+          {approval.contactPhone && approval.state !== "decided" && approval.state !== "expired" && approval.approvalUrl && (
+            <button
+              onClick={resendViaWa}
+              disabled={resending}
+              className="inline-flex items-center gap-1 rounded border border-current/30 bg-background/70 px-1.5 py-0.5 text-[11px] font-medium hover:bg-background"
+              title="Abrir WhatsApp com mensagem pré-preenchida"
+            >
+              <MessageCircle className="h-3 w-3" />
+              {approval.sentVia === "none" ? "Enviar WA" : "Reenviar WA"}
+            </button>
+          )}
+        </div>
+      </div>
+      {approval.comment && approval.state === "decided" && (
+        <p className="mt-1.5 break-words border-t border-current/15 pt-1.5 text-[11px] opacity-90">
+          &quot;{approval.comment}&quot;
+        </p>
+      )}
     </div>
   )
 }
