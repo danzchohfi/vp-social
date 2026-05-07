@@ -62,6 +62,14 @@ export async function GET(
     const expiresAt = r.expiresAt instanceof Date ? r.expiresAt : new Date(r.expiresAt)
     const isExpired = expiresAt.getTime() <= now
 
+    // decision='expired' is a synthetic marker the cron sets on links that
+    // aged out without a real decision (so it could release the partial
+    // unique index slot and create a fresh link). Treat as expired, not
+    // decided — the agency cares about *real* approve/reject decisions.
+    if (r.decision === "expired") {
+      expired.push(r)
+      continue
+    }
     if (r.decision !== null) {
       decided.push(r)
       continue
