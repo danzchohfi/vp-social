@@ -1,7 +1,7 @@
 import { schedules, task, logger } from "@trigger.dev/sdk"
 import { neon } from "@neondatabase/serverless"
 import { drizzle } from "drizzle-orm/neon-http"
-import { and, eq, isNull } from "drizzle-orm"
+import { and, eq, isNull, lt } from "drizzle-orm"
 import * as schema from "../lib/db/schema"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "../lib/notion"
 import { publishToPlatform, saveLog } from "../lib/publisher"
@@ -297,6 +297,27 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
   }
 
   logger.info(`${posts.length} post(s) aguardando aprovação no workspace ${connection.workspaceName}.`)
+
+  // First pass: release the partial unique index slot for any expired+pending
+  // links. Without this, a post that aged past the 14-day TTL without a
+  // decision would block all future approval cycles (the unique index keeps
+  // one pending row per pageId; the row is pending+expired so neither the
+  // client nor the cron can move it forward). Set decision='expired' — a
+  // synthetic value lookupApprovalLink + the bucketing endpoints recognize
+  // and surface as "expired" in the UI rather than as a real decision.
+  const now = new Date()
+  const expiredRelease = await db
+    .update(schema.approvalLink)
+    .set({ decision: "expired", decidedAt: now })
+    .where(and(
+      eq(schema.approvalLink.clientId, clientId),
+      isNull(schema.approvalLink.decision),
+      lt(schema.approvalLink.expiresAt, now),
+    ))
+    .returning({ id: schema.approvalLink.id, postTitle: schema.approvalLink.postTitle })
+  if (expiredRelease.length > 0) {
+    logger.warn(`Liberou ${expiredRelease.length} link(s) de aprovação expirado(s) — vai recriar no mesmo ciclo.`)
+  }
 
   for (const post of posts) {
     // Idempotency check: a pending link already exists → cron already
