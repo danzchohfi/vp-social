@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/neon-http"
 import { and, eq, isNull, lt } from "drizzle-orm"
 import * as schema from "../lib/db/schema"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "../lib/notion"
-import { publishToPlatform, saveLog } from "../lib/publisher"
+import { publishToPlatform, saveLog, claimPublishSlot, completePublishSlot } from "../lib/publisher"
 import { notifyPublishFailureAsync } from "../lib/email-notifications"
 import { sendApprovalRequest } from "../lib/manychat"
 import { generateId } from "../lib/utils"
@@ -17,7 +17,7 @@ function getDb() {
   return drizzle(sql, { schema })
 }
 
-// ─── Scheduled: roda a cada 5 minutos para todos os workspaces ──────────
+// ─── Scheduled: roda a cada 5 minutos para todos os workspaces ──────
 
 export const publishScheduled = schedules.task({
   id: "publish-scheduled-posts",
@@ -38,7 +38,7 @@ export const publishScheduled = schedules.task({
   },
 })
 
-// ─── Task por workspace/conexão ────────────────
+// ─── Task por workspace/conexão ──────────────
 
 export const publishForConnection = task({
   id: "publish-for-connection",
@@ -173,30 +173,7 @@ export const publishForConnection = task({
       // would otherwise overwrite each other.
       const publishedLinks: Array<{ platform: string; url: string }> = []
 
-      // Idempotency pre-check: skip targets that already have a successful
-      // publish_log row for this (connection, page). Defends against the
-      // cron + manual /publish-now racing on the same post (e.g. user
-      // clicked publish during the 30s window before the status flip).
-      const previouslyPublished = await db
-        .select({ platform: schema.publishLog.platform })
-        .from(schema.publishLog)
-        .where(and(
-          eq(schema.publishLog.connectionId, connectionId),
-          eq(schema.publishLog.notionPageId, post.pageId),
-          eq(schema.publishLog.status, "published"),
-        ))
-      const alreadyDone = new Set(
-        previouslyPublished.map((r) => r.platform).filter((p): p is string => !!p)
-      )
-
       for (const target of post.publishTargets) {
-        if (alreadyDone.has(target.raw)) {
-          logger.warn(`[${target.raw}] "${post.title}" já publicado — pulando para evitar duplicata.`)
-          anyPreviouslyDone = true
-          results.skipped++
-          continue
-        }
-
         const key = `${target.platform}:${post.conta.toLowerCase()}`
         const account = accountMap.get(key)
 
@@ -207,9 +184,24 @@ export const publishForConnection = task({
           continue
         }
 
+        // Atomic claim before calling the external API. The unique partial
+        // index on (connection, page, platform) WHERE status IN ('published',
+        // 'pending') makes the INSERT race-free: two workers fighting for
+        // the same target → only one gets the slot, the other gets a
+        // unique-violation and skips. Closes the duplicate-publish bug
+        // from 2026-05-08 where a publish-now click + concurrent cron tick
+        // both reached IG and uploaded twice.
+        const claim = await claimPublishSlot(db, userId, connectionId, post, target.raw, connection.clientId)
+        if ("conflict" in claim) {
+          logger.warn(`[${target.raw}] "${post.title}" — slot já reservado por outro worker (ou já publicado), pulando.`)
+          anyPreviouslyDone = true
+          results.skipped++
+          continue
+        }
+
         try {
           const { id: postId, url: postUrl } = await publishToPlatform(target.platform, target.tipo, account, post)
-          await saveLog(db, userId, connectionId, post, postId, postUrl, target.raw, "published", null, connection.clientId)
+          await completePublishSlot(db, claim.rowId, target.raw, "published", postId, postUrl, null)
           if (postUrl) publishedLinks.push({ platform: target.raw, url: postUrl })
           logger.info(`[${target.raw}/${post.conta}] ✓ "${post.title}" publicado! ID: ${postId}${postUrl ? ` URL: ${postUrl}` : ""}`)
           results.published++
@@ -217,7 +209,7 @@ export const publishForConnection = task({
         } catch (error) {
           const message = error instanceof Error ? error.message : String(error)
           logger.error(`[${target.raw}/${post.conta}] ✗ "${post.title}": ${message}`)
-          await saveLog(db, userId, connectionId, post, null, null, target.raw, "failed", message, connection.clientId)
+          await completePublishSlot(db, claim.rowId, target.raw, "failed", null, null, message)
           // Fire-and-forget email — never blocks the publish loop.
           notifyPublishFailureAsync(userId, clientName, {
             postTitle: post.title,
@@ -260,7 +252,7 @@ export const publishForConnection = task({
   },
 })
 
-// ─── Approval sweep helper ─────────────────────────────────
+// ─── Approval sweep helper ─────────────────────────
 // Detects posts in mapping.awaitingApprovalValue, creates approvalLink
 // rows for new ones, and notifies the client via ManyChat (WhatsApp
 // only — email was explicitly cut). Idempotent on the partial unique
@@ -423,3 +415,43 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       .where(eq(schema.approvalLink.token, token))
   }
 }
+
+// ─── Cleanup stale pending publish-log rows ──────────────────
+// Pending rows are slot-claims taken by claimPublishSlot. Under normal
+// operation a worker either succeeds (UPDATE → 'published') or fails
+// (UPDATE → 'failed') within seconds. If the worker process dies between
+// the claim and the terminal update — Trigger.dev kill, OOM, ECS task
+// reschedule, network drop in the middle of a long video upload — the
+// pending row would stick forever and block all future retries (the
+// unique index keeps the slot reserved).
+//
+// This sweep marks any pending row older than 10 min as 'failed' with
+// a note, releasing the slot for retry. 10 min is comfortably above the
+// longest legitimate publish (a few-minute Reel + IG container processing)
+// while short enough that a real crash is recoverable in one cron cycle.
+export const cleanupStalePending = schedules.task({
+  id: "cleanup-stale-pending-publish-logs",
+  cron: "*/10 * * * *",
+  run: async () => {
+    const db = getDb()
+    const cutoff = new Date(Date.now() - 10 * 60 * 1000)
+    const stale = await db
+      .update(schema.publishLog)
+      .set({
+        status: "failed",
+        error: "Worker abandonou o publish (pending sem terminal por 10min). A publicação externa pode ou não ter completado — verifique manualmente.",
+      })
+      .where(and(
+        eq(schema.publishLog.status, "pending"),
+        lt(schema.publishLog.publishedAt, cutoff),
+      ))
+      .returning({
+        id: schema.publishLog.id,
+        postTitle: schema.publishLog.postTitle,
+        platform: schema.publishLog.platform,
+      })
+    if (stale.length > 0) {
+      logger.warn(`Marcou ${stale.length} pending row(s) stale como failed: ${stale.map((s) => `"${s.postTitle}"/${s.platform}`).join(", ")}`)
+    }
+  },
+})
