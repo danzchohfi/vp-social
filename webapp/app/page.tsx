@@ -13,9 +13,7 @@ export default function LandingPage() {
       <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
           <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-primary">
-              <Zap className="h-4 w-4 text-primary-foreground" />
-            </div>
+            <img src="/icon.png" alt="VP Social" className="h-8 w-8 rounded-lg" />
             <span className="text-lg tracking-tight">
               <span className="font-semibold">VP</span>
               <span className="ml-1 italic font-display">Social</span>
@@ -180,9 +178,7 @@ export default function LandingPage() {
       <footer className="border-t px-6 py-8">
         <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm text-muted-foreground sm:flex-row">
           <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded bg-primary">
-              <Zap className="h-3 w-3 text-primary-foreground" />
-            </div>
+            <img src="/icon.png" alt="VP Social" className="h-6 w-6 rounded" />
             <span>
               <span className="font-semibold">VP</span>
               <span className="ml-1 italic font-display">Social</span>
