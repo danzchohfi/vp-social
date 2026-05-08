@@ -27,6 +27,19 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ? body.manychatApprovalFlowNs.trim()
       : null
   }
+  // Notion `conta` values that belong to this client. Used by
+  // /api/notion/scheduled + trigger/publish.ts to route posts to the
+  // right tenant without name-matching heuristics. Empty array clears
+  // the mapping (back to legacy behavior).
+  if (body.notionContaValues !== undefined) {
+    if (!Array.isArray(body.notionContaValues)) {
+      return NextResponse.json({ error: "notionContaValues deve ser uma lista de strings" }, { status: 400 })
+    }
+    const cleaned = body.notionContaValues
+      .map((v: unknown) => (typeof v === "string" ? v.trim() : ""))
+      .filter((v: string) => v.length > 0)
+    update.notionContaValues = cleaned.length > 0 ? cleaned : null
+  }
 
   await db
     .update(client)
