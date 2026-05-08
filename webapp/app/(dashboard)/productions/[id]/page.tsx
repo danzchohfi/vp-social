@@ -14,6 +14,7 @@ import {
   ApproverChainEditor,
   type ApproverOption,
 } from "@/components/productions/approver-chain-editor"
+import { CommentThread } from "@/components/productions/comment-thread"
 import {
   PRODUCTION_STATUSES,
   STATUS_LABEL_PT,
@@ -165,6 +166,28 @@ export default function ProductionDetailPage() {
       router.push("/productions")
     } catch (e) {
       toast.error(e instanceof Error ? e.message : String(e))
+    }
+  }
+
+  const [sendingForApproval, setSendingForApproval] = useState(false)
+  async function sendForApproval() {
+    if (!production) return
+    if (!confirm(`Enviar "${production.title}" pro primeiro aprovador? O WhatsApp dispara agora.`)) return
+    setSendingForApproval(true)
+    try {
+      const res = await fetch(`/api/productions/${id}/send-approval`, { method: "POST" })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error ?? "Falha ao enviar")
+      const sentLabel = data.sentVia === "manychat" ? "ManyChat enviou WhatsApp pro" : "Link gerado pra"
+      toast.success(`${sentLabel} ${data.approver?.name ?? "aprovador"} (passo ${data.stepOrder}/${data.totalSteps})`)
+      if (data.dispatchReason) {
+        toast.warning(`WhatsApp não enviou: ${data.dispatchReason}. Use "Reenviar via WA" no banner.`)
+      }
+      await load()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSendingForApproval(false)
     }
   }
 
@@ -320,6 +343,9 @@ export default function ProductionDetailPage() {
             </div>
           </section>
 
+          {/* Comments thread */}
+          <CommentThread productionId={production.id} />
+
           {/* Danger zone */}
           <section className="border-t pt-4">
             <Button variant="ghost" size="sm" onClick={destroy} className="text-destructive">
@@ -383,17 +409,28 @@ export default function ProductionDetailPage() {
             )}
           </div>
 
-          {/* Send for approval (placeholder — Wave 2B wires the API) */}
-          {production.status === "script_drafting" && chain.length > 0 && (
-            <Button
-              className="w-full"
-              size="lg"
-              disabled
-              title="Wave 2B vai conectar com ManyChat"
-            >
-              <Send className="h-4 w-4" />
-              Enviar para aprovação (em breve)
-            </Button>
+          {/* Send for approval / resubmit after revision */}
+          {(production.status === "script_drafting" || production.status === "revision_requested") &&
+            chain.length > 0 && (
+              <Button
+                className="w-full"
+                size="lg"
+                onClick={sendForApproval}
+                disabled={sendingForApproval}
+                title={
+                  production.status === "revision_requested"
+                    ? "Reenviar pra aprovação após revisão (round + 1)"
+                    : "Enviar pro primeiro aprovador da chain"
+                }
+              >
+                {sendingForApproval ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
+                {production.status === "revision_requested" ? "Reenviar pra aprovação" : "Enviar pra aprovação"}
+              </Button>
+            )}
+          {production.status === "awaiting_approval" && (
+            <p className="rounded-md border border-dashed bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+              Aguardando decisão do aprovador. Quando ele aprovar, dispara o próximo da chain (ou marca aprovado se for o último).
+            </p>
           )}
         </aside>
       </div>
