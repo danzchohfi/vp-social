@@ -49,11 +49,28 @@ type PastPost = {
   platforms: Array<{ raw: string; status: string; postUrl: string | null }>
 }
 
+type ProductionItem = {
+  id: string
+  title: string
+  type: string
+  status: string
+  statusLabel: string
+  topic: string | null
+  specialistName: string | null
+  recordingDate: string | null
+  deliveryDate: string | null
+  publishDate: string | null
+  finalVideoUrl: string | null
+  updatedAt: string
+  pendingApprovalToken: string | null
+}
+
 type CalendarData = {
   client: { name: string; logoUrl: string | null }
   pending: PendingPost[]
   scheduled: ScheduledPost[]
   past: PastPost[]
+  productions?: ProductionItem[]
 }
 
 const PLATFORM_COLORS: Record<string, string> = {
@@ -78,7 +95,7 @@ function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
 
-type Tab = "pendentes" | "agendados" | "publicados"
+type Tab = "pendentes" | "agendados" | "publicados" | "producoes"
 
 export default function ClientCalendarPage() {
   const { token } = useParams<{ token: string }>()
@@ -174,6 +191,7 @@ export default function ClientCalendarPage() {
             { v: "pendentes", label: "Pendentes", count: data.pending.length },
             { v: "agendados", label: "Agendados", count: data.scheduled.length },
             { v: "publicados", label: "Publicados", count: data.past.length },
+            { v: "producoes", label: "Produções", count: data.productions?.length ?? 0 },
           ] as const).map((opt) => (
             <button
               key={opt.v}
@@ -198,6 +216,7 @@ export default function ClientCalendarPage() {
         {tab === "pendentes" && <PendingList pending={data.pending} onOpen={setSelectedPending} />}
         {tab === "agendados" && <ScheduledList scheduled={data.scheduled} />}
         {tab === "publicados" && <PublishedList past={data.past} />}
+        {tab === "producoes" && <ProductionsList productions={data.productions ?? []} />}
       </div>
 
       {/* Approval dialog */}
@@ -741,4 +760,86 @@ function DialogPlatformPreview({ target, post }: { target: TargetCheck; post: Sl
       </div>
     </div>
   )
+}
+
+function ProductionsList({ productions }: { productions: ProductionItem[] }) {
+  if (productions.length === 0) {
+    return (
+      <Card>
+        <CardContent className="py-10 text-center">
+          <p className="text-sm text-muted-foreground">
+            Nenhuma produção em andamento. Quando a agência criar um vídeo ou podcast, aparece aqui.
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  // Group by status family for a cleaner read.
+  const groups: Array<{ key: string; label: string; statuses: string[] }> = [
+    { key: "awaiting", label: "Aguardando você", statuses: ["awaiting_approval", "brief_pending"] },
+    { key: "revision", label: "Em revisão", statuses: ["revision_requested"] },
+    { key: "production", label: "Em produção", statuses: ["script_drafting", "approved", "recording", "editing", "delivered"] },
+    { key: "done", label: "Publicados", statuses: ["published"] },
+  ]
+
+  return (
+    <div className="space-y-5">
+      {groups.map((group) => {
+        const items = productions.filter((p) => group.statuses.includes(p.status))
+        if (items.length === 0) return null
+        return (
+          <div key={group.key}>
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+              {group.label} ({items.length})
+            </p>
+            <div className="space-y-2">
+              {items.map((p) => (
+                <Card key={p.id} className="overflow-hidden">
+                  <CardContent className="flex items-start gap-3 py-3">
+                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+                      <Play className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate text-sm font-medium">{p.title}</p>
+                      <p className="truncate text-[11px] text-muted-foreground">
+                        {p.statusLabel}
+                        {p.specialistName ? ` · ${p.specialistName}` : ""}
+                        {p.recordingDate ? ` · grava ${shortDate(p.recordingDate)}` : ""}
+                      </p>
+                      {p.topic && (
+                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{p.topic}</p>
+                      )}
+                    </div>
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      {p.pendingApprovalToken && (
+                        <Button size="sm" asChild>
+                          <a href={`/approve/${p.pendingApprovalToken}`}>
+                            Revisar
+                          </a>
+                        </Button>
+                      )}
+                      {p.finalVideoUrl && (
+                        <Button size="sm" variant="outline" asChild>
+                          <a href={p.finalVideoUrl} target="_blank" rel="noopener noreferrer">
+                            <ExternalLink className="h-3.5 w-3.5" />
+                            Vídeo
+                          </a>
+                        </Button>
+                      )}
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+function shortDate(iso: string): string {
+  const d = new Date(iso)
+  return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`
 }
