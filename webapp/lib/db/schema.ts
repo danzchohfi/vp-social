@@ -274,6 +274,12 @@ export const approvalLink = pgTable("approval_link", {
   // for "client approved by phone, mark it done in the system".
   sentVia: text("sent_via").notNull().default("none"),
   sentAt: timestamp("sent_at"),
+  // Set when productionApprovalReminders cron has fired a follow-up
+  // ManyChat dispatch for a stale pending link (sent > 3d ago, no
+  // decision, not expired). Capped at 1 reminder per link — once set,
+  // the cron skips this row on subsequent ticks. Cleared if the agency
+  // bumps the round (new row in chain).
+  reminderSentAt: timestamp("reminder_sent_at"),
   expiresAt: timestamp("expires_at").notNull(),
   // null when pending. Set when client decides on the public page.
   decision: text("decision"),
