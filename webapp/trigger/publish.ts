@@ -4,20 +4,37 @@ import { drizzle } from "drizzle-orm/neon-http"
 import { and, eq, isNull, lt } from "drizzle-orm"
 import * as schema from "../lib/db/schema"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "../lib/notion"
-import { publishToPlatform, saveLog } from "../lib/publisher"
+import { publishToPlatform, saveLog, isVideo } from "../lib/publisher"
+import { createInstagramPublisher, fetchInstagramPermalink } from "../lib/instagram"
+import { probeVideoDurationSec, splitStoryVideo } from "../lib/video-splitter"
 import { notifyPublishFailureAsync } from "../lib/email-notifications"
 import { sendApprovalRequest } from "../lib/manychat"
 import { generateId } from "../lib/utils"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
 const APPROVAL_TTL_DAYS = 14
+const STORY_CHUNK_PAUSE_MS = 30_000
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
+
+// Idempotency check that also recognizes chunked Story rows. When a
+// long Story video is split into chunks we log them as "Instagram Story
+// 1/3", "Instagram Story 2/3", ... — so a retry after a successful split
+// publish would otherwise miss the prefix and re-publish from scratch.
+function isAlreadyPublishedFor(targetRaw: string, alreadyDone: Set<string>): boolean {
+  if (alreadyDone.has(targetRaw)) return true
+  for (const platform of alreadyDone) {
+    if (platform.startsWith(targetRaw + " ") && /\d+\/\d+$/.test(platform)) return true
+  }
+  return false
+}
 
 function getDb() {
   const sql = neon(process.env.DATABASE_URL!)
   return drizzle(sql, { schema })
 }
 
-// ─── Scheduled: roda a cada 5 minutos para todos os workspaces ──────────
+// ─── Scheduled: roda a cada 5 minutos para todos os workspaces ──────
 
 export const publishScheduled = schedules.task({
   id: "publish-scheduled-posts",
@@ -38,7 +55,7 @@ export const publishScheduled = schedules.task({
   },
 })
 
-// ─── Task por workspace/conexão ────────────────
+// ─── Task por workspace/conexão ──────────────
 
 export const publishForConnection = task({
   id: "publish-for-connection",
@@ -190,7 +207,7 @@ export const publishForConnection = task({
       )
 
       for (const target of post.publishTargets) {
-        if (alreadyDone.has(target.raw)) {
+        if (isAlreadyPublishedFor(target.raw, alreadyDone)) {
           logger.warn(`[${target.raw}] "${post.title}" já publicado — pulando para evitar duplicata.`)
           anyPreviouslyDone = true
           results.skipped++
@@ -205,6 +222,60 @@ export const publishForConnection = task({
           await saveLog(db, userId, connectionId, post, null, null, target.raw, "skipped", `Conta "${post.conta}" não encontrada para ${target.platform}`, connection.clientId)
           results.skipped++
           continue
+        }
+
+        // ─── Special case: Instagram Story with video > 60s ────────
+        // IG caps Stories at 60s (error 2207082). Probe duration; if longer,
+        // slice into chunks via ffmpeg, upload each to Vercel Blob, publish
+        // sequentially with a 30s pause. Each chunk is logged as a separate
+        // publish_log row ("Instagram Story 1/3"). Idempotency on retry is
+        // handled via isAlreadyPublishedFor's prefix match.
+        const tipoLower = target.tipo.toLowerCase().trim()
+        const storyVideoUrl = (target.platform === "instagram" && tipoLower === "story") ? post.verticalUrls[0] : null
+        if (storyVideoUrl && isVideo(storyVideoUrl)) {
+          let duration = 0
+          try {
+            duration = await probeVideoDurationSec(storyVideoUrl)
+          } catch (e) {
+            logger.warn(`[${target.raw}/${post.conta}] probe falhou (${e instanceof Error ? e.message : e}); seguindo para publish direto.`)
+          }
+          if (duration > 60) {
+            logger.info(`[${target.raw}/${post.conta}] Story de ${Math.round(duration)}s — fatiando em chunks de 60s.`)
+            try {
+              const chunks = await splitStoryVideo(storyVideoUrl)
+              const igPub = createInstagramPublisher(account.instagramBusinessAccountId, account.pageAccessToken)
+              for (let i = 0; i < chunks.length; i++) {
+                if (i > 0) await sleep(STORY_CHUNK_PAUSE_MS)
+                const c = chunks[i]
+                const chunkRaw = `${target.raw} ${c.index}/${c.total}`
+                try {
+                  const igId = await igPub.publishStoryVideo(c.url)
+                  const igPermalink = await fetchInstagramPermalink(igId, account.pageAccessToken)
+                  await saveLog(db, userId, connectionId, post, igId, igPermalink, chunkRaw, "published", null, connection.clientId)
+                  if (igPermalink) publishedLinks.push({ platform: chunkRaw, url: igPermalink })
+                  logger.info(`[${chunkRaw}/${post.conta}] ✓ chunk publicado: ${igId}`)
+                  results.published++
+                  anyPublished = true
+                } catch (chunkErr) {
+                  const message = chunkErr instanceof Error ? chunkErr.message : String(chunkErr)
+                  logger.error(`[${chunkRaw}/${post.conta}] ✗ ${message}`)
+                  await saveLog(db, userId, connectionId, post, null, null, chunkRaw, "failed", message, connection.clientId)
+                  notifyPublishFailureAsync(userId, clientName, { postTitle: post.title, conta: post.conta, platform: chunkRaw, error: message })
+                  results.failed++
+                  anyFailed = true
+                }
+              }
+              continue
+            } catch (splitErr) {
+              const message = splitErr instanceof Error ? splitErr.message : String(splitErr)
+              logger.error(`[${target.raw}/${post.conta}] split falhou: ${message}`)
+              await saveLog(db, userId, connectionId, post, null, null, target.raw, "failed", `Falha ao fatiar vídeo do Story: ${message}`, connection.clientId)
+              notifyPublishFailureAsync(userId, clientName, { postTitle: post.title, conta: post.conta, platform: target.raw, error: message })
+              results.failed++
+              anyFailed = true
+              continue
+            }
+          }
         }
 
         try {
@@ -260,7 +331,7 @@ export const publishForConnection = task({
   },
 })
 
-// ─── Approval sweep helper ─────────────────────────────────
+// ─── Approval sweep helper ─────────────────────────
 // Detects posts in mapping.awaitingApprovalValue, creates approvalLink
 // rows for new ones, and notifies the client via ManyChat (WhatsApp
 // only — email was explicitly cut). Idempotent on the partial unique
