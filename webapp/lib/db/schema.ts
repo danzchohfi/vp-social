@@ -49,7 +49,7 @@ export const verification = pgTable("verification", {
   updatedAt: timestamp("updated_at").defaultNow(),
 })
 
-// ─── Cliente (perfis multi-tenant) ───────────────────────────────────
+// ─── Cliente (perfis multi-tenant) ──────────────────────────────
 
 export const client = pgTable("client", {
   id: text("id").primaryKey(),
@@ -102,7 +102,7 @@ export const clientInvite = pgTable("client_invite", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 
-// ─── Notion connections ────────────────────────────────────────
+// ─── Notion connections ──────────────────────────────────
 
 export const notionConnection = pgTable("notion_connection", {
   id: text("id").primaryKey(),
@@ -120,7 +120,7 @@ export const notionConnection = pgTable("notion_connection", {
   uniqUserClientWorkspace: uniqueIndex("notion_connection_user_client_workspace_uniq").on(t.userId, t.clientId, t.workspaceId),
 }))
 
-// ─── Instagram / multi-platform accounts ────────────────────────
+// ─── Instagram / multi-platform accounts ──────────────────────
 
 export const instagramAccount = pgTable("instagram_account", {
   id: text("id").primaryKey(),
@@ -199,7 +199,7 @@ export const fieldMapping = pgTable("field_mapping", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
 
-// ─── Publish log ──────────────────────────────────────
+// ─── Publish log ─────────────────────────────────
 
 export const publishLog = pgTable("publish_log", {
   id: text("id").primaryKey(),
@@ -223,23 +223,25 @@ export const publishLog = pgTable("publish_log", {
   metricsSaves: integer("metrics_saves"),
   metricsImpressions: integer("metrics_impressions"),
 }, (t) => ({
-  // DB-level idempotency lock: at most one published row per
-  // (connection, page, platform). Combined with the app-level pre-check
-  // in trigger/publish.ts and api/posts/publish-now/route.ts (a3c4366),
-  // this makes duplicate publishing physically impossible — the second
-  // INSERT fails with a unique violation, the catch path logs and skips.
-  // Existing dupes were cleaned via /api/admin/dedupe-publish-log on
-  // 2026-05-06 (13 rows removed).
-  publishedDedup: uniqueIndex("publish_log_published_dedup_uniq")
+  // DB-level idempotency lock: at most one in-flight or successfully
+  // published row per (connection, page, platform). The 'pending' state
+  // is the claim-before-publish slot — a worker INSERTs a pending row
+  // before calling the external API and UPDATEs to 'published' or
+  // 'failed' after. The unique index makes the claim atomic: a second
+  // worker racing on the same target gets a unique-violation and skips,
+  // so external duplicate publishes (bug from 2026-05-08, where the user
+  // got 2 extra IG Reels uploads on a single click) become physically
+  // impossible. Stale pending rows are swept by cleanupStalePending.
+  inflightDedup: uniqueIndex("publish_log_inflight_uniq")
     .on(t.connectionId, t.notionPageId, t.platform)
-    .where(sql`${t.status} = 'published'`),
+    .where(sql`${t.status} IN ('published', 'pending')`),
   // publish_log was the most-queried table with zero secondary indexes —
   // dashboard, /scheduled, /history, analytics worker all hit it.
   byClientPublished: index("publish_log_client_published_idx").on(t.clientId, t.publishedAt),
   byStatus: index("publish_log_status_idx").on(t.status),
 }))
 
-// ─── Approval link ────────────────────────────────────
+// ─── Approval link ────────────────────────────────
 // One row per pending client-approval cycle for a Notion post. The cron
 // detects posts in fieldMapping.awaitingApprovalValue, creates an
 // approvalLink (random token, 14d expiry), notifies the client (ManyChat
