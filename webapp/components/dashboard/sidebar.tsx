@@ -2,7 +2,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Instagram, Settings, Zap, CalendarClock, LogOut } from "lucide-react"
+import { LayoutDashboard, Instagram, Settings, Zap, CalendarClock, LogOut, Film } from "lucide-react"
 import { signOut, useSession } from "@/lib/auth-client"
 import { useRouter } from "next/navigation"
 import { ClientSwitcher } from "@/components/dashboard/client-switcher"
@@ -11,6 +11,7 @@ const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/accounts", label: "Contas", icon: Instagram },
   { href: "/scheduled", label: "Publicações", icon: CalendarClock },
+  { href: "/productions", label: "Produções", icon: Film },
   { href: "/settings", label: "Configurações", icon: Settings },
 ]
 
