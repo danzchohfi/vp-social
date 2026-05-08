@@ -994,7 +994,147 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
             )}
           </div>
 
+          <NotionContaFilterSection clientId={clientId} />
+
           <ApprovalHistory clientId={clientId} />
+        </>
+      )}
+    </div>
+  )
+}
+
+/**
+ * Lets the agency pick which Notion `conta` values belong to this client.
+ * Without this, the system tries to infer client membership from
+ * instagramAccount.conta name matching — which fails (and surfaces other
+ * clients' posts as "ignored") when the agency uses ONE shared Notion DB
+ * across multiple VP Social clients. The dropdown is populated by the
+ * /api/clients/[id]/notion-conta-options endpoint, which inspects the
+ * connected Notion DB's accountField type and returns its options
+ * (select / multi_select / status / relation page titles / sampled text).
+ */
+function NotionContaFilterSection({ clientId }: { clientId: string }) {
+  const [loading, setLoading] = useState(true)
+  const [options, setOptions] = useState<string[]>([])
+  const [selected, setSelected] = useState<string[]>([])
+  const [originalSelected, setOriginalSelected] = useState<string[]>([])
+  const [reason, setReason] = useState<string | null>(null)
+  const [saving, setSaving] = useState(false)
+
+  async function load() {
+    setLoading(true)
+    try {
+      const [optsRes, clientsRes] = await Promise.all([
+        fetch(`/api/clients/${clientId}/notion-conta-options`),
+        fetch(`/api/clients`),
+      ])
+      const opts = await optsRes.json()
+      const clients = await clientsRes.json()
+      setOptions(Array.isArray(opts.options) ? opts.options : [])
+      setReason(opts.reason ?? null)
+      const c = (clients.clients ?? []).find((x: any) => x.id === clientId)
+      const current: string[] = Array.isArray(c?.notionContaValues) ? c.notionContaValues : []
+      setSelected(current)
+      setOriginalSelected(current)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => { load() }, [clientId])
+
+  const dirty =
+    selected.length !== originalSelected.length ||
+    selected.some((v, i) => v !== originalSelected[i])
+
+  function toggle(value: string) {
+    setSelected((prev) =>
+      prev.includes(value) ? prev.filter((v) => v !== value) : [...prev, value]
+    )
+  }
+
+  async function save() {
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/clients/${clientId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          notionContaValues: selected.length > 0 ? selected : null,
+        }),
+      })
+      if (!res.ok) {
+        const data = await res.json()
+        throw new Error(data.error ?? "Erro ao salvar")
+      }
+      toast.success(selected.length > 0 ? "Filtro de conta salvo" : "Filtro removido")
+      setOriginalSelected(selected)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="rounded-lg border bg-muted/20 p-3">
+      <div className="mb-2 flex items-baseline justify-between gap-2">
+        <div>
+          <p className="text-sm font-semibold">Filtro de contas do Notion</p>
+          <p className="text-xs text-muted-foreground">
+            Quais valores do campo <code className="rounded bg-muted px-1 font-mono text-[11px]">Conta</code> no Notion pertencem a este cliente?
+            Use isto quando uma única base do Notion atende vários clientes — sem o filtro, posts de outras contas vazam pra cá.
+          </p>
+        </div>
+        {dirty && !loading && (
+          <Button size="sm" onClick={save} disabled={saving}>
+            {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            Salvar
+          </Button>
+        )}
+      </div>
+
+      {loading ? (
+        <div className="flex justify-center py-4">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      ) : reason === "no_connection" ? (
+        <p className="text-xs text-muted-foreground italic">
+          Conecte o Notion e selecione um banco de dados primeiro em <a href="/settings" className="underline">/settings</a>.
+        </p>
+      ) : options.length === 0 ? (
+        <p className="text-xs text-muted-foreground italic">
+          Nenhuma opção encontrada no Notion. Se o campo <code className="rounded bg-muted px-1 font-mono text-[11px]">Conta</code> for texto livre, considere migrar para Select pra que as opções apareçam aqui.
+        </p>
+      ) : (
+        <>
+          <div className="flex flex-wrap gap-1.5">
+            {options.map((opt) => {
+              const active = selected.includes(opt)
+              return (
+                <button
+                  key={opt}
+                  type="button"
+                  onClick={() => toggle(opt)}
+                  className={cn(
+                    "inline-flex items-center gap-1 rounded-full border px-2 py-1 text-xs transition-colors",
+                    active
+                      ? "border-primary bg-primary/10 text-primary"
+                      : "border-border bg-card text-muted-foreground hover:bg-accent",
+                  )}
+                >
+                  {active && <Check className="h-3 w-3" />}
+                  {opt}
+                </button>
+              )
+            })}
+          </div>
+          {selected.length === 0 && (
+            <p className="mt-2 text-[11px] text-muted-foreground italic">
+              Vazio = comportamento legado (filtro implícito pelas contas conectadas).
+              Selecione pelo menos um valor pra ativar o filtro explícito.
+            </p>
+          )}
         </>
       )}
     </div>
