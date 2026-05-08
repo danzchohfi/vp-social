@@ -71,6 +71,16 @@ export const client = pgTable("client", {
   // getOrCreateClientCalendarToken. Different from approvalLink.token,
   // which is short-lived and post-specific.
   publicCalendarToken: text("public_calendar_token").unique(),
+  // Explicit list of Notion `conta` values (the values seen in the
+  // Notion accountField multi-select / relation) that belong to this
+  // client. When set, /api/notion/scheduled and trigger/publish.ts
+  // route posts whose conta is in this list to THIS client — instead of
+  // the implicit fuzzy-match-against-instagramAccount.conta heuristic
+  // that misses cross-tenant scenarios (one Notion connection serving
+  // multiple agency clients, each with its own IG accounts under
+  // different VP Social client rows). Empty/null array = legacy name-
+  // matching behavior. Populated via /clients/[id]/edit.
+  notionContaValues: text("notion_conta_values").array(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
