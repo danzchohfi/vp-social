@@ -1,11 +1,11 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { notionConnection, fieldMapping, instagramAccount, publishLog } from "@/lib/db/schema"
-import { and, eq } from "drizzle-orm"
+import { notionConnection, fieldMapping, instagramAccount } from "@/lib/db/schema"
+import { eq } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING } from "@/lib/notion"
-import { publishToPlatform, saveLog } from "@/lib/publisher"
+import { publishToPlatform, saveLog, claimPublishSlot, completePublishSlot } from "@/lib/publisher"
 import { userHasClientAccess } from "@/lib/active-client"
 
 export async function POST(req: Request) {
@@ -102,35 +102,7 @@ export async function POST(req: Request) {
     )
   }
 
-  // Idempotency pre-check: skip targets that already have a successful
-  // publish_log row for this (connection, page). Defends against double-
-  // click, retry-loops, and cron + manual click racing on the same post.
-  // True DB-level idempotency comes from a partial unique index on
-  // (connection_id, notion_page_id, platform) WHERE status='published',
-  // pending a one-time cleanup pass.
-  const previouslyPublished = await db
-    .select({ platform: publishLog.platform })
-    .from(publishLog)
-    .where(and(
-      eq(publishLog.connectionId, connectionId),
-      eq(publishLog.notionPageId, post.pageId),
-      eq(publishLog.status, "published"),
-    ))
-  const alreadyDone = new Set(
-    previouslyPublished.map((r) => r.platform).filter((p): p is string => !!p)
-  )
-
   for (const target of post.publishTargets) {
-    if (alreadyDone.has(target.raw)) {
-      anyPreviouslyDone = true
-      results.push({
-        platform: target.raw,
-        status: "skipped",
-        error: "Já publicado anteriormente — ignorado para evitar duplicata",
-      })
-      continue
-    }
-
     const key = `${target.platform}:${post.conta.toLowerCase()}`
     const account = accountMap.get(key)
 
@@ -141,15 +113,32 @@ export async function POST(req: Request) {
       continue
     }
 
+    // Atomic claim — INSERT a 'pending' row before calling the external API.
+    // The unique index on (connection, page, platform) WHERE status IN
+    // ('published', 'pending') makes this a true mutex: if another worker
+    // (cron tick OR concurrent /publish-now click) already has the slot,
+    // we get a unique violation here and skip without ever calling IG/FB,
+    // which is what prevents the duplicate-publish bug from 2026-05-08.
+    const claim = await claimPublishSlot(db, userId, connectionId, post, target.raw, connection.clientId)
+    if ("conflict" in claim) {
+      anyPreviouslyDone = true
+      results.push({
+        platform: target.raw,
+        status: "skipped",
+        error: "Já publicado ou em publicação por outro worker — ignorado para evitar duplicata",
+      })
+      continue
+    }
+
     try {
       const { id: postId, url: postUrl } = await publishToPlatform(target.platform, target.tipo, account, post)
-      await saveLog(db, userId, connectionId, post, postId, postUrl, target.raw, "published", null, connection.clientId)
+      await completePublishSlot(db, claim.rowId, target.raw, "published", postId, postUrl, null)
       if (postUrl) publishedLinks.push({ platform: target.raw, url: postUrl })
       results.push({ platform: target.raw, status: "published", postId, postUrl })
       anyPublished = true
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error)
-      await saveLog(db, userId, connectionId, post, null, null, target.raw, "failed", message, connection.clientId)
+      await completePublishSlot(db, claim.rowId, target.raw, "failed", null, null, message)
       results.push({ platform: target.raw, status: "failed", error: message })
       anyFailed = true
     }

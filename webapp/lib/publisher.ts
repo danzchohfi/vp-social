@@ -6,6 +6,7 @@ import { publishTikTokVideo } from "./tiktok"
 import { publishLinkedInPost } from "./linkedin"
 import { generateId } from "./utils"
 import type { NotionPost } from "./notion"
+import { eq } from "drizzle-orm"
 
 type Account = typeof schema.instagramAccount.$inferSelect
 
@@ -163,4 +164,80 @@ export async function saveLog(
     status,
     error,
   })
+}
+
+export type ClaimResult = { rowId: string } | { conflict: true }
+
+/**
+ * Reserve a (connection, page, platform) slot before calling the external
+ * platform API. Inserts a row with status='pending'; the partial unique
+ * index (publish_log_inflight_uniq) makes this atomic.
+ *
+ * Return shape:
+ *   - `{ rowId }` — slot is yours, proceed to publish, then completePublishSlot.
+ *   - `{ conflict: true }` — another worker has the slot OR a 'published' row
+ *     already exists. Caller must skip without calling the external API.
+ *
+ * Why this matters: the previous "SELECT pre-check then INSERT after" pattern
+ * had a race window where two workers could both see "no published row",
+ * both call IG, and both create real Instagram posts before either logged
+ * anything. The user hit this on 2026-05-08 and got 2 duplicate Reels
+ * uploaded. The pending-row claim closes that window at the DB level.
+ */
+export async function claimPublishSlot(
+  db: any,
+  userId: string,
+  connectionId: string,
+  post: NotionPost,
+  platform: string,
+  clientId?: string | null,
+): Promise<ClaimResult> {
+  const rowId = generateId()
+  try {
+    await db.insert(schema.publishLog).values({
+      id: rowId,
+      userId,
+      clientId: clientId ?? null,
+      connectionId,
+      notionPageId: post.pageId,
+      postTitle: post.title,
+      conta: post.conta,
+      platform,
+      status: "pending",
+    })
+    return { rowId }
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e)
+    // Postgres unique violation = SQLSTATE 23505. The Neon HTTP driver wraps
+    // it but preserves the message which contains the index name.
+    if (msg.includes("publish_log_inflight_uniq") || /unique|duplicate key|23505/i.test(msg)) {
+      return { conflict: true }
+    }
+    throw e
+  }
+}
+
+/**
+ * Transition a pending publish_log row to its terminal state. Pair with
+ * claimPublishSlot — never call this without a successful claim first.
+ */
+export async function completePublishSlot(
+  db: any,
+  rowId: string,
+  platform: string,
+  status: "published" | "failed",
+  postId: string | null,
+  postUrl: string | null,
+  error: string | null,
+): Promise<void> {
+  await db
+    .update(schema.publishLog)
+    .set({
+      status,
+      platformPostId: postId,
+      platformPostUrl: postUrl,
+      instagramPostId: platform === "instagram" ? postId : null,
+      error,
+    })
+    .where(eq(schema.publishLog.id, rowId))
 }
