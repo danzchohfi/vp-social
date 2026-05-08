@@ -71,6 +71,14 @@ export const client = pgTable("client", {
   // getOrCreateClientCalendarToken. Different from approvalLink.token,
   // which is short-lived and post-specific.
   publicCalendarToken: text("public_calendar_token").unique(),
+  // Explicit list of Notion `conta` values that belong to this client.
+  // When non-empty, the scheduled/calendar APIs filter Notion posts by
+  // membership in this list instead of inferring from instagramAccount.conta
+  // name matching. Critical for agencies using ONE shared Notion DB across
+  // multiple VP Social clients — without this, posts for client B leak
+  // into client A's view as "ignored". Pulled into the UI as a multi-select
+  // populated from the connected Notion DB's account field options.
+  notionContaValues: text("notion_conta_values").array(),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
