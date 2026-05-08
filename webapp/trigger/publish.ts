@@ -4,13 +4,18 @@ import { drizzle } from "drizzle-orm/neon-http"
 import { and, eq, isNull, lt } from "drizzle-orm"
 import * as schema from "../lib/db/schema"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "../lib/notion"
-import { publishToPlatform, saveLog, claimPublishSlot, completePublishSlot } from "../lib/publisher"
+import { publishToPlatform, saveLog, claimPublishSlot, completePublishSlot, isVideo } from "../lib/publisher"
+import { createInstagramPublisher, fetchInstagramPermalink } from "../lib/instagram"
+import { probeVideoDurationSec, splitStoryVideo } from "../lib/video-splitter"
 import { notifyPublishFailureAsync } from "../lib/email-notifications"
 import { sendApprovalRequest } from "../lib/manychat"
 import { generateId } from "../lib/utils"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
 const APPROVAL_TTL_DAYS = 14
+const STORY_CHUNK_PAUSE_MS = 30_000
+
+const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
 
 function getDb() {
   const sql = neon(process.env.DATABASE_URL!)
@@ -126,8 +131,6 @@ export const publishForConnection = task({
       activeAccounts.map((a) => [`${a.platform}:${a.conta.toLowerCase()}`, a])
     )
 
-    // notion client is reused from the approval sweep above (same connection).
-
     let posts: NotionPost[]
     try {
       posts = await notion.getReadyPosts(connection.databaseId, mapping)
@@ -184,13 +187,74 @@ export const publishForConnection = task({
           continue
         }
 
+        // ─── Special case: Instagram Story with video > 60s ────────
+        // IG caps Stories at 60s (error 2207082). Probe duration; if longer,
+        // slice into chunks via ffmpeg, upload each to Vercel Blob, publish
+        // sequentially with a 30s pause. Each chunk gets its own claim/log
+        // pair under platform="Instagram Story 1/3" so retries don't re-
+        // upload chunks that already landed on IG.
+        const tipoLower = target.tipo.toLowerCase().trim()
+        const storyVideoUrl = (target.platform === "instagram" && tipoLower === "story") ? post.verticalUrls[0] : null
+        if (storyVideoUrl && isVideo(storyVideoUrl)) {
+          let duration = 0
+          try {
+            duration = await probeVideoDurationSec(storyVideoUrl)
+          } catch (e) {
+            logger.warn(`[${target.raw}/${post.conta}] probe falhou (${e instanceof Error ? e.message : e}); seguindo para publish direto.`)
+          }
+          if (duration > 60) {
+            logger.info(`[${target.raw}/${post.conta}] Story de ${Math.round(duration)}s — fatiando em chunks de 60s.`)
+            try {
+              const chunks = await splitStoryVideo(storyVideoUrl)
+              const igPub = createInstagramPublisher(account.instagramBusinessAccountId, account.pageAccessToken)
+              for (let i = 0; i < chunks.length; i++) {
+                if (i > 0) await sleep(STORY_CHUNK_PAUSE_MS)
+                const c = chunks[i]
+                const chunkRaw = `${target.raw} ${c.index}/${c.total}`
+                // Each chunk gets its own claim so a retry after a worker crash
+                // doesn't re-publish chunks that already landed on IG.
+                const chunkClaim = await claimPublishSlot(db, userId, connectionId, post, chunkRaw, connection.clientId)
+                if ("conflict" in chunkClaim) {
+                  logger.warn(`[${chunkRaw}/${post.conta}] chunk já publicado ou em curso por outro worker — pulando.`)
+                  anyPreviouslyDone = true
+                  results.skipped++
+                  continue
+                }
+                try {
+                  const igId = await igPub.publishStoryVideo(c.url)
+                  const igPermalink = await fetchInstagramPermalink(igId, account.pageAccessToken)
+                  await completePublishSlot(db, chunkClaim.rowId, chunkRaw, "published", igId, igPermalink, null)
+                  if (igPermalink) publishedLinks.push({ platform: chunkRaw, url: igPermalink })
+                  logger.info(`[${chunkRaw}/${post.conta}] ✓ chunk publicado: ${igId}`)
+                  results.published++
+                  anyPublished = true
+                } catch (chunkErr) {
+                  const message = chunkErr instanceof Error ? chunkErr.message : String(chunkErr)
+                  logger.error(`[${chunkRaw}/${post.conta}] ✗ ${message}`)
+                  await completePublishSlot(db, chunkClaim.rowId, chunkRaw, "failed", null, null, message)
+                  notifyPublishFailureAsync(userId, clientName, { postTitle: post.title, conta: post.conta, platform: chunkRaw, error: message })
+                  results.failed++
+                  anyFailed = true
+                }
+              }
+              continue
+            } catch (splitErr) {
+              const message = splitErr instanceof Error ? splitErr.message : String(splitErr)
+              logger.error(`[${target.raw}/${post.conta}] split falhou: ${message}`)
+              await saveLog(db, userId, connectionId, post, null, null, target.raw, "failed", `Falha ao fatiar vídeo do Story: ${message}`, connection.clientId)
+              notifyPublishFailureAsync(userId, clientName, { postTitle: post.title, conta: post.conta, platform: target.raw, error: message })
+              results.failed++
+              anyFailed = true
+              continue
+            }
+          }
+        }
+
         // Atomic claim before calling the external API. The unique partial
         // index on (connection, page, platform) WHERE status IN ('published',
         // 'pending') makes the INSERT race-free: two workers fighting for
         // the same target → only one gets the slot, the other gets a
-        // unique-violation and skips. Closes the duplicate-publish bug
-        // from 2026-05-08 where a publish-now click + concurrent cron tick
-        // both reached IG and uploaded twice.
+        // unique-violation and skips.
         const claim = await claimPublishSlot(db, userId, connectionId, post, target.raw, connection.clientId)
         if ("conflict" in claim) {
           logger.warn(`[${target.raw}] "${post.title}" — slot já reservado por outro worker (ou já publicado), pulando.`)

@@ -144,7 +144,7 @@ async function waitForContainer(
 // Codes documented at developers.facebook.com/docs/instagram-platform/troubleshooting.
 function describeIgError(status: string): string | null {
   if (status.includes("2207082")) {
-    return "Mídia em formato/proporção não suportada. Story exige MP4 H.264 9:16 3–60s ≤100MB (vídeo) ou JPG/PNG 9:16 ≤30MB (imagem). Reel exige MP4 H.264 9:16 3–90s ≤1GB."
+    return "Mídia em formato/proporção não suportada. Story exige MP4 H.264 9:16 3–60s ≤100MB (vídeo) ou JPG/PNG 9:16 ≤30MB (imagem). Reel exige MP4 H.264 9:16 3–90s ≤1GB. Para vídeo de Story >60s, agende (não use Publicar agora) — o cron vai fatiar em chunks de 60s automaticamente."
   }
   if (status.includes("2207003")) {
     return "URL da mídia inacessível ou expirou antes do download. Confirme que a URL é pública e estável (sem auth, sem redirect quebrando)."
