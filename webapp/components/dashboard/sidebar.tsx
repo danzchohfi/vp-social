@@ -2,7 +2,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Instagram, Settings, Zap, CalendarClock, LogOut, Film } from "lucide-react"
+import { LayoutDashboard, Instagram, Settings, CalendarClock, LogOut, Film } from "lucide-react"
 import { signOut, useSession } from "@/lib/auth-client"
 import { useRouter } from "next/navigation"
 import { ClientSwitcher } from "@/components/dashboard/client-switcher"
@@ -30,9 +30,7 @@ export function Sidebar() {
   return (
     <aside className="max-md:hidden flex h-full w-60 shrink-0 flex-col overflow-hidden border-r bg-card">
       <div className="flex h-16 items-center gap-2 border-b px-5">
-        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-md bg-primary">
-          <Zap className="h-4 w-4 text-primary-foreground" />
-        </div>
+        <img src="/icon.png" alt="VP Social" className="h-7 w-7 shrink-0 rounded-md" />
         <span className="truncate text-lg tracking-tight">
           <span className="font-semibold">VP</span>
           <span className="ml-1 italic font-display">Social</span>
