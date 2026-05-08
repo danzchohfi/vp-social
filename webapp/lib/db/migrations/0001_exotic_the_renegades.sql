@@ -1,0 +1,2 @@
+DROP INDEX "publish_log_published_dedup_uniq";--> statement-breakpoint
+CREATE UNIQUE INDEX "publish_log_inflight_uniq" ON "publish_log" USING btree ("connection_id","notion_page_id","platform") WHERE "publish_log"."status" IN ('published', 'pending');

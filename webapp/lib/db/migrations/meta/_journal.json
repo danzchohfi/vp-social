@@ -8,6 +8,13 @@
       "when": 1778107010664,
       "tag": "0000_rainy_captain_marvel",
       "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "7",
+      "when": 1778200523748,
+      "tag": "0001_exotic_the_renegades",
+      "breakpoints": true
     }
   ]
 }
