@@ -36,7 +36,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const approverIds = chainRows.map((r) => r.approverId)
   const approvers = approverIds.length > 0
     ? await db
-        .select({ id: approver.id, name: approver.name, email: approver.email, phone: approver.phone, role: approver.role })
+        .select({ id: approver.id, name: approver.name, email: approver.email, phone: approver.phone, role: approver.role, magicToken: approver.magicToken })
         .from(approver)
         .where(inArray(approver.id, approverIds))
     : []
@@ -44,7 +44,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 
   const chain = chainRows.map((r) => ({
     stepOrder: r.stepOrder,
-    approver: approverById.get(r.approverId) ?? { id: r.approverId, name: "(removido)", email: null, phone: null, role: "client" },
+    approver: approverById.get(r.approverId) ?? { id: r.approverId, name: "(removido)", email: null, phone: null, role: "client", magicToken: "" },
   }))
 
   const comments = await db

@@ -12,7 +12,7 @@
  */
 
 import { useEffect, useState } from "react"
-import { Plus, Trash2, ArrowUp, ArrowDown, Loader2 } from "lucide-react"
+import { Plus, Trash2, ArrowUp, ArrowDown, Loader2, Link2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { toast } from "sonner"
 
@@ -22,6 +22,9 @@ export type ApproverOption = {
   email: string | null
   phone: string | null
   role: string
+  // Permanent portal token. Empty string when the underlying approver
+  // was deleted (chain row points at a missing FK — fallback in API).
+  magicToken: string
 }
 
 export type ApproverChainEditorProps = {
@@ -56,6 +59,22 @@ export function ApproverChainEditor({
 
   const dirty = chain.length !== initial.length || chain.some((a, i) => a.id !== initial[i]?.id)
   const candidates = available.filter((a) => !chain.some((c) => c.id === a.id))
+
+  async function copyPortalLink(approver: ApproverOption) {
+    if (!approver.magicToken) {
+      toast.error("Aprovador sem token (foi removido)")
+      return
+    }
+    const url = `${window.location.origin}/a/${approver.magicToken}`
+    try {
+      await navigator.clipboard.writeText(url)
+      toast.success(`Link de ${approver.name} copiado`)
+    } catch {
+      // Clipboard write can fail on iOS Safari without a user-gesture
+      // chain — fall back to a prompt the user can copy from manually.
+      window.prompt("Copie o link:", url)
+    }
+  }
 
   function move(idx: number, delta: number) {
     const next = [...chain]
@@ -146,36 +165,48 @@ export function ApproverChainEditor({
                   {a.phone ?? a.email ?? "sem contato"} · {a.role}
                 </p>
               </div>
-              {!disabled && (
-                <div className="flex shrink-0 items-center">
+              <div className="flex shrink-0 items-center">
+                {a.magicToken && (
                   <button
                     type="button"
-                    onClick={() => move(idx, -1)}
-                    disabled={idx === 0}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent disabled:opacity-30"
-                    title="Subir"
+                    onClick={() => copyPortalLink(a)}
+                    className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent"
+                    title="Copiar link do portal"
                   >
-                    <ArrowUp className="h-3 w-3" />
+                    <Link2 className="h-3 w-3" />
                   </button>
-                  <button
-                    type="button"
-                    onClick={() => move(idx, 1)}
-                    disabled={idx === chain.length - 1}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent disabled:opacity-30"
-                    title="Descer"
-                  >
-                    <ArrowDown className="h-3 w-3" />
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => remove(idx)}
-                    className="inline-flex h-6 w-6 items-center justify-center rounded text-destructive hover:bg-destructive/10"
-                    title="Remover"
-                  >
-                    <Trash2 className="h-3 w-3" />
-                  </button>
-                </div>
-              )}
+                )}
+                {!disabled && (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => move(idx, -1)}
+                      disabled={idx === 0}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent disabled:opacity-30"
+                      title="Subir"
+                    >
+                      <ArrowUp className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => move(idx, 1)}
+                      disabled={idx === chain.length - 1}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded text-muted-foreground hover:bg-accent disabled:opacity-30"
+                      title="Descer"
+                    >
+                      <ArrowDown className="h-3 w-3" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => remove(idx)}
+                      className="inline-flex h-6 w-6 items-center justify-center rounded text-destructive hover:bg-destructive/10"
+                      title="Remover"
+                    >
+                      <Trash2 className="h-3 w-3" />
+                    </button>
+                  </>
+                )}
+              </div>
             </li>
           ))}
         </ul>
