@@ -7,17 +7,23 @@
  * upload each chunk to Vercel Blob, and return public URLs the cron can feed
  * one at a time to Instagram's `publishStoryVideo`.
  *
- * Why ffmpeg-static (vs Mux/Cloudflare Stream): keeps the ops surface small
- * and matches the existing self-contained worker model. The binary is ~75MB
- * which fits in Trigger.dev v3's container build but would blow Vercel's
- * 50MB Hobby function limit — so this module is **only imported from
- * trigger/** code, never from Next.js routes. /publish-now refuses long
- * Story videos and points users at scheduled publish.
+ * Runtime requirement: `ffmpeg` and `ffprobe` available on PATH. In the
+ * Trigger.dev worker container this is provided by the official `ffmpeg()`
+ * build extension (see trigger.config.ts) which apt-installs them. We
+ * tried `ffmpeg-static`/`ffprobe-static` first; their npm postinstall
+ * doesn't run reliably during Trigger.dev's deploy build so the binaries
+ * weren't available at runtime — `ffprobeStatic.path` was undefined,
+ * probeVideoDurationSec threw, duration stayed 0, and the long-Story
+ * branch was skipped, falling through to direct publish and IG 2207082.
  *
- * Vercel Blob is the storage layer. It auto-injects BLOB_READ_WRITE_TOKEN
- * when the project has a Blob store connected (Storage tab in the Vercel
- * dashboard). Public access is required so Instagram's CDN can fetch the
- * chunk during media-container creation.
+ * Vercel-function-safety: this module is **only imported from trigger/**
+ * code, never from Next.js routes — Vercel functions don't have ffmpeg
+ * on PATH. /api/posts/publish-now uses lib/mp4-duration.ts (pure JS) for
+ * a duration probe before refusing long Stories with a clean error.
+ *
+ * Vercel Blob is the storage layer. The Trigger.dev worker needs
+ * BLOB_READ_WRITE_TOKEN in its env vars (Vercel auto-injects it on the
+ * Vercel side, but the worker is a separate environment).
  */
 
 import { put } from "@vercel/blob"
@@ -26,8 +32,6 @@ import { mkdtemp, readFile, rm } from "node:fs/promises"
 import { tmpdir } from "node:os"
 import { join } from "node:path"
 import { promisify } from "node:util"
-import ffmpegStatic from "ffmpeg-static"
-import ffprobeStatic from "ffprobe-static"
 import { generateId } from "./utils"
 
 const exec = promisify(execFile)
@@ -54,9 +58,8 @@ export type StoryChunk = {
  * (corrupt file, URL inaccessible, unsupported container).
  */
 export async function probeVideoDurationSec(videoUrl: string): Promise<number> {
-  if (!ffprobeStatic.path) throw new Error("ffprobe-static binary missing — check install")
   const { stdout } = await exec(
-    ffprobeStatic.path,
+    "ffprobe",
     [
       "-v", "error",
       "-show_entries", "format=duration",
@@ -91,8 +94,6 @@ export async function probeVideoDurationSec(videoUrl: string): Promise<number> {
  * auto-delete after 7 days at the bucket level).
  */
 export async function splitStoryVideo(videoUrl: string): Promise<StoryChunk[]> {
-  if (!ffmpegStatic) throw new Error("ffmpeg-static binary missing — check install")
-
   const totalDuration = await probeVideoDurationSec(videoUrl)
   const numChunks = Math.ceil(totalDuration / STORY_MAX_SECONDS)
   if (numChunks <= 1) {
@@ -114,7 +115,7 @@ export async function splitStoryVideo(videoUrl: string): Promise<StoryChunk[]> {
       // on the nearest keyframe before startSec; precise to within a GOP
       // (typically 2s for IG-friendly content).
       await exec(
-        ffmpegStatic,
+        "ffmpeg",
         [
           "-ss", String(startSec),
           "-t", String(STORY_MAX_SECONDS),

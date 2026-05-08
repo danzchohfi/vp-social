@@ -5,8 +5,9 @@ import { eq } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING } from "@/lib/notion"
-import { publishToPlatform, saveLog, claimPublishSlot, completePublishSlot } from "@/lib/publisher"
+import { publishToPlatform, saveLog, claimPublishSlot, completePublishSlot, isVideo } from "@/lib/publisher"
 import { userHasClientAccess } from "@/lib/active-client"
+import { probeMp4DurationSec } from "@/lib/mp4-duration"
 
 export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -111,6 +112,29 @@ export async function POST(req: Request) {
       await saveLog(db, userId, connectionId, post, null, null, target.raw, "skipped", msg, connection.clientId)
       results.push({ platform: target.raw, status: "skipped", error: msg })
       continue
+    }
+
+    // Pre-check: IG Story video > 60s would fail with the cryptic 2207082
+    // from Meta's side. The auto-split pipeline (lib/video-splitter.ts) only
+    // runs in the Trigger.dev worker (ffmpeg + Vercel Blob, can't fit in a
+    // 50MB Vercel function). So here we use a pure-JS MP4 box parser to
+    // probe duration; if > 60s, refuse with a clear message pointing the
+    // user at scheduled publish (which the cron will split). When the
+    // probe returns null (non-fast-start MP4 or non-MP4) we fall through
+    // and let IG decide.
+    const tipoLower = target.tipo.toLowerCase().trim()
+    if (target.platform === "instagram" && tipoLower === "story") {
+      const storyVideoUrl = post.verticalUrls[0]
+      if (storyVideoUrl && isVideo(storyVideoUrl)) {
+        const duration = await probeMp4DurationSec(storyVideoUrl)
+        if (duration !== null && duration > 60) {
+          const msg = `Story de ${Math.round(duration)}s não pode ser publicado via "Publicar agora" (IG aceita só até 60s). Mude o status para "Agendamento" no Notion com data próxima — o cron vai fatiar em chunks de 60s automaticamente.`
+          await saveLog(db, userId, connectionId, post, null, null, target.raw, "failed", msg, connection.clientId)
+          results.push({ platform: target.raw, status: "failed", error: msg })
+          anyFailed = true
+          continue
+        }
+      }
     }
 
     // Atomic claim — INSERT a 'pending' row before calling the external API.
