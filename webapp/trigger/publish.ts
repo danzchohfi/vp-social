@@ -519,3 +519,117 @@ export const cleanupStalePending = schedules.task({
     }
   },
 })
+
+// ─── Production-approval stale-link reminders ───────────────────
+// Daily 9am São Paulo: nudges any production-script approval link
+// that's been sitting pending for >3 days without a decision. Sends
+// the same ManyChat flow as the original dispatch but tags the row
+// with reminderSentAt so each link only gets ONE reminder (no spam
+// loop). The agency can still bump the round manually if 6+ days
+// pass — that creates a new approvalLink and resets the cycle.
+//
+// Cap: 1 reminder per link. We could escalate (3d → email → 7d →
+// SMS) but that's premature; the simple nudge solves the common
+// case where the approver lost the WA message in their flood.
+export const productionApprovalReminders = schedules.task({
+  id: "production-approval-reminders",
+  cron: { pattern: "0 9 * * *", timezone: "America/Sao_Paulo" },
+  run: async () => {
+    const db = getDb()
+    const now = new Date()
+    const threeDaysAgo = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000)
+
+    // Pull candidates: production-script links, no decision, sent
+    // >3d ago, not expired, no prior reminder. We don't filter by
+    // approverId here — we batch-fetch the join data after.
+    const stale = await db
+      .select()
+      .from(schema.approvalLink)
+      .where(and(
+        eq(schema.approvalLink.kind, "production_script"),
+        isNull(schema.approvalLink.decision),
+        isNull(schema.approvalLink.reminderSentAt),
+        lt(schema.approvalLink.sentAt, threeDaysAgo),
+      ))
+
+    const live = stale.filter((row) => row.expiresAt > now)
+    if (live.length === 0) {
+      logger.info("[reminders] nenhum link parado, nada a fazer")
+      return
+    }
+
+    logger.info(`[reminders] ${live.length} link(s) parado(s) há 3+ dias — disparando lembretes`)
+
+    let sent = 0
+    let skipped = 0
+    for (const row of live) {
+      // Re-resolve approver name + client ManyChat config every loop —
+      // safer than a batch join when row counts are small (typical: 1–10
+      // a day). Skip if approver is missing (deleted) or no phone.
+      try {
+        if (!row.approverId) {
+          skipped++
+          continue
+        }
+        const [approver] = await db
+          .select({ name: schema.approver.name, phone: schema.approver.phone })
+          .from(schema.approver)
+          .where(eq(schema.approver.id, row.approverId))
+        if (!approver?.phone) {
+          skipped++
+          continue
+        }
+        const [client] = await db
+          .select({
+            manychatApiKey: schema.client.manychatApiKey,
+            manychatFlowNs: schema.client.manychatApprovalFlowNs,
+          })
+          .from(schema.client)
+          .where(eq(schema.client.id, row.clientId))
+        if (!client?.manychatApiKey || !client?.manychatFlowNs) {
+          skipped++
+          continue
+        }
+
+        const dispatch = await sendApprovalRequest({
+          apiKey: client.manychatApiKey,
+          flowNs: client.manychatFlowNs,
+          phone: approver.phone,
+          customFields: {
+            approval_url: `${APP_URL}/approve/${row.token}`,
+            post_title: row.postTitle,
+            contact_name: approver.name,
+            post_url: "",
+            // Custom flag the user's ManyChat flow CAN read to switch the
+            // template (e.g. "Lembrete: você ainda tem ..."). If the
+            // custom field doesn't exist in their ManyChat account the
+            // dispatch still goes through — ManyChat ignores unknown
+            // fields by default.
+            is_reminder: "true",
+          },
+        })
+
+        // Mark the row even if dispatch failed — we don't want to retry
+        // forever. Failure log + agency manual nudge via /scheduled is
+        // the recovery path, same as the initial-dispatch flow.
+        await db
+          .update(schema.approvalLink)
+          .set({ reminderSentAt: new Date() })
+          .where(eq(schema.approvalLink.id, row.id))
+
+        if (dispatch.ok) {
+          sent++
+          logger.info(`[reminders] ✓ "${row.postTitle}" → ${approver.name} (${approver.phone})`)
+        } else {
+          skipped++
+          logger.warn(`[reminders] ManyChat falhou pra "${row.postTitle}": ${dispatch.reason}`)
+        }
+      } catch (e) {
+        skipped++
+        logger.error(`[reminders] erro inesperado processando ${row.id}: ${e}`)
+      }
+    }
+
+    logger.info(`[reminders] ${sent} enviado(s), ${skipped} pulado(s)`)
+  },
+})
