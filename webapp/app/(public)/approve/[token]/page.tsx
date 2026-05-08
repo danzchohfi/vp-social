@@ -4,9 +4,10 @@ import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle2, AlertTriangle, Loader2, Clock, Building2, MessageCircle, Play } from "lucide-react"
+import { CheckCircle2, AlertTriangle, Loader2, Clock, Building2, MessageCircle, Play, FileText, Users } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { ScriptEditor } from "@/components/productions/script-editor"
 
 // Public approval page — opened by the client from a WhatsApp link.
 // No auth required; the URL token IS the auth. After deciding, redirects
@@ -33,6 +34,21 @@ type PostInfo = {
   notionUrl: string
 }
 
+type ProductionInfo = {
+  id: string
+  title: string
+  type: string
+  specialistName: string | null
+  scriptJson: string | null
+}
+
+type ChainContext = {
+  stepOrder: number
+  totalSteps: number
+  round: number
+  previousApprovers: Array<{ name: string; approvedAt: string | null }>
+}
+
 type ApiResponse = {
   state: "ok" | "decided" | "expired"
   decision: "approved" | "changes_requested" | null
@@ -46,12 +62,17 @@ type ApiResponse = {
   // Other pending approvals for the same client. When >0, we show a
   // sibling banner so the client knows there's more in the queue.
   pendingSiblings: number
+  // Discriminator (May 2026): 'post' = legacy Notion-page approval,
+  // 'production_script' = new production-script approval (chain step).
+  kind?: "post" | "production_script"
   client: {
     name: string
     logoUrl: string | null
     calendarUrl: string
   }
-  post: PostInfo | null
+  post?: PostInfo | null
+  production?: ProductionInfo | null
+  chainContext?: ChainContext | null
   error?: string
 }
 
@@ -225,7 +246,24 @@ export default function ApprovalPage() {
     )
   }
 
-  // state === "ok" — render the decision UI
+  // ─── Production-script branch ──────────────────────────────
+  // No Notion preview; renders the script body via TipTap read-only +
+  // chain context ("Aprovação 2 de 3 — João Silva já aprovou").
+  if (data.kind === "production_script") {
+    return (
+      <ProductionScriptApprovalView
+        data={data}
+        comment={comment}
+        setComment={setComment}
+        showCommentBox={showCommentBox}
+        setShowCommentBox={setShowCommentBox}
+        submitting={submitting}
+        decide={decide}
+      />
+    )
+  }
+
+  // state === "ok" — render the post decision UI
   const post = data.post
   if (!post) {
     return (
@@ -491,6 +529,207 @@ function PlatformPreview({ target, post }: { target: TargetCheck; post: PostInfo
           <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
             <AlertTriangle className="h-6 w-6 mb-1" />
             <span className="text-xs">Sem mídia</span>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Production-script approval view ─────────────────────────────
+// Mobile-first script reader with chain context up top + read-only TipTap
+// body + same approve/changes-requested UI as the post view.
+function ProductionScriptApprovalView({
+  data,
+  comment,
+  setComment,
+  showCommentBox,
+  setShowCommentBox,
+  submitting,
+  decide,
+}: {
+  data: ApiResponse
+  comment: string
+  setComment: (s: string | ((prev: string) => string)) => void
+  showCommentBox: boolean
+  setShowCommentBox: (b: boolean) => void
+  submitting: "approved" | "changes_requested" | null
+  decide: (decision: "approved" | "changes_requested") => void
+}) {
+  const prod = data.production
+  const ctx = data.chainContext
+  if (!prod) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background p-4">
+        <Card className="w-full max-w-md">
+          <CardContent className="py-10 text-center">
+            <AlertTriangle className="mx-auto mb-4 h-10 w-10 text-warning" />
+            <p className="text-lg font-medium">Roteiro não encontrado</p>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Pode ter sido removido. Peça pra {data.client.name} criar novamente.
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <div className="border-b bg-card">
+        <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4">
+          {data.client.logoUrl ? (
+            <img src={data.client.logoUrl} alt="" className="h-10 w-10 rounded-lg object-cover" />
+          ) : (
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+              <Building2 className="h-5 w-5" />
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="text-xs uppercase tracking-wider text-muted-foreground">Aprovação de roteiro</p>
+            <p className="truncate font-display text-lg">{data.client.name}</p>
+          </div>
+        </div>
+      </div>
+
+      <div className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
+        {/* Chain banner — shows step + previous approvers */}
+        {ctx && ctx.totalSteps > 1 && (
+          <div className="mb-4 rounded-lg border bg-card px-3 py-2.5 text-sm">
+            <div className="flex items-center gap-2 text-muted-foreground">
+              <Users className="h-4 w-4 shrink-0" />
+              <span>
+                Aprovação <strong className="text-foreground">{ctx.stepOrder} de {ctx.totalSteps}</strong>
+                {ctx.round > 1 && <> · revisão {ctx.round}</>}
+              </span>
+            </div>
+            {ctx.previousApprovers.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+                {ctx.previousApprovers.map((a) => (
+                  <span
+                    key={a.name}
+                    className="inline-flex items-center gap-1 rounded-full bg-success/10 px-2 py-0.5 font-medium text-success"
+                  >
+                    <CheckCircle2 className="h-3 w-3" />
+                    {a.name} aprovou
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {data.contactName && (
+          <p className="mb-2 text-sm text-muted-foreground">
+            Olá <strong className="text-foreground">{data.contactName}</strong>, esse roteiro está aguardando a sua aprovação:
+          </p>
+        )}
+
+        {(data.sentAt || data.expiresAt) && (
+          <p className="mb-6 text-xs text-muted-foreground">
+            {data.sentAt && <>Enviado {formatRelative(data.sentAt)}</>}
+            {data.sentAt && data.expiresAt && " · "}
+            {data.expiresAt && <>Link expira {formatRelative(data.expiresAt)}</>}
+          </p>
+        )}
+
+        {/* Production card */}
+        <Card className="mb-6">
+          <CardHeader className="pb-3">
+            <div className="flex items-center gap-2">
+              <FileText className="h-5 w-5 text-muted-foreground" />
+              <h2 className="font-display text-xl truncate">{prod.title || "Sem título"}</h2>
+            </div>
+            <p className="text-xs text-muted-foreground">
+              {prod.type === "podcast" ? "Podcast" : "Vídeo"}
+              {prod.specialistName ? ` · ${prod.specialistName}` : ""}
+            </p>
+          </CardHeader>
+          <CardContent>
+            {prod.scriptJson ? (
+              <ScriptEditor
+                initialJson={prod.scriptJson}
+                editable={false}
+                className="border-0"
+              />
+            ) : (
+              <p className="text-sm text-muted-foreground italic">Roteiro vazio</p>
+            )}
+          </CardContent>
+        </Card>
+
+        {/* Decision UI — same as post view */}
+        {!showCommentBox ? (
+          <div className="space-y-3">
+            <Button
+              size="xl"
+              className="w-full bg-success hover:bg-success/90 text-success-foreground"
+              onClick={() => decide("approved")}
+              disabled={submitting !== null}
+            >
+              {submitting === "approved" ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                <CheckCircle2 className="h-5 w-5" />
+              )}
+              Aprovar roteiro
+            </Button>
+            <Button
+              size="xl"
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowCommentBox(true)}
+              disabled={submitting !== null}
+            >
+              <MessageCircle className="h-5 w-5" />
+              Pedir alterações
+            </Button>
+            <p className="mt-4 text-center text-xs text-muted-foreground">
+              {ctx && ctx.stepOrder < ctx.totalSteps
+                ? "Aprovando, o roteiro vai para o próximo aprovador na fila."
+                : "Aprovando, o roteiro fica liberado para gravação."}
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <div className="rounded-lg border p-4 bg-card">
+              <label className="text-sm font-medium block mb-2">O que precisa ajustar no roteiro?</label>
+              <textarea
+                autoFocus
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Ex: trocar a abertura, encurtar a parte 2, adicionar exemplo concreto..."
+                rows={5}
+                className="w-full rounded-md border bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                disabled={submitting !== null}
+              />
+              <p className="mt-2 text-xs text-muted-foreground">
+                Esse comentário vai pra equipe da agência junto com o pedido de revisão.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => { setShowCommentBox(false); setComment("") }}
+                disabled={submitting !== null}
+              >
+                Cancelar
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={() => decide("changes_requested")}
+                disabled={submitting !== null || !comment.trim()}
+              >
+                {submitting === "changes_requested" ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <MessageCircle className="h-4 w-4" />
+                )}
+                Enviar comentário
+              </Button>
+            </div>
           </div>
         )}
       </div>
