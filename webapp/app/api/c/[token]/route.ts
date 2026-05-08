@@ -3,6 +3,7 @@ import {
   approvalLink,
   client as clientTable,
   fieldMapping,
+  instagramAccount as schema_instagram,
   notionConnection,
   production,
   publishLog,
@@ -48,6 +49,29 @@ export async function GET(
 
   const ready = connections.filter((c) => c.databaseId)
 
+  // Conta filter — fixes cross-tenant leak when the agency uses ONE shared
+  // Notion DB across multiple VP Social clients. When `client.notionContaValues`
+  // is set, only posts whose `conta` is in that list show on this client's
+  // public calendar. Falls back to instagramAccount-derived contas, then to
+  // "show everything" for backwards compat with single-tenant tenants.
+  const allowedContas = new Set<string>()
+  if (Array.isArray(client.notionContaValues) && client.notionContaValues.length > 0) {
+    for (const v of client.notionContaValues) allowedContas.add(v.toLowerCase())
+  } else {
+    const accountRows = await db
+      .select({ conta: schema_instagram.conta })
+      .from(schema_instagram)
+      .where(eq(schema_instagram.clientId, client.id))
+    for (const r of accountRows) {
+      if (r.conta) allowedContas.add(r.conta.toLowerCase())
+    }
+  }
+  function contaInScope(conta: string | null | undefined): boolean {
+    if (allowedContas.size === 0) return true
+    if (!conta) return false
+    return allowedContas.has(conta.toLowerCase())
+  }
+
   // Aggregate posts per connection. Pending = awaitingApprovalValue,
   // scheduled = statusReadyValue. We fan out and collect, since each
   // workspace might use a different status mapping.
@@ -82,6 +106,7 @@ export async function GET(
         const tokenByPage = new Map(tokenMap.map((r) => [r.notionPageId, r.token]))
 
         for (const p of posts) {
+          if (!contaInScope(p.conta)) continue
           pendingPosts.push({
             ...p,
             connectionId: conn.id,
@@ -97,6 +122,7 @@ export async function GET(
     try {
       const posts = await notion.getScheduledPosts(conn.databaseId!, mapping)
       for (const p of posts) {
+        if (!contaInScope(p.conta)) continue
         scheduledPosts.push({ ...p, connectionId: conn.id })
       }
     } catch (e) {

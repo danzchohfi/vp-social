@@ -79,7 +79,25 @@ export async function GET() {
   const accountMap = new Map(
     accounts.filter((a) => a.active).map((a) => [`${a.platform.toLowerCase()}:${a.conta.toLowerCase()}`, a])
   )
-  const clientContas = new Set(accounts.filter((a) => a.active).map((a) => a.conta.toLowerCase()))
+  // "Belongs to this client?" = membership in either the explicit
+  // `client.notionContaValues` (when set — preferred) or the legacy
+  // instagramAccount-derived set. The explicit form fixes the cross-tenant
+  // leak when an agency uses ONE shared Notion DB for multiple VP Social
+  // clients: A's accounts wouldn't include B's contas, so before this fix
+  // B's posts surfaced in A's view as "ignored". Now the user can pick the
+  // exact list per client in settings.
+  const accountContas = accounts.filter((a) => a.active).map((a) => a.conta.toLowerCase())
+  const clientContas = new Set<string>()
+  for (const c of allowedClients) {
+    if (Array.isArray(c.notionContaValues) && c.notionContaValues.length > 0) {
+      for (const v of c.notionContaValues) clientContas.add(v.toLowerCase())
+    }
+  }
+  // Fall back to instagramAccount-derived set when no client opted in to
+  // the explicit list. Keeps existing tenants working unchanged.
+  if (clientContas.size === 0) {
+    for (const c of accountContas) clientContas.add(c)
+  }
 
   // ─── Upcoming (Notion) ────────────────────────────────
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? ""
