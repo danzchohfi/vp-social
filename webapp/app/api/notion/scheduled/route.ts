@@ -5,7 +5,7 @@ import { eq, and, gte, inArray } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING } from "@/lib/notion"
-import { getActiveClientScope } from "@/lib/active-client"
+import { getActiveClientScope, listAccessibleClients } from "@/lib/active-client"
 
 type TargetCheck = { raw: string; platform: string; tipo: string; configured: boolean; pageName?: string | null }
 
@@ -79,7 +79,44 @@ export async function GET() {
   const accountMap = new Map(
     accounts.filter((a) => a.active).map((a) => [`${a.platform.toLowerCase()}:${a.conta.toLowerCase()}`, a])
   )
-  const clientContas = new Set(accounts.filter((a) => a.active).map((a) => a.conta.toLowerCase()))
+
+  // ── Cross-tenant ownership routing ──────────────────────────
+  // When agency clients have explicit client.notionContaValues mappings,
+  // a post's "owner" is the first ACCESSIBLE client whose mapping
+  // includes the post's conta. The post is then visible only when its
+  // owner is in the current view scope. This solves the cross-tenant
+  // leak (one Notion DB serving multiple agency clients): without this,
+  // a post tagged conta="Alfa Pesca" would show up as "ignored" in every
+  // sibling client's view because the implicit name-matching against
+  // instagramAccount.conta misses.
+  //
+  // Lookup uses lowercased conta. We scan ALL accessible clients (not
+  // just the current view) so a sibling's explicit ownership wins even
+  // when the user is currently scoped to a different client. Clients
+  // with no mapping fall through to the legacy heuristic.
+  const allAccessible = await listAccessibleClients(session.user.id)
+  const ownerByConta = new Map<string, string>() // lowercased conta → ownerClientId
+  for (const c of allAccessible) {
+    for (const v of c.notionContaValues ?? []) {
+      const key = v.trim().toLowerCase()
+      if (key && !ownerByConta.has(key)) ownerByConta.set(key, c.id)
+    }
+  }
+
+  // Conta values allowed in this view = union of (a) lowercased
+  // instagramAccount.conta of every active in-scope client AND (b) the
+  // current scope's client.notionContaValues. (b) lets a client claim
+  // posts whose Notion conta doesn't match an IG account name yet.
+  const clientContas = new Set<string>()
+  for (const a of accounts) {
+    if (a.active) clientContas.add(a.conta.toLowerCase())
+  }
+  for (const c of allowedClients) {
+    for (const v of c.notionContaValues ?? []) {
+      if (v) clientContas.add(v.toLowerCase())
+    }
+  }
+  const clientIdSet = new Set(clientIds)
 
   // ─── Upcoming (Notion) ────────────────────────────────
   const appUrl = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? ""
@@ -134,12 +171,22 @@ export async function GET() {
           })
           const contaKey = p.conta?.toLowerCase() ?? ""
           const contaConnected = contaKey ? accounts.some((a) => a.active && a.conta.toLowerCase() === contaKey) : false
-          // True when the post's `conta` matches an active account in (single
-          // mode) the active client or (agency mode) any accessible client.
-          // Posts where this is false are filtered out below — they belong to
-          // contas the user hasn't connected here, and would just clutter
-          // /scheduled with stuff that isn't going to publish from this view.
-          const belongsToClient = !!contaKey && clientContas.has(contaKey)
+          // Ownership routing:
+          //  - If a sibling client has explicit ownership of this conta
+          //    AND that sibling is NOT in the current view, the post is
+          //    not ours — exclude (cross-tenant fix).
+          //  - If an in-scope client has explicit ownership, the post
+          //    belongs to it.
+          //  - Otherwise fall back to the legacy heuristic (conta has an
+          //    in-scope IG account OR the connection itself belongs to
+          //    an in-scope client).
+          let belongsToClient: boolean
+          const explicitOwnerId = contaKey ? ownerByConta.get(contaKey) : undefined
+          if (explicitOwnerId) {
+            belongsToClient = clientIdSet.has(explicitOwnerId)
+          } else {
+            belongsToClient = !!contaKey && clientContas.has(contaKey)
+          }
           return {
             kind: "upcoming" as const,
             ...p,
