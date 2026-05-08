@@ -40,7 +40,10 @@
     "next-themes": "^0.4.4",
     "sonner": "^1.7.0",
     "framer-motion": "^11.0.0",
-    "@trigger.dev/sdk": "^4.0.0"
+    "@trigger.dev/sdk": "^4.0.0",
+    "@vercel/blob": "^0.27.0",
+    "ffmpeg-static": "^5.2.0",
+    "ffprobe-static": "^3.1.0"
   },
   "devDependencies": {
     "typescript": "^5.8.0",
