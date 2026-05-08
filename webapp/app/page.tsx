@@ -12,8 +12,14 @@ export default function LandingPage() {
       {/* Nav */}
       <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <div className="flex items-center gap-2">
-            <img src="/icon.png" alt="VP Social" className="h-8 w-8 rounded-lg" />
+          <div className="flex items-center gap-2.5">
+            <img
+              src="/icon.png"
+              alt="VP Social"
+              width={36}
+              height={36}
+              className="h-9 w-9 rounded-lg shadow-sm ring-1 ring-black/5"
+            />
             <span className="text-lg tracking-tight">
               <span className="font-semibold">VP</span>
               <span className="ml-1 italic font-display">Social</span>
@@ -42,6 +48,18 @@ export default function LandingPage() {
             <div className="absolute left-1/2 top-0 h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-primary/5 blur-3xl" />
           </div>
           <div className="mx-auto max-w-4xl">
+            {/* Brand logo — kept large + above the fold so TikTok / Meta /
+                LinkedIn app reviewers can match it 1:1 against the icon
+                they see on their dev consoles. Without this, reviewers
+                sometimes flag "logo on landing doesn't match submitted
+                icon" even when both come from the same source file. */}
+            <img
+              src="/icon.png"
+              alt="VP Social"
+              width={96}
+              height={96}
+              className="mx-auto mb-8 h-20 w-20 rounded-2xl shadow-lg ring-1 ring-black/5 sm:h-24 sm:w-24"
+            />
             <Badge variant="secondary" className="mb-6 gap-1.5">
               <Sparkles className="h-3 w-3" />
               Feito para agências e criadores
