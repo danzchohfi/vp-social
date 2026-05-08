@@ -365,6 +365,72 @@ export function createNotionClient(accessToken: string) {
         console.warn(`[notion.setPostUrls] failed for page ${pageId}: ${e}`)
       }
     },
+
+    /**
+     * List the available `conta` values from this database's accountField.
+     * Used by /api/clients/[id]/notion-contas to populate the multi-select
+     * in client settings, so the agency can declare which Notion conta
+     * values belong to this client without typing them by hand.
+     *
+     * Behavior depends on the property type:
+     *   - select / status / multi_select → reads schema options
+     *   - relation → queries the related database and returns its page titles
+     *   - rich_text / title → scans recent pages and dedupes distinct values
+     *
+     * Returns up to 100 distinct values.
+     */
+    async listAccountFieldOptions(databaseId: string, fieldName: string): Promise<string[]> {
+      try {
+        const dbInfo = (await client.databases.retrieve({ database_id: databaseId })) as any
+        const prop = dbInfo.properties?.[fieldName]
+        if (!prop) return []
+
+        if (prop.type === "select" && Array.isArray(prop.select?.options)) {
+          return prop.select.options.map((o: any) => o.name).filter(Boolean)
+        }
+        if (prop.type === "status" && Array.isArray(prop.status?.options)) {
+          return prop.status.options.map((o: any) => o.name).filter(Boolean)
+        }
+        if (prop.type === "multi_select" && Array.isArray(prop.multi_select?.options)) {
+          return prop.multi_select.options.map((o: any) => o.name).filter(Boolean)
+        }
+        if (prop.type === "relation" && prop.relation?.database_id) {
+          // Pull up to 100 pages from the related database and return their
+          // titles. Cheap because relation databases are usually small
+          // (Contas / Marcas / Clients tables).
+          const related = await client.databases.query({
+            database_id: prop.relation.database_id,
+            page_size: 100,
+          })
+          return related.results
+            .map((page: any) => {
+              const titleProp = Object.values(page.properties ?? {}).find((p: any) => p.type === "title") as any
+              return (titleProp?.title ?? []).map((t: any) => t.plain_text ?? "").join("")
+            })
+            .filter((s: string) => s.length > 0)
+        }
+        if (prop.type === "rich_text" || prop.type === "title") {
+          // Scan recent pages and dedupe — bounded to 100 pages.
+          const pages = await client.databases.query({
+            database_id: databaseId,
+            page_size: 100,
+          })
+          const seen = new Set<string>()
+          for (const page of pages.results as any[]) {
+            const propVal = page.properties?.[fieldName]
+            const text = (propVal?.[prop.type] ?? [])
+              .map((t: any) => t.plain_text ?? "")
+              .join("")
+            if (text) seen.add(text)
+          }
+          return Array.from(seen)
+        }
+        return []
+      } catch (e) {
+        console.warn(`[notion.listAccountFieldOptions] failed for db ${databaseId}: ${e}`)
+        return []
+      }
+    },
   }
 }
 

@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { Building2, Check, Loader2, Plus, Trash2, Pencil, X, Users, Mail, Copy, MessageCircle } from "lucide-react"
+import { Building2, Check, Loader2, Plus, Trash2, Pencil, X, Users, Mail, Copy, MessageCircle, Tag } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -49,6 +49,7 @@ export default function ClientsPage() {
   const [savingEdit, setSavingEdit] = useState(false)
   const [membersOpen, setMembersOpen] = useState<string | null>(null)
   const [approvalOpen, setApprovalOpen] = useState<string | null>(null)
+  const [contasOpen, setContasOpen] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
@@ -282,6 +283,16 @@ export default function ClientsPage() {
                           </Button>
                         )}
                         {isOwner && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setContasOpen(contasOpen === c.id ? null : c.id)}
+                            title="Contas do Notion (mapear quais contas pertencem a este cliente)"
+                          >
+                            <Tag className="h-4 w-4" />
+                          </Button>
+                        )}
+                        {isOwner && (
                           <>
                             <Button variant="ghost" size="icon" onClick={() => startEdit(c)} title="Editar">
                               <Pencil className="h-4 w-4" />
@@ -311,6 +322,12 @@ export default function ClientsPage() {
                   {approvalOpen === c.id && !isEditing && isOwner && (
                     <div className="mt-4 pt-4 border-t">
                       <ApprovalPanel clientId={c.id} clientName={c.name} />
+                    </div>
+                  )}
+
+                  {contasOpen === c.id && !isEditing && isOwner && (
+                    <div className="mt-4 pt-4 border-t">
+                      <NotionContasPanel clientId={c.id} clientName={c.name} />
                     </div>
                   )}
                 </CardContent>
@@ -1282,6 +1299,173 @@ function MemberEditRow({
           Cancelar
         </Button>
       </div>
+    </div>
+  )
+}
+
+function NotionContasPanel({ clientId, clientName }: { clientId: string; clientName: string }) {
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [available, setAvailable] = useState<string[]>([])
+  const [selected, setSelected] = useState<Set<string>>(new Set())
+  const [original, setOriginal] = useState<Set<string>>(new Set())
+  const [customValue, setCustomValue] = useState("")
+
+  async function load() {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/clients/${clientId}/notion-contas`)
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? "Erro ao carregar contas do Notion")
+        return
+      }
+      const opts: string[] = Array.isArray(data.contas) ? data.contas : []
+      const cur: string[] = Array.isArray(data.current) ? data.current : []
+      // Show currently-selected values even if they're no longer in the
+      // database options (e.g. user typed a value that doesn't exist
+      // anymore). Avoids silently dropping.
+      const merged = Array.from(new Set([...opts, ...cur])).sort((a, b) => a.localeCompare(b, "pt-BR"))
+      setAvailable(merged)
+      setSelected(new Set(cur))
+      setOriginal(new Set(cur))
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId])
+
+  function toggle(value: string) {
+    const next = new Set(selected)
+    if (next.has(value)) next.delete(value)
+    else next.add(value)
+    setSelected(next)
+  }
+
+  function addCustom() {
+    const trimmed = customValue.trim()
+    if (!trimmed) return
+    if (!available.includes(trimmed)) {
+      setAvailable((prev) => [...prev, trimmed].sort((a, b) => a.localeCompare(b, "pt-BR")))
+    }
+    setSelected((prev) => new Set([...prev, trimmed]))
+    setCustomValue("")
+  }
+
+  const dirty =
+    selected.size !== original.size ||
+    Array.from(selected).some((v) => !original.has(v))
+
+  async function save() {
+    setSaving(true)
+    try {
+      const res = await fetch(`/api/clients/${clientId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ notionContaValues: Array.from(selected) }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error ?? "Erro ao salvar")
+      setOriginal(new Set(selected))
+      toast.success(
+        selected.size > 0
+          ? `${selected.size} conta${selected.size === 1 ? "" : "s"} mapeada${selected.size === 1 ? "" : "s"} para ${clientName}`
+          : `Mapeamento de contas removido (volta a usar pareamento por nome)`,
+      )
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div>
+      <div className="mb-3 flex items-center gap-2">
+        <Tag className="h-4 w-4 text-muted-foreground" />
+        <p className="text-sm font-semibold">Contas do Notion mapeadas</p>
+      </div>
+      <p className="mb-3 text-xs text-muted-foreground">
+        Posts cujo campo <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">Conta</code> no Notion estiver
+        marcado abaixo serão atribuídos a este cliente. Útil quando o nome no Notion não bate
+        exatamente com o nome cadastrado das contas Instagram. Deixe em branco para usar o
+        pareamento por nome (legado).
+      </p>
+
+      {loading ? (
+        <div className="flex justify-center py-6">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <>
+          {available.length === 0 ? (
+            <p className="rounded-md border border-dashed bg-muted/20 px-3 py-3 text-xs text-muted-foreground">
+              Nenhuma opção encontrada no Notion. Conecte um workspace e selecione um banco
+              de dados em Configurações → Notion antes. Você ainda pode digitar valores
+              manualmente abaixo.
+            </p>
+          ) : (
+            <ul className="grid gap-1.5 sm:grid-cols-2">
+              {available.map((conta) => (
+                <li
+                  key={conta}
+                  className="flex items-center gap-2 rounded border bg-card px-2 py-1.5 text-sm"
+                >
+                  <input
+                    type="checkbox"
+                    id={`conta-${clientId}-${conta}`}
+                    checked={selected.has(conta)}
+                    onChange={() => toggle(conta)}
+                    className="h-4 w-4 cursor-pointer"
+                  />
+                  <label
+                    htmlFor={`conta-${clientId}-${conta}`}
+                    className="flex-1 cursor-pointer truncate"
+                  >
+                    {conta}
+                  </label>
+                </li>
+              ))}
+            </ul>
+          )}
+
+          <div className="mt-3 flex items-center gap-2">
+            <input
+              type="text"
+              placeholder="Adicionar conta manualmente"
+              value={customValue}
+              onChange={(e) => setCustomValue(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault()
+                  addCustom()
+                }
+              }}
+              className="flex-1 rounded border bg-background px-2 py-1 text-sm"
+            />
+            <Button size="sm" variant="outline" onClick={addCustom} disabled={!customValue.trim()}>
+              <Plus className="h-3.5 w-3.5" />
+              Adicionar
+            </Button>
+          </div>
+
+          <div className="mt-4 flex items-center justify-between">
+            <p className="text-xs text-muted-foreground">
+              {selected.size === 0
+                ? "Nenhuma conta selecionada"
+                : `${selected.size} selecionada${selected.size === 1 ? "" : "s"}`}
+            </p>
+            <Button size="sm" onClick={save} disabled={saving || !dirty}>
+              {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+              Salvar
+            </Button>
+          </div>
+        </>
+      )}
     </div>
   )
 }
