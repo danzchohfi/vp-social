@@ -120,7 +120,7 @@ export const notionConnection = pgTable("notion_connection", {
   uniqUserClientWorkspace: uniqueIndex("notion_connection_user_client_workspace_uniq").on(t.userId, t.clientId, t.workspaceId),
 }))
 
-// ─── Instagram / multi-platform accounts ──────────────────────
+// ─── Instagram / multi-platform accounts ──────────────────────────
 
 export const instagramAccount = pgTable("instagram_account", {
   id: text("id").primaryKey(),
@@ -141,7 +141,7 @@ export const instagramAccount = pgTable("instagram_account", {
   uniqUserClientPlatformPage: uniqueIndex("instagram_account_user_client_platform_page_uniq").on(t.userId, t.clientId, t.platform, t.pageId),
 }))
 
-// ─── Field mapping ────────────────────────────────
+// ─── Field mapping ────────────────────────────────────────
 
 export const fieldMapping = pgTable("field_mapping", {
   id: text("id").primaryKey(),
@@ -199,7 +199,7 @@ export const fieldMapping = pgTable("field_mapping", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
 
-// ─── Publish log ─────────────────────────────────
+// ─── Publish log ───────────────────────────────────
 
 export const publishLog = pgTable("publish_log", {
   id: text("id").primaryKey(),
@@ -241,15 +241,13 @@ export const publishLog = pgTable("publish_log", {
   byStatus: index("publish_log_status_idx").on(t.status),
 }))
 
-// ─── Approval link ────────────────────────────────
-// One row per pending client-approval cycle for a Notion post. The cron
-// detects posts in fieldMapping.awaitingApprovalValue, creates an
-// approvalLink (random token, 14d expiry), notifies the client (ManyChat
-// WA + Resend email), and registers sentVia. The client opens
-// /approve/{token}, sees the post preview, and posts a decision —
-// approved | changes_requested | rejected. Approving flips Notion status
-// to statusReadyValue (cron picks it up). Changes_requested flips to
-// revisionRequestedValue + adds a comment on the Notion page via API.
+// ─── Approval link ──────────────────────────────────
+// One row per pending client-approval cycle. Discriminated by `kind`:
+//   - 'post': legacy Notion-page approval; uses notion_page_id, contact*
+//     fields for ManyChat dispatch.
+//   - 'production_script': new (May 2026); references production_id +
+//     approver_id + round. Multi-step chain: each step gets its own row;
+//     advanceChain creates the next step's row after current is approved.
 export const approvalLink = pgTable("approval_link", {
   id: text("id").primaryKey(),
   token: text("token").notNull().unique(),
@@ -260,9 +258,10 @@ export const approvalLink = pgTable("approval_link", {
   contactName: text("contact_name"),
   contactEmail: text("contact_email"),
   contactPhone: text("contact_phone"),
-  // "manychat" | "email" | "manual" | "none". "none" means no channel
-  // succeeded — agency has to nudge manually via the click-to-chat WA
-  // button rendered in /scheduled.
+  // "manychat" | "email" | "manual" | "external" | "none". "none" means no
+  // channel succeeded — agency has to nudge manually via the click-to-chat
+  // WA button rendered in /scheduled. "external" is the Wave-3 escape hatch
+  // for "client approved by phone, mark it done in the system".
   sentVia: text("sent_via").notNull().default("none"),
   sentAt: timestamp("sent_at"),
   expiresAt: timestamp("expires_at").notNull(),
@@ -271,14 +270,135 @@ export const approvalLink = pgTable("approval_link", {
   decidedAt: timestamp("decided_at"),
   decidedFromIp: text("decided_from_ip"),
   comment: text("comment"),
+  // Discriminator + production-flow fields (Wave 1, May 2026). For
+  // kind='post' these are NULL/default. For kind='production_script' the
+  // productionId + approverId pair identifies which step of which chain
+  // this row represents; round bumps on each rejection→reissue cycle.
+  kind: text("kind").notNull().default("post"),
+  productionId: text("production_id"),
+  approverId: text("approver_id"),
+  round: integer("round").notNull().default(1),
   createdAt: timestamp("created_at").notNull().defaultNow(),
 }, (t) => ({
-  // At most one PENDING approval link per Notion page. The cron uses this
-  // to avoid sending repeat notifications. Once decided (decision NOT NULL),
-  // a new pending link can be created if the post re-enters the awaiting
-  // state — but that's a different row.
-  pendingPerPage: uniqueIndex("approval_link_pending_per_page_uniq")
+  // Replaces approval_link_pending_per_page_uniq. Two scoped indexes so
+  // posts (legacy) and productions (multi-step chain) don't share the slot.
+  pendingPostUniq: uniqueIndex("approval_link_pending_post_uniq")
     .on(t.notionPageId)
-    .where(sql`${t.decision} IS NULL`),
+    .where(sql`${t.decision} IS NULL AND ${t.kind} = 'post'`),
+  // Production: at most one pending link per (production, approver, round)
+  // — multiple chain steps can be pending simultaneously (different
+  // approverId), and successive rounds get distinct rows after a rejection.
+  pendingProductionUniq: uniqueIndex("approval_link_pending_production_uniq")
+    .on(t.productionId, t.approverId, t.round)
+    .where(sql`${t.decision} IS NULL AND ${t.kind} = 'production_script' AND ${t.productionId} IS NOT NULL`),
   byClient: index("approval_link_client_idx").on(t.clientId, t.createdAt),
+}))
+
+// ─── Production (Wave 1, May 2026) ──────────────────────────────
+// A long-form video/podcast piece going through brief → script → approval
+// → recording → editing → delivered → published lifecycle. Distinct from
+// `publishLog` (per-platform external publish records) and from Notion
+// posts (Notion stays in the post pipeline; productions live entirely in
+// our DB). One client can own many productions; each production has a
+// chain of approvers (productionApprover) and a script body stored as
+// TipTap JSON.
+export const production = pgTable("production", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  // "video" | "podcast" — drives some UX hints (podcasts get longer scripts,
+  // different default aspect-ratio for derived clips). v1 is informational only.
+  type: text("type").notNull().default("video"),
+  title: text("title").notNull(),
+  topic: text("topic"),
+  // Specialist = the expert/talent the agency is filming. v1 keeps these
+  // as flat strings; v2 will normalize into a `specialist` table when
+  // the same person reappears across productions.
+  specialistName: text("specialist_name"),
+  specialistContactName: text("specialist_contact_name"),
+  specialistContactEmail: text("specialist_contact_email"),
+  specialistContactPhone: text("specialist_contact_phone"),
+  // TipTap JSON. Brief = what the client wants covered (filled by client
+  // via /c/[token] when status='brief_pending'). Script = body the agency
+  // writes for the specialist to follow. Both nullable — empty production
+  // starts as 'brief_pending' or 'script_drafting' depending on workflow.
+  briefJson: text("brief_json"),
+  scriptJson: text("script_json"),
+  // See lib/productions.ts ProductionStatus for the full enum.
+  status: text("status").notNull().default("script_drafting"),
+  recordingDate: timestamp("recording_date"),
+  deliveryDate: timestamp("delivery_date"),
+  publishDate: timestamp("publish_date"),
+  // Final URL of the edited video (Vimeo, YouTube unlisted, R2, whatever).
+  // Triggers Wave-3 "create post from this production" affordance when set.
+  finalVideoUrl: text("final_video_url"),
+  // Optional cross-reference for users who want to mirror the production
+  // back into their Notion DB after delivery. Not synced automatically.
+  notionPageId: text("notion_page_id"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => ({
+  byClient: index("production_client_idx").on(t.clientId, t.createdAt),
+  byClientStatus: index("production_client_status_idx").on(t.clientId, t.status),
+}))
+
+// ─── Production comment ──────────────────────────────────
+// Agency-side thread on a production. End-client comments come in via
+// /approve/[token] when they request changes — those rows have authorUserId
+// NULL and authorName populated from the approval token's contact name
+// snapshot.
+export const productionComment = pgTable("production_comment", {
+  id: text("id").primaryKey(),
+  productionId: text("production_id").notNull().references(() => production.id, { onDelete: "cascade" }),
+  authorUserId: text("author_user_id").references(() => user.id, { onDelete: "set null" }),
+  // Fallback display name when authorUserId is NULL (client comment via
+  // approval token). For agency comments, UI prefers the User's name from
+  // the join; this field holds the snapshot for client comments.
+  authorName: text("author_name"),
+  body: text("body").notNull(),
+  resolved: boolean("resolved").notNull().default(false),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+}, (t) => ({
+  byProduction: index("production_comment_production_idx").on(t.productionId, t.createdAt),
+}))
+
+// ─── Approver (Wave 1, May 2026) ──────────────────────────────
+// Reusable contact-with-magic-link entity, scoped to the agency owner
+// (NOT per-client) so the same person (e.g., Marketing Director who
+// approves for Brand A and Brand B) has ONE magic token URL listing all
+// their pending items across clients.
+export const approver = pgTable("approver", {
+  id: text("id").primaryKey(),
+  // Agency owner's userId. The owner sees + manages the approvers; their
+  // clientMembers can use them on productions of clients they have access
+  // to but cannot edit the approver record itself.
+  userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
+  name: text("name").notNull(),
+  email: text("email"),
+  phone: text("phone"),
+  // "client" | "internal_reviewer" | "final_approver" — informational
+  // only in v1; future versions may use it to drive default chain templates.
+  role: text("role").notNull().default("client"),
+  // Long-lived passwordless token. Rotated by regenerateMagicToken when
+  // an approver leaves. Format: 64 hex chars (concat of two generateId()).
+  magicToken: text("magic_token").notNull().unique(),
+  magicTokenIssuedAt: timestamp("magic_token_issued_at").notNull().defaultNow(),
+  notes: text("notes"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+}, (t) => ({
+  byUser: index("approver_user_idx").on(t.userId),
+}))
+
+// ─── Production ↔ Approver (chain) ────────────────────────────
+// Ordered list of approvers for a production. stepOrder = 1 is dispatched
+// first; advanceChain creates the next stepOrder's approvalLink only after
+// the current one approves.
+export const productionApprover = pgTable("production_approver", {
+  productionId: text("production_id").notNull().references(() => production.id, { onDelete: "cascade" }),
+  approverId: text("approver_id").notNull().references(() => approver.id, { onDelete: "cascade" }),
+  stepOrder: integer("step_order").notNull(),
+}, (t) => ({
+  pk: uniqueIndex("production_approver_pk").on(t.productionId, t.approverId),
+  uniqStep: uniqueIndex("production_approver_step_uniq").on(t.productionId, t.stepOrder),
 }))
