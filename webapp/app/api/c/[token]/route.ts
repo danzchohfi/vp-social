@@ -4,11 +4,13 @@ import {
   client as clientTable,
   fieldMapping,
   notionConnection,
+  production,
   publishLog,
 } from "@/lib/db/schema"
 import { and, desc, eq, gte, isNull } from "drizzle-orm"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "@/lib/notion"
+import { STATUS_LABEL_PT, type ProductionStatus } from "@/lib/productions"
 
 // Public client-calendar API. NO AUTH — the URL token IS the auth. Used
 // by /c/{token} (the page) to render:
@@ -166,6 +168,49 @@ export async function GET(
     }
   }
 
+  // Productions for this client. We don't include scriptJson — it's only
+  // shown via /approve/[token] when the chain step is theirs. The point of
+  // this list is "what's happening with my videos right now".
+  const productions = await db
+    .select({
+      id: production.id,
+      title: production.title,
+      type: production.type,
+      status: production.status,
+      topic: production.topic,
+      specialistName: production.specialistName,
+      recordingDate: production.recordingDate,
+      deliveryDate: production.deliveryDate,
+      publishDate: production.publishDate,
+      finalVideoUrl: production.finalVideoUrl,
+      updatedAt: production.updatedAt,
+    })
+    .from(production)
+    .where(eq(production.clientId, client.id))
+    .orderBy(desc(production.updatedAt))
+
+  // Lookup any pending approvalLink targeted at this client (production
+  // chain steps). The token lets the client open `/approve/[token]` if
+  // they happen to be the active approver — usually they're not, since
+  // the chain dispatches to specific approvers (a Diretor, a Cliente
+  // Final). When NULL, the row just shows status without an approve CTA.
+  const pendingChainSteps = await db
+    .select({
+      productionId: approvalLink.productionId,
+      token: approvalLink.token,
+    })
+    .from(approvalLink)
+    .where(and(
+      eq(approvalLink.clientId, client.id),
+      eq(approvalLink.kind, "production_script"),
+      isNull(approvalLink.decision),
+    ))
+  const tokenByProduction = new Map<string, string>(
+    pendingChainSteps
+      .filter((s): s is { productionId: string; token: string } => !!s.productionId)
+      .map((s) => [s.productionId, s.token])
+  )
+
   return NextResponse.json({
     client: {
       name: client.name,
@@ -181,5 +226,20 @@ export async function GET(
       connectionId: p.connectionId,
     })),
     past,
+    productions: productions.map((p) => ({
+      id: p.id,
+      title: p.title,
+      type: p.type,
+      status: p.status as ProductionStatus,
+      statusLabel: STATUS_LABEL_PT[p.status as ProductionStatus] ?? p.status,
+      topic: p.topic,
+      specialistName: p.specialistName,
+      recordingDate: p.recordingDate,
+      deliveryDate: p.deliveryDate,
+      publishDate: p.publishDate,
+      finalVideoUrl: p.finalVideoUrl,
+      updatedAt: p.updatedAt,
+      pendingApprovalToken: tokenByProduction.get(p.id) ?? null,
+    })),
   })
 }
