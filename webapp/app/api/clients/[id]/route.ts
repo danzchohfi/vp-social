@@ -27,6 +27,21 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ? body.manychatApprovalFlowNs.trim()
       : null
   }
+  // Explicit Notion conta filter — array of strings the user picks from the
+  // multi-select dropdown. When non-empty, the scheduled/calendar APIs use
+  // it as the source of truth for "which Notion posts belong to this
+  // client", bypassing instagramAccount.conta name matching. NULL = legacy
+  // behavior (infer from instagramAccount).
+  if (body.notionContaValues !== undefined) {
+    if (body.notionContaValues === null) {
+      update.notionContaValues = null
+    } else if (Array.isArray(body.notionContaValues)) {
+      update.notionContaValues = body.notionContaValues
+        .filter((v: unknown): v is string => typeof v === "string")
+        .map((v: string) => v.trim())
+        .filter(Boolean)
+    }
+  }
 
   await db
     .update(client)
