@@ -3,7 +3,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Instagram, Settings, CalendarClock, Zap, LogOut, X } from "lucide-react"
+import { LayoutDashboard, Instagram, Settings, CalendarClock, LogOut, X } from "lucide-react"
 import { signOut, useSession } from "@/lib/auth-client"
 import { ClientSwitcher } from "./client-switcher"
 
@@ -31,9 +31,7 @@ export function MobileNav() {
       {/* Top header — mobile only */}
       <header className="fixed left-0 right-0 top-0 z-40 flex h-14 items-center justify-between border-b bg-card px-4 md:hidden">
         <div className="flex items-center gap-2">
-          <div className="flex h-7 w-7 items-center justify-center rounded-md bg-primary">
-            <Zap className="h-4 w-4 text-primary-foreground" />
-          </div>
+          <img src="/icon.png" alt="VP Social" className="h-7 w-7 rounded-md" />
           <span className="text-base tracking-tight">
             <span className="font-semibold">VP</span>
             <span className="ml-1 italic font-display">Social</span>
