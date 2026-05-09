@@ -25,6 +25,7 @@ import {
   Loader2,
   MessageCircle,
   Printer,
+  RefreshCw,
   ThumbsUp,
   TrendingUp,
 } from "lucide-react"
@@ -85,6 +86,8 @@ export default function ReportPage() {
   const [data, setData] = useState<ReportData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [syncing, setSyncing] = useState(false)
+  const [syncMessage, setSyncMessage] = useState<string | null>(null)
 
   // Default to current month, parse from URL if present.
   const cursor = useMemo(() => {
@@ -111,6 +114,31 @@ export default function ReportPage() {
   function shiftMonth(delta: number) {
     const next = new Date(cursor.getFullYear(), cursor.getMonth() + delta, 1)
     router.replace(`/clients/${clientId}/report?month=${ymd(next)}`)
+  }
+
+  async function syncNow() {
+    if (!clientId) return
+    setSyncing(true)
+    setSyncMessage(null)
+    try {
+      const res = await fetch(`/api/clients/${clientId}/sync-analytics`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ month: ymd(cursor) }),
+      })
+      const body = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(body?.error ?? "Erro ao sincronizar")
+      const n = body?.triggered ?? 0
+      setSyncMessage(
+        n === 0
+          ? "Nenhum post publicado neste mês para sincronizar."
+          : `Sincronização iniciada para ${n} post${n === 1 ? "" : "s"}. Recarrega em 1-2 minutos pra ver os números atualizados.`,
+      )
+    } catch (e) {
+      setSyncMessage(e instanceof Error ? e.message : String(e))
+    } finally {
+      setSyncing(false)
+    }
   }
 
   if (loading) {
@@ -166,6 +194,10 @@ export default function ReportPage() {
           <Button variant="ghost" size="sm" onClick={() => shiftMonth(1)} aria-label="Próximo mês">
             <ChevronRight className="h-4 w-4" />
           </Button>
+          <Button variant="outline" size="sm" onClick={syncNow} disabled={syncing} title="Buscar números atualizados do Instagram">
+            {syncing ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+            Sincronizar
+          </Button>
           <Button variant="outline" size="sm" asChild>
             <a href={`/api/clients/${clientId}/report/csv?month=${ymd(cursor)}`} download>
               <Download className="h-4 w-4" />
@@ -178,6 +210,12 @@ export default function ReportPage() {
           </Button>
         </div>
       </header>
+
+      {syncMessage && (
+        <div className="mb-4 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm print:hidden">
+          {syncMessage}
+        </div>
+      )}
 
       {/* Hero numbers */}
       <section className="mb-8">
