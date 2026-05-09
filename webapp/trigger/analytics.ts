@@ -70,12 +70,14 @@ export const syncPostAnalytics = task({
 
     const mapping = mappingRow ?? DEFAULT_MAPPING
 
-    // Check if any analytics fields are mapped — skip if none
+    // Notion sync is opt-in (requires the agency to have mapped analytics
+    // columns). The internal report aggregates always use publish_log,
+    // so we still want to fetch + persist metrics even when no Notion
+    // mapping exists.
     const hasAnalyticsMapping = !!(
       mapping.likesField || mapping.reachField ||
       mapping.commentsField || mapping.savesField || mapping.impressionsField
     )
-    if (!hasAnalyticsMapping) return { skipped: true, reason: "no analytics fields mapped" }
 
     // Get Instagram access token via conta match (scoped by client when available)
     const igAccount = await db
@@ -104,19 +106,31 @@ export const syncPostAnalytics = task({
       return { error: String(e) }
     }
 
-    // Write metrics back to Notion
-    const notion = createNotionClient(connection.accessToken)
-    try {
-      await notion.updateAnalytics(log.notionPageId, mapping, metrics)
-    } catch (e) {
-      logger.error(`Erro ao atualizar Notion para post ${log.notionPageId}: ${e}`)
-      return { error: String(e) }
+    // Write metrics back to Notion when fields are mapped. Failure here
+    // shouldn't block the publish_log write below — Notion's our soft
+    // surface, the report tables are our hard one.
+    if (hasAnalyticsMapping) {
+      const notion = createNotionClient(connection.accessToken)
+      try {
+        await notion.updateAnalytics(log.notionPageId, mapping, metrics)
+      } catch (e) {
+        logger.error(`Erro ao atualizar Notion para post ${log.notionPageId}: ${e}`)
+        // fall through — still persist to publish_log
+      }
     }
 
-    // Mark analytics as updated
+    // Mirror metrics into publish_log so the monthly report aggregates
+    // see them (it queries this table, not Notion).
     await db
       .update(schema.publishLog)
-      .set({ metricsLastSyncedAt: new Date() })
+      .set({
+        metricsLastSyncedAt: new Date(),
+        metricsLikes: metrics.likes,
+        metricsComments: metrics.comments,
+        metricsReach: metrics.reach,
+        metricsSaves: metrics.saves,
+        metricsImpressions: metrics.impressions,
+      })
       .where(eq(schema.publishLog.id, logId))
 
     logger.info(
