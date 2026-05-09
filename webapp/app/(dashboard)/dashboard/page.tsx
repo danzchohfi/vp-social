@@ -1025,7 +1025,7 @@ export default async function DashboardPage() {
             </CardDescription>
           </div>
           <Button variant="ghost" size="sm" asChild>
-            <Link href="/scheduled">Ver tudo <ArrowRight className="h-3.5 w-3.5" /></Link>
+            <Link href="/activity">Ver tudo <ArrowRight className="h-3.5 w-3.5" /></Link>
           </Button>
         </CardHeader>
         <CardContent>

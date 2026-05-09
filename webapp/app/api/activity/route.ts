@@ -45,7 +45,8 @@ export type ActivityEvent =
       token: string
     }
 
-const LOOKBACK_DAYS = 14
+const ALLOWED_DAYS = new Set([7, 14, 30])
+const DEFAULT_DAYS = 14
 
 export async function GET(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -54,36 +55,49 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const limitParam = parseInt(url.searchParams.get("limit") ?? "50", 10)
   const limit = Number.isFinite(limitParam) && limitParam > 0 && limitParam <= 200 ? limitParam : 50
+  const daysParam = parseInt(url.searchParams.get("days") ?? `${DEFAULT_DAYS}`, 10)
+  const days = ALLOWED_DAYS.has(daysParam) ? daysParam : DEFAULT_DAYS
+  // `kinds` accepts comma-separated values: publishes,approvals. Empty/missing
+  // = both. Anything else falls back to both — easier than 400'ing the page.
+  const kindsParam = (url.searchParams.get("kinds") ?? "").trim()
+  const wantPublishes = kindsParam === "" || kindsParam.includes("publishes")
+  const wantApprovals = kindsParam === "" || kindsParam.includes("approvals")
 
   const accessible = await listAccessibleClients(session.user.id)
   const clientIds = accessible.map((c) => c.id)
   if (clientIds.length === 0) {
-    return NextResponse.json({ events: [] })
+    return NextResponse.json({ events: [], days, kinds: { publishes: wantPublishes, approvals: wantApprovals } })
   }
   const clientNameById = new Map(accessible.map((c) => [c.id, c.name]))
 
-  const since = new Date(Date.now() - LOOKBACK_DAYS * 24 * 60 * 60 * 1000)
+  const since = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
 
+  type LogRow = typeof publishLog.$inferSelect
+  type LinkRow = typeof approvalLink.$inferSelect
   const [logs, decided] = await Promise.all([
-    db
-      .select()
-      .from(publishLog)
-      .where(and(
-        inArray(publishLog.clientId, clientIds),
-        gte(publishLog.publishedAt, since),
-      ))
-      .orderBy(desc(publishLog.publishedAt))
-      .limit(limit * 2), // overfetch so we can interleave with approvals
-    db
-      .select()
-      .from(approvalLink)
-      .where(and(
-        inArray(approvalLink.clientId, clientIds),
-        gte(approvalLink.decidedAt, since),
-        isNotNull(approvalLink.decidedAt),
-      ))
-      .orderBy(desc(approvalLink.decidedAt))
-      .limit(limit * 2),
+    wantPublishes
+      ? db
+          .select()
+          .from(publishLog)
+          .where(and(
+            inArray(publishLog.clientId, clientIds),
+            gte(publishLog.publishedAt, since),
+          ))
+          .orderBy(desc(publishLog.publishedAt))
+          .limit(limit * 2) // overfetch so we can interleave with approvals
+      : Promise.resolve([] as LogRow[]),
+    wantApprovals
+      ? db
+          .select()
+          .from(approvalLink)
+          .where(and(
+            inArray(approvalLink.clientId, clientIds),
+            gte(approvalLink.decidedAt, since),
+            isNotNull(approvalLink.decidedAt),
+          ))
+          .orderBy(desc(approvalLink.decidedAt))
+          .limit(limit * 2)
+      : Promise.resolve([] as LinkRow[]),
   ])
 
   const events: ActivityEvent[] = []
@@ -124,5 +138,9 @@ export async function GET(req: Request) {
 
   events.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
 
-  return NextResponse.json({ events: events.slice(0, limit) })
+  return NextResponse.json({
+    events: events.slice(0, limit),
+    days,
+    kinds: { publishes: wantPublishes, approvals: wantApprovals },
+  })
 }

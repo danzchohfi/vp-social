@@ -54,16 +54,23 @@ type Event =
       token: string
     }
 
+type Days = 7 | 14 | 30
+type KindFilter = "all" | "publishes" | "approvals"
+
 export default function ActivityPage() {
   const [events, setEvents] = useState<Event[] | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [days, setDays] = useState<Days>(14)
+  const [kindFilter, setKindFilter] = useState<KindFilter>("all")
 
-  async function load() {
+  async function load(d: Days = days, k: KindFilter = kindFilter) {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch("/api/activity?limit=80")
+      const params = new URLSearchParams({ limit: "80", days: String(d) })
+      if (k !== "all") params.set("kinds", k)
+      const res = await fetch(`/api/activity?${params.toString()}`)
       const data = await res.json()
       if (!res.ok) throw new Error(data?.error ?? "Erro ao carregar")
       setEvents(Array.isArray(data.events) ? data.events : [])
@@ -76,7 +83,18 @@ export default function ActivityPage() {
 
   useEffect(() => {
     load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
+
+  function changeDays(d: Days) {
+    setDays(d)
+    load(d, kindFilter)
+  }
+
+  function changeKind(k: KindFilter) {
+    setKindFilter(k)
+    load(days, k)
+  }
 
   return (
     <div className="mx-auto max-w-3xl p-8">
@@ -84,13 +102,50 @@ export default function ActivityPage() {
         <div>
           <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Atividade</h1>
           <p className="text-muted-foreground">
-            Tudo que rolou nos últimos 14 dias — posts publicados, falhas e decisões dos clientes.
+            Tudo que rolou — posts publicados, falhas e decisões dos clientes.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+        <Button variant="outline" size="sm" onClick={() => load()} disabled={loading}>
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
           Atualizar
         </Button>
+      </div>
+
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Período</span>
+        {([7, 14, 30] as const).map((d) => (
+          <button
+            key={d}
+            onClick={() => changeDays(d)}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              days === d
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-muted bg-muted/30 text-muted-foreground hover:bg-muted/50",
+            )}
+          >
+            {d}d
+          </button>
+        ))}
+        <span className="ml-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Tipo</span>
+        {([
+          { key: "all" as const, label: "Tudo" },
+          { key: "publishes" as const, label: "Publicações" },
+          { key: "approvals" as const, label: "Aprovações" },
+        ]).map((opt) => (
+          <button
+            key={opt.key}
+            onClick={() => changeKind(opt.key)}
+            className={cn(
+              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              kindFilter === opt.key
+                ? "border-primary bg-primary/10 text-primary"
+                : "border-muted bg-muted/30 text-muted-foreground hover:bg-muted/50",
+            )}
+          >
+            {opt.label}
+          </button>
+        ))}
       </div>
 
       {error && (
@@ -109,7 +164,8 @@ export default function ActivityPage() {
             <ActivityIcon className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
             <p className="font-medium">Nada por aqui</p>
             <p className="mt-1 text-sm text-muted-foreground">
-              Sem eventos nos últimos 14 dias. Volta depois que o cron tiver rodado ou alguém aprovar um post.
+              Sem eventos nos últimos {days} dias{kindFilter !== "all" ? ` (filtro: ${kindFilter === "publishes" ? "publicações" : "aprovações"})` : ""}.
+              {kindFilter !== "all" && " Tenta outro filtro."}
             </p>
           </CardContent>
         </Card>
