@@ -214,6 +214,59 @@ export default function SettingsPage() {
     window.location.href = url
   }
 
+  // Auto-detect: ask the server to walk the Notion DB schema and suggest
+  // values for as many fields as it can. Merges the suggestion into the
+  // current mapping (only fills empty fields by default — won't clobber
+  // a value the user already chose). User then reviews + clicks Salvar.
+  const [detecting, setDetecting] = useState(false)
+  const [detectSummary, setDetectSummary] = useState<{ filled: number; total: number; lowConfidence: string[] } | null>(null)
+  async function autoDetect() {
+    if (!selectedId || !selected?.databaseId) {
+      toast.error("Conecte um banco de dados antes")
+      return
+    }
+    setDetecting(true)
+    setDetectSummary(null)
+    try {
+      const res = await fetch(`/api/notion/workspaces/${selectedId}/auto-detect`, {
+        method: "POST",
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? "Erro ao detectar campos")
+        return
+      }
+      const suggested: Partial<FieldMapping> = data.suggested ?? {}
+      const confidence: Record<string, "high" | "medium" | "low"> = data.confidence ?? {}
+      let filled = 0
+      const lowConfidence: string[] = []
+      // Apply: only fill empty fields. Track which we filled + which had
+      // low confidence so the user knows what to double-check.
+      setMapping((prev) => {
+        const next = { ...prev }
+        for (const [k, v] of Object.entries(suggested)) {
+          if (typeof v !== "string" || !v) continue
+          const key = k as keyof FieldMapping
+          const cur = (next as any)[key]
+          if (cur && typeof cur === "string" && cur.trim()) continue
+          ;(next as any)[key] = v
+          filled++
+          if (confidence[k] === "low") lowConfidence.push(k)
+        }
+        return next
+      })
+      const total = Object.keys(suggested).length
+      setDetectSummary({ filled, total, lowConfidence })
+      if (filled === 0) {
+        toast.info("Nada novo a preencher — todos os campos já estavam definidos")
+      } else {
+        toast.success(`${filled} campo(s) preenchidos automaticamente. Revise e clique em Salvar.`)
+      }
+    } finally {
+      setDetecting(false)
+    }
+  }
+
   async function cloneFrom() {
     if (!selectedId || !cloneFromId) return
     setCloning(true)
@@ -396,6 +449,35 @@ export default function SettingsPage() {
                     </Select>
                     <Button onClick={cloneFrom} disabled={!cloneFromId || cloning} variant="outline">
                       {cloning ? "Copiando..." : "Aplicar configuração"}
+                    </Button>
+                  </div>
+                </div>
+              )}
+
+              {/* Auto-detect banner — gives the user a one-click way to
+                  fill in 80% of the mapping based on the DB's actual
+                  schema. They still review + Save. */}
+              {selected?.databaseId && (
+                <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <p className="text-sm font-medium">Preencher automaticamente</p>
+                      <p className="mt-0.5 text-xs text-muted-foreground">
+                        Análise as propriedades do seu banco de dados e sugere valores pra todos os campos abaixo (status, datas, mídia, contato pra aprovação). Você revisa antes de salvar.
+                      </p>
+                      {detectSummary && (
+                        <p className="mt-1.5 text-xs text-success">
+                          {detectSummary.filled} campo(s) preenchidos.
+                          {detectSummary.lowConfidence.length > 0 && (
+                            <span className="text-warning">
+                              {" "}Revise com atenção: {detectSummary.lowConfidence.slice(0, 4).join(", ")}{detectSummary.lowConfidence.length > 4 ? "…" : ""}.
+                            </span>
+                          )}
+                        </p>
+                      )}
+                    </div>
+                    <Button onClick={autoDetect} disabled={detecting} size="sm">
+                      {detecting ? "Analisando..." : "Detectar"}
                     </Button>
                   </div>
                 </div>
