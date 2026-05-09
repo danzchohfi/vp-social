@@ -1363,6 +1363,12 @@ function CalendarView({
     return new Date(d.getFullYear(), d.getMonth(), 1)
   })
   const [selectedDay, setSelectedDay] = useState<string | null>(null)
+  // Drag-and-drop reschedule state. We track the dragged post's pageId
+  // + connectionId locally so the drop handler can PATCH Notion. Hover
+  // target is highlighted to give feedback before the drop lands.
+  const [draggingPost, setDraggingPost] = useState<{ pageId: string; connectionId: string; fromDay: string } | null>(null)
+  const [hoverDay, setHoverDay] = useState<string | null>(null)
+  const [rescheduling, setRescheduling] = useState(false)
 
   // Group both kinds of posts by yyyy-mm-dd of their local date.
   const postsByDay = useMemo(() => {
@@ -1415,13 +1421,52 @@ function CalendarView({
     setCursor(new Date(d.getFullYear(), d.getMonth(), 1))
   }
 
+  async function reschedulePost(targetDayKey: string) {
+    if (!draggingPost) return
+    if (draggingPost.fromDay === targetDayKey) {
+      setDraggingPost(null)
+      setHoverDay(null)
+      return
+    }
+    setRescheduling(true)
+    try {
+      // targetDayKey is YYYY-MM-DD. The backend handles preserving time.
+      const newDateIso = `${targetDayKey}T09:00:00`
+      const res = await fetch("/api/notion/post-reschedule", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pageId: draggingPost.pageId,
+          connectionId: draggingPost.connectionId,
+          newDateIso,
+        }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error ?? "Erro ao remarcar")
+      toast.success("Post remarcado")
+      onPublished() // reload the list — same hook used by other actions
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro ao remarcar")
+    } finally {
+      setRescheduling(false)
+      setDraggingPost(null)
+      setHoverDay(null)
+    }
+  }
+
   const selectedDayPosts = selectedDay ? postsByDay.get(selectedDay) ?? [] : []
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
-        <h2 className="font-display text-xl capitalize">{monthLabel}</h2>
+        <div className="flex flex-col">
+          <h2 className="font-display text-xl capitalize">{monthLabel}</h2>
+          <p className="text-[11px] text-muted-foreground">
+            💡 Arraste posts agendados pra outro dia pra remarcar — atualiza a data no Notion automaticamente.
+          </p>
+        </div>
         <div className="flex items-center gap-1">
+          {rescheduling && <Loader2 className="h-3.5 w-3.5 animate-spin text-muted-foreground" />}
           <Button variant="ghost" size="sm" onClick={goToday}>Hoje</Button>
           <Button variant="ghost" size="sm" onClick={() => shiftMonth(-1)} aria-label="Mês anterior">
             <ChevronLeft className="h-4 w-4" />
@@ -1446,15 +1491,38 @@ function CalendarView({
             const dayPosts = postsByDay.get(key) ?? []
             const visible = dayPosts.slice(0, 3)
             const overflow = dayPosts.length - visible.length
+            const isHover = hoverDay === key
+            const isDragSource = draggingPost?.fromDay === key
             return (
-              <button
+              <div
                 key={key}
-                onClick={() => dayPosts.length > 0 && setSelectedDay(key)}
+                onClick={() => {
+                  if (rescheduling) return
+                  if (dayPosts.length > 0) setSelectedDay(key)
+                }}
+                onDragOver={(e) => {
+                  // Only accept drops if there's a post being dragged.
+                  // preventDefault is required to enable the drop event.
+                  if (!draggingPost) return
+                  e.preventDefault()
+                  e.dataTransfer.dropEffect = "move"
+                  if (hoverDay !== key) setHoverDay(key)
+                }}
+                onDragLeave={() => {
+                  if (hoverDay === key) setHoverDay(null)
+                }}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  reschedulePost(key)
+                }}
                 className={cn(
                   "min-h-[96px] border-b border-r p-1.5 text-left align-top transition-colors",
                   "[&:nth-child(7n)]:border-r-0",
                   inMonth ? "bg-card" : "bg-muted/20 text-muted-foreground/60",
-                  dayPosts.length > 0 ? "hover:bg-muted/40 cursor-pointer" : "cursor-default"
+                  dayPosts.length > 0 ? "hover:bg-muted/40 cursor-pointer" : "cursor-default",
+                  // Drag feedback
+                  isHover && !isDragSource && "ring-2 ring-inset ring-primary bg-primary/5",
+                  isDragSource && "opacity-40",
                 )}
               >
                 <div className={cn(
@@ -1465,16 +1533,49 @@ function CalendarView({
                   {day.getDate()}
                 </div>
                 <div className="space-y-0.5">
-                  {visible.map((p) => (
-                    <CalendarChip key={p.kind + ":" + p.pageId} post={p} ok={p.kind === "upcoming" ? willPublish(p) : true} />
-                  ))}
+                  {visible.map((p) => {
+                    const isUpcoming = p.kind === "upcoming"
+                    return (
+                      <div
+                        key={p.kind + ":" + p.pageId}
+                        // Only upcoming posts (with a connectionId) can be
+                        // dragged. Past posts are immutable in /scheduled.
+                        draggable={isUpcoming && !!(p as ScheduledPost).connectionId && !rescheduling}
+                        onDragStart={(e) => {
+                          if (!isUpcoming) return
+                          const sp = p as ScheduledPost
+                          if (!sp.connectionId) {
+                            e.preventDefault()
+                            return
+                          }
+                          setDraggingPost({
+                            pageId: sp.pageId,
+                            connectionId: sp.connectionId,
+                            fromDay: key,
+                          })
+                          e.dataTransfer.effectAllowed = "move"
+                          // Some browsers require setData to enable drag.
+                          e.dataTransfer.setData("text/plain", sp.pageId)
+                        }}
+                        onDragEnd={() => {
+                          setDraggingPost(null)
+                          setHoverDay(null)
+                        }}
+                        // Stop click propagation so dragging-then-clicking
+                        // doesn't accidentally open the day drawer.
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <CalendarChip post={p} ok={isUpcoming ? willPublish(p as ScheduledPost) : true} />
+                      </div>
+                    )
+                  })}
                   {overflow > 0 && (
                     <div className="px-1 text-[10px] font-medium text-muted-foreground">
                       +{overflow} mais
                     </div>
                   )}
                 </div>
-              </button>
+              </div>
             )
           })}
         </div>
