@@ -3,15 +3,30 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Instagram, Settings, CalendarClock, LogOut, X } from "lucide-react"
+import { Activity, CalendarClock, Film, Grid3x3, Instagram, LayoutDashboard, LogOut, Settings, UserCheck, X } from "lucide-react"
 import { signOut, useSession } from "@/lib/auth-client"
 import { ClientSwitcher } from "./client-switcher"
 
-const nav = [
+// Bottom tab bar — kept short (4 items) so it stays tappable on small
+// screens. Anything more goes into the drawer below.
+const tabBar = [
+  { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
+  { href: "/scheduled", label: "Publicações", icon: CalendarClock },
+  { href: "/activity", label: "Atividade", icon: Activity },
+  { href: "/settings", label: "Config", icon: Settings },
+]
+
+// Full nav — surfaced in the drawer so mobile users can reach Grid /
+// Produções / Aprovadores / Contas without a desktop sidebar.
+const drawerNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/accounts", label: "Contas", icon: Instagram },
   { href: "/scheduled", label: "Publicações", icon: CalendarClock },
-  { href: "/settings", label: "Config", icon: Settings },
+  { href: "/activity", label: "Atividade", icon: Activity },
+  { href: "/grid", label: "Preview Grid IG", icon: Grid3x3 },
+  { href: "/productions", label: "Produções", icon: Film },
+  { href: "/approvers", label: "Aprovadores", icon: UserCheck },
+  { href: "/settings", label: "Configurações", icon: Settings },
 ]
 
 export function MobileNav() {
@@ -54,7 +69,7 @@ export function MobileNav() {
 
       {/* Bottom tab bar — mobile only */}
       <nav className="fixed bottom-0 left-0 right-0 z-40 flex border-t bg-card pb-[env(safe-area-inset-bottom)] md:hidden">
-        {nav.map((item) => {
+        {tabBar.map((item) => {
           const active = pathname === item.href || pathname.startsWith(item.href + "/")
           return (
             <Link
@@ -91,7 +106,29 @@ export function MobileNav() {
               <ClientSwitcher />
             </div>
 
-            <div className="flex-1 p-3">
+            <nav className="flex-1 overflow-y-auto p-3 space-y-1">
+              {drawerNav.map((item) => {
+                const active = pathname === item.href || pathname.startsWith(item.href + "/")
+                return (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={() => setMenuOpen(false)}
+                    className={cn(
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                      active
+                        ? "bg-primary/10 text-primary"
+                        : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
+                    )}
+                  >
+                    <item.icon className="h-4 w-4 shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </Link>
+                )
+              })}
+            </nav>
+
+            <div className="border-t p-3">
               <Link
                 href="/account"
                 onClick={() => setMenuOpen(false)}
