@@ -3,7 +3,7 @@ import { headers } from "next/headers"
 import { redirect } from "next/navigation"
 import { db } from "@/lib/db"
 import { approvalLink, fieldMapping, instagramAccount, notionConnection, publishLog } from "@/lib/db/schema"
-import { eq, desc, count, inArray, and, gte, max } from "drizzle-orm"
+import { eq, desc, count, inArray, and, gte, max, isNotNull } from "drizzle-orm"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
@@ -164,6 +164,7 @@ export default async function DashboardPage() {
   // per-client cards.
   const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000)
   const fourteenDaysAgo = new Date(Date.now() - 14 * 24 * 60 * 60 * 1000)
+  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000)
   const startOfMonth = new Date(new Date().getFullYear(), new Date().getMonth(), 1)
 
   // Approval activity (last 14d). One query, bucketed in JS — these tables
@@ -173,7 +174,7 @@ export default async function DashboardPage() {
     ? inArray(approvalLink.clientId, clientIds)
     : eq(approvalLink.clientId, clientIds[0])
 
-  const [recentFailures, lastPerClient, monthByClient, approvalRows] = await Promise.all([
+  const [recentFailures, lastPerClient, monthByClient, approvalRows, topPostCandidates] = await Promise.all([
     // Most recent failures (across scope) — drives the "needs review" item.
     db
       .select({
@@ -220,7 +221,39 @@ export default async function DashboardPage() {
       })
       .from(approvalLink)
       .where(and(approvalFilter, gte(approvalLink.createdAt, fourteenDaysAgo))),
+    // Top performer last 30 days. Pulled with a small LIMIT so we can rank
+    // by (likes + reach) in JS — Postgres can't sort by that without a
+    // generated column, and the row count's tiny anyway.
+    db
+      .select({
+        id: publishLog.id,
+        clientId: publishLog.clientId,
+        title: publishLog.postTitle,
+        conta: publishLog.conta,
+        platform: publishLog.platform,
+        publishedAt: publishLog.publishedAt,
+        permalink: publishLog.platformPostUrl,
+        likes: publishLog.metricsLikes,
+        comments: publishLog.metricsComments,
+        reach: publishLog.metricsReach,
+      })
+      .from(publishLog)
+      .where(and(
+        logsFilter,
+        eq(publishLog.status, "published"),
+        gte(publishLog.publishedAt, thirtyDaysAgo),
+        isNotNull(publishLog.metricsLastSyncedAt),
+      ))
+      .orderBy(desc(publishLog.metricsReach))
+      .limit(20),
   ])
+
+  // Pick winner: highest (reach + likes). Reach alone biases toward Reels;
+  // adding likes rewards engagement-heavy carousels too.
+  const topPost = topPostCandidates
+    .map((p) => ({ ...p, score: (p.reach ?? 0) + (p.likes ?? 0) }))
+    .sort((a, b) => b.score - a.score)[0]
+  const showTopPost = topPost && topPost.score > 0
 
   // Bucket approval rows for the widget below.
   const STALE_MS = 3 * 24 * 60 * 60 * 1000
@@ -827,6 +860,59 @@ export default async function DashboardPage() {
           </Card>
         </Link>
       </div>
+
+      {showTopPost && topPost && (
+        <div className="mb-8 rounded-xl border border-success/30 bg-gradient-to-br from-success/[0.06] to-transparent p-5">
+          <div className="mb-2 flex items-center gap-2">
+            <ThumbsUp className="h-4 w-4 text-success" />
+            <p className="text-sm font-semibold">Destaque dos últimos 30 dias</p>
+          </div>
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="font-medium break-words">{topPost.title || "Post sem título"}</p>
+              <p className="text-xs text-muted-foreground">
+                @{topPost.conta}
+                {topPost.platform && <> · {topPost.platform}</>}
+                {isAgency && topPost.clientId && clientById.get(topPost.clientId) && (
+                  <> · {clientById.get(topPost.clientId)!.name}</>
+                )}
+                {" · "}
+                {new Date(topPost.publishedAt).toLocaleDateString("pt-BR")}
+              </p>
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+                {(topPost.likes ?? 0) > 0 && (
+                  <span className="inline-flex items-center gap-1">
+                    <Heart className="h-3.5 w-3.5 text-success" />
+                    <strong>{topPost.likes!.toLocaleString("pt-BR")}</strong>
+                    <span className="text-muted-foreground">curtidas</span>
+                  </span>
+                )}
+                {(topPost.comments ?? 0) > 0 && (
+                  <span className="inline-flex items-center gap-1">
+                    <MessageCircle className="h-3.5 w-3.5 text-success" />
+                    <strong>{topPost.comments!.toLocaleString("pt-BR")}</strong>
+                    <span className="text-muted-foreground">comentários</span>
+                  </span>
+                )}
+                {(topPost.reach ?? 0) > 0 && (
+                  <span className="inline-flex items-center gap-1">
+                    <strong>{topPost.reach!.toLocaleString("pt-BR")}</strong>
+                    <span className="text-muted-foreground">de alcance</span>
+                  </span>
+                )}
+              </div>
+            </div>
+            {topPost.permalink && (
+              <Button variant="outline" size="sm" asChild>
+                <a href={topPost.permalink} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Ver post
+                </a>
+              </Button>
+            )}
+          </div>
+        </div>
+      )}
 
       {(isReady || isAgency) && (
         <Card className="mb-8">
