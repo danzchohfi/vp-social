@@ -7,7 +7,7 @@ import { eq, desc, count, inArray, and, gte, max } from "drizzle-orm"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, Zap, ArrowRight, Facebook, Youtube, Linkedin, CalendarClock, LayoutGrid, Building2, AlertTriangle, MoonStar, ExternalLink, MessageCircle, ThumbsUp } from "lucide-react"
+import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, Zap, ArrowRight, Facebook, Youtube, Linkedin, CalendarClock, LayoutGrid, Building2, AlertTriangle, MoonStar, ExternalLink, MessageCircle, ThumbsUp, Heart } from "lucide-react"
 import Link from "next/link"
 import { PublishButton } from "@/components/dashboard/publish-button"
 import { SwitchClientButton } from "@/components/dashboard/switch-client-button"
@@ -1062,7 +1062,26 @@ export default async function DashboardPage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground">{log.conta} · {new Date(log.publishedAt).toLocaleString("pt-BR")}</p>
+                          <p className="text-xs text-muted-foreground inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                            <span>{log.conta} · {new Date(log.publishedAt).toLocaleString("pt-BR")}</span>
+                            {log.status === "published" && log.metricsLastSyncedAt && (
+                              <>
+                                {(log.metricsLikes ?? 0) > 0 && (
+                                  <span className="inline-flex items-center gap-0.5">
+                                    · <Heart className="h-3 w-3" /> {log.metricsLikes}
+                                  </span>
+                                )}
+                                {(log.metricsComments ?? 0) > 0 && (
+                                  <span className="inline-flex items-center gap-0.5">
+                                    · <MessageCircle className="h-3 w-3" /> {log.metricsComments}
+                                  </span>
+                                )}
+                                {(log.metricsReach ?? 0) > 0 && (
+                                  <span>· {log.metricsReach!.toLocaleString("pt-BR")} alc.</span>
+                                )}
+                              </>
+                            )}
+                          </p>
                         </div>
                       </div>
                       <div className="flex items-center gap-2 shrink-0">
