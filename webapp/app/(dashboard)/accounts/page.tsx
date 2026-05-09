@@ -27,6 +27,17 @@ type Account = {
   pageName: string
   instagramBusinessAccountId: string
   active: boolean
+  lastPublishedAt: string | null
+}
+
+function lastPublishedLabel(iso: string | null): string {
+  if (!iso) return "Nunca publicou"
+  const ms = Date.now() - new Date(iso).getTime()
+  const days = Math.floor(ms / (24 * 60 * 60 * 1000))
+  if (days < 1) return "Publicou hoje"
+  if (days === 1) return "Última publicação: ontem"
+  if (days < 30) return `Última publicação: há ${days}d`
+  return `Última publicação: ${new Date(iso).toLocaleDateString("pt-BR")}`
 }
 
 const PLATFORM_CONFIG: Record<Platform, {
@@ -511,7 +522,15 @@ export default function AccountsPage() {
                                   </button>
                                 </div>
                               )}
-                              <p className="text-xs text-muted-foreground truncate">{account.pageName}</p>
+                              <p className="text-xs text-muted-foreground truncate">
+                                {account.pageName}
+                                {" · "}
+                                <span className={cn(
+                                  account.lastPublishedAt ? "" : "italic opacity-70",
+                                )}>
+                                  {lastPublishedLabel(account.lastPublishedAt)}
+                                </span>
+                              </p>
                             </div>
                           </div>
                           <div className="flex flex-wrap items-center gap-2 sm:shrink-0">
