@@ -4,7 +4,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { Building2, Check, Loader2, Plus, Trash2, Pencil, X, Users, Mail, Copy, MessageCircle, Tag, RefreshCw, ListChecks, Pause, Play } from "lucide-react"
+import { Building2, Check, Loader2, Plus, Trash2, Pencil, X, Users, Mail, Copy, MessageCircle, Tag, RefreshCw, ListChecks, Pause, Play, BarChart3 } from "lucide-react"
+import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -275,6 +276,11 @@ export default function ClientsPage() {
                             <ListChecks className="h-4 w-4" />
                           </Button>
                         )}
+                        <Button variant="ghost" size="icon" asChild title="Relatório mensal">
+                          <Link href={`/clients/${c.id}/report`}>
+                            <BarChart3 className="h-4 w-4" />
+                          </Link>
+                        </Button>
                         <Button
                           variant="ghost"
                           size="icon"
