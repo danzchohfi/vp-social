@@ -19,6 +19,7 @@ import {
   Building2,
   ChevronLeft,
   ChevronRight,
+  Download,
   ExternalLink,
   Heart,
   Loader2,
@@ -164,6 +165,12 @@ export default function ReportPage() {
           </Button>
           <Button variant="ghost" size="sm" onClick={() => shiftMonth(1)} aria-label="Próximo mês">
             <ChevronRight className="h-4 w-4" />
+          </Button>
+          <Button variant="outline" size="sm" asChild>
+            <a href={`/api/clients/${clientId}/report/csv?month=${ymd(cursor)}`} download>
+              <Download className="h-4 w-4" />
+              Baixar CSV
+            </a>
           </Button>
           <Button variant="outline" size="sm" onClick={() => window.print()}>
             <Printer className="h-4 w-4" />
