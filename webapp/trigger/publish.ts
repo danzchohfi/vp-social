@@ -68,18 +68,25 @@ export const publishForConnection = task({
     let clientName: string | null = null
     let manychatApiKey: string | null = null
     let manychatFlowNs: string | null = null
+    let approvalMode: "auto_manychat" | "manual_whatsapp" = "auto_manychat"
     if (connection.clientId) {
       const [c] = await db
         .select({
           name: schema.client.name,
           manychatApiKey: schema.client.manychatApiKey,
           manychatApprovalFlowNs: schema.client.manychatApprovalFlowNs,
+          approvalNotificationMode: schema.client.approvalNotificationMode,
         })
         .from(schema.client)
         .where(eq(schema.client.id, connection.clientId))
       clientName = c?.name ?? null
       manychatApiKey = c?.manychatApiKey ?? null
       manychatFlowNs = c?.manychatApprovalFlowNs ?? null
+      // Treat NULL as auto_manychat for backward compat with clients
+      // configured before the column existed.
+      if (c?.approvalNotificationMode === "manual_whatsapp") {
+        approvalMode = "manual_whatsapp"
+      }
     }
 
     const [mappingRow] = await db
@@ -104,6 +111,7 @@ export const publishForConnection = task({
           clientId: connection.clientId,
           clientName,
           mapping,
+          approvalMode,
           manychatApiKey,
           manychatFlowNs,
         })
@@ -332,12 +340,17 @@ type SweepArgs = {
   clientId: string
   clientName: string | null
   mapping: FieldMapping
+  // Notification mode for this client. 'manual_whatsapp' = skip ManyChat
+  // dispatch entirely — agency uses the click-to-chat WA button on
+  // /scheduled. 'auto_manychat' = try ManyChat, fall back to sentVia='none'
+  // if creds missing or API rejects.
+  approvalMode: "auto_manychat" | "manual_whatsapp"
   manychatApiKey: string | null
   manychatFlowNs: string | null
 }
 
 async function runApprovalSweep(a: SweepArgs): Promise<void> {
-  const { db, notion, connectionId, clientId, clientName, mapping, manychatApiKey, manychatFlowNs } = a
+  const { db, notion, connectionId, clientId, clientName, mapping, approvalMode, manychatApiKey, manychatFlowNs } = a
   if (!mapping.awaitingApprovalValue) return
   const connection = await db
     .select()
@@ -432,13 +445,20 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       continue
     }
 
-    // Notify via ManyChat (WhatsApp). Email path was removed by design —
-    // agency wants WA-only because the whole client conversation already
-    // lives in WA (ManyChat onboarding). If ManyChat fails, sentVia stays
-    // "none" and the agency uses the click-to-chat WA button in /scheduled.
-    let sentVia: "manychat" | "none" = "none"
+    // Decide how to notify based on the client's approvalMode setting.
+    //   manual_whatsapp → skip ManyChat entirely. Mark sentVia='manual'
+    //                     so the UI knows this is an intended state, not
+    //                     a misconfiguration. Agency sees the row in
+    //                     /scheduled with a "Enviar via WA" wa.me button.
+    //   auto_manychat   → try ManyChat. On failure or missing creds, fall
+    //                     back to sentVia='none' and the agency manually
+    //                     nudges via the same click-to-chat button.
+    let sentVia: "manychat" | "manual" | "none" = "none"
 
-    if (contact.phone && manychatApiKey && manychatFlowNs) {
+    if (approvalMode === "manual_whatsapp") {
+      sentVia = "manual"
+      logger.info(`[approval] modo manual: link gerado para "${post.title}" — agência envia via wa.me em /scheduled`)
+    } else if (contact.phone && manychatApiKey && manychatFlowNs) {
       const result = await sendApprovalRequest({
         apiKey: manychatApiKey,
         flowNs: manychatFlowNs,
@@ -460,7 +480,7 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
         logger.warn(`[approval] ManyChat falhou para "${post.title}": ${result.reason}`)
       }
     } else if (!manychatApiKey || !manychatFlowNs) {
-      logger.warn(`[approval] ManyChat não configurado para este cliente — agência precisa enviar manualmente via /scheduled`)
+      logger.warn(`[approval] ManyChat não configurado para este cliente — agência precisa enviar manualmente via /scheduled (ou trocar pra modo manual em /clients)`)
     } else if (!contact.phone) {
       logger.warn(`[approval] Contato sem telefone — agência precisa enviar manualmente via /scheduled`)
     }
@@ -475,7 +495,14 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
 
     await db
       .update(schema.approvalLink)
-      .set({ sentVia, sentAt: sentVia === "none" ? null : new Date() })
+      .set({
+        sentVia,
+        // 'manual' counts as "we generated the link" for sentAt — the
+        // agency-side dispatch happens via wa.me click-to-chat which we
+        // don't track separately. 'none' means the dispatch never fired
+        // at all (wait state).
+        sentAt: sentVia === "none" ? null : new Date(),
+      })
       .where(eq(schema.approvalLink.token, token))
   }
 }

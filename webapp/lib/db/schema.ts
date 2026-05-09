@@ -64,6 +64,14 @@ export const client = pgTable("client", {
   // (email path was removed by design — WA-only).
   manychatApiKey: text("manychat_api_key"),
   manychatApprovalFlowNs: text("manychat_approval_flow_ns"),
+  // How the agency wants to notify clients of pending approvals.
+  //   'auto_manychat'   → cron dispatches via ManyChat API (needs token + flowNs)
+  //   'manual_whatsapp' → cron creates the approvalLink but doesn't dispatch.
+  //                       Agency clicks "Enviar via WA" in /scheduled (wa.me).
+  // NULL = legacy unset; treated as auto_manychat for backward compat.
+  // Surfaces in /clients ApprovalPanel as a radio + drives which fields
+  // are required for the "Configurada" status pill.
+  approvalNotificationMode: text("approval_notification_mode"),
   // Permanent client-facing calendar token. Used in the public URL
   // /c/{token} that the agency shares with the client (one link, never
   // expires) showing pending approvals + scheduled + published posts of

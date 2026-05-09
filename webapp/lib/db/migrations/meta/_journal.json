@@ -36,6 +36,13 @@
       "when": 1778270000000,
       "tag": "0004_faulty_black_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1778321282131,
+      "tag": "0005_free_loki",
+      "breakpoints": true
     }
   ]
 }

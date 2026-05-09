@@ -620,21 +620,33 @@ const STARTER_TEMPLATE = `Olá {{1}}, você tem 1 post aguardando sua aprovaçã
 Aprovar ou pedir alterações:
 {{3}}`
 
+type ConnectionStatus = {
+  id: string
+  workspaceName: string
+  databaseName: string | null
+  notionReady: boolean
+  missingNotionFields: string[]
+}
+
 function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName: string }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [calendarPath, setCalendarPath] = useState("")
   const [apiKey, setApiKey] = useState("")
   const [flowNs, setFlowNs] = useState("")
+  const [mode, setMode] = useState<"auto_manychat" | "manual_whatsapp">("auto_manychat")
   // Track originals to know if anything is dirty.
   const [origApiKey, setOrigApiKey] = useState("")
   const [origFlowNs, setOrigFlowNs] = useState("")
+  const [origMode, setOrigMode] = useState<"auto_manychat" | "manual_whatsapp">("auto_manychat")
   // Test-dispatch panel state.
   const [testPageId, setTestPageId] = useState("")
   const [testConnectionId, setTestConnectionId] = useState("")
   const [testing, setTesting] = useState(false)
   const [testResult, setTestResult] = useState<any>(null)
-  const [connections, setConnections] = useState<Array<{ id: string; workspaceName: string; databaseName: string | null }>>([])
+  const [connections, setConnections] = useState<ConnectionStatus[]>([])
+  const [status, setStatus] = useState<"configured" | "partial" | "missing" | null>(null)
+  const [nextStepHint, setNextStepHint] = useState<string | null>(null)
   // Validate-token state.
   const [validating, setValidating] = useState(false)
   const [validateResult, setValidateResult] = useState<any>(null)
@@ -655,8 +667,15 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
       setFlowNs(data.manychatApprovalFlowNs ?? "")
       setOrigApiKey(data.manychatApiKey ?? "")
       setOrigFlowNs(data.manychatApprovalFlowNs ?? "")
-      const conns = Array.isArray(data.connections) ? data.connections : []
+      const nextMode = (data.approvalNotificationMode === "manual_whatsapp"
+        ? "manual_whatsapp"
+        : "auto_manychat") as "auto_manychat" | "manual_whatsapp"
+      setMode(nextMode)
+      setOrigMode(nextMode)
+      const conns: ConnectionStatus[] = Array.isArray(data.connections) ? data.connections : []
       setConnections(conns)
+      setStatus(typeof data.status === "string" ? data.status : null)
+      setNextStepHint(typeof data.nextStepHint === "string" ? data.nextStepHint : null)
       // Pre-select the only connection if there's just one — saves a click.
       if (conns.length === 1) setTestConnectionId(conns[0].id)
     } finally {
@@ -681,15 +700,20 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
         body: JSON.stringify({
           manychatApiKey: apiKey.trim() || null,
           manychatApprovalFlowNs: flowNs.trim() || null,
+          approvalNotificationMode: mode,
         }),
       })
       if (!res.ok) {
         const data = await res.json()
         throw new Error(data.error ?? "Erro ao salvar")
       }
-      toast.success("ManyChat configurado")
+      toast.success("Configuração salva")
       setOrigApiKey(apiKey.trim())
       setOrigFlowNs(flowNs.trim())
+      setOrigMode(mode)
+      // Re-fetch so the status pill + hints reflect the saved state
+      // without a full page reload.
+      await load()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro")
     } finally {
@@ -697,7 +721,7 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
     }
   }
 
-  const dirty = apiKey.trim() !== origApiKey || flowNs.trim() !== origFlowNs
+  const dirty = apiKey.trim() !== origApiKey || flowNs.trim() !== origFlowNs || mode !== origMode
 
   async function validateToken() {
     if (!apiKey.trim()) {
@@ -758,9 +782,60 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
       <div>
         <p className="text-sm font-semibold">Aprovação do cliente</p>
         <p className="text-xs text-muted-foreground">
-          Toda vez que um post entrar no status &quot;aguardando aprovação&quot; (configurado em <a href="/settings" className="underline">/settings</a>), o app dispara um link de aprovação por WhatsApp via ManyChat. O cliente também pode acessar o calendário inteiro pelo link permanente abaixo.
+          Toda vez que um post entrar no status &quot;aguardando aprovação&quot; (configurado em <a href="/settings" className="underline">/settings</a>), o app gera um link <code className="rounded bg-muted px-1 font-mono text-[10px]">/approve/&lt;token&gt;</code> e avisa o cliente conforme o modo escolhido abaixo.
         </p>
       </div>
+
+      {!loading && status && (
+        <div
+          className={cn(
+            "flex items-start gap-2 rounded-md border px-3 py-2 text-xs",
+            status === "configured" && "border-success/30 bg-success/5",
+            status === "partial" && "border-warning/30 bg-warning/5",
+            status === "missing" && "border-muted-foreground/20 bg-muted/30",
+          )}
+        >
+          <span
+            className={cn(
+              "mt-0.5 inline-block h-2 w-2 shrink-0 rounded-full",
+              status === "configured" && "bg-success",
+              status === "partial" && "bg-warning",
+              status === "missing" && "bg-muted-foreground/40",
+            )}
+          />
+          <div className="min-w-0 flex-1">
+            <p className="font-medium">
+              {status === "configured" && "Configurada"}
+              {status === "partial" && "Parcialmente configurada"}
+              {status === "missing" && "Não configurada"}
+            </p>
+            {nextStepHint && (
+              <p className="mt-0.5 text-muted-foreground">{nextStepHint}</p>
+            )}
+            {connections.length > 0 && (
+              <ul className="mt-1.5 space-y-0.5">
+                {connections.map((c) => (
+                  <li key={c.id} className="flex items-center gap-1.5">
+                    <span
+                      className={cn(
+                        "inline-block h-1.5 w-1.5 rounded-full",
+                        c.notionReady ? "bg-success" : "bg-warning",
+                      )}
+                    />
+                    <span className="text-[11px] text-muted-foreground">
+                      <strong className="text-foreground">{c.workspaceName}</strong>
+                      {c.databaseName ? ` (${c.databaseName})` : ""}
+                      {c.notionReady
+                        ? " — campos do Notion OK"
+                        : ` — falta: ${c.missingNotionFields.slice(0, 2).join(", ")}${c.missingNotionFields.length > 2 ? "…" : ""}`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center py-4"><Loader2 className="h-4 w-4 animate-spin text-muted-foreground" /></div>
@@ -784,6 +859,71 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
             </div>
           </div>
 
+          {/* Notification mode selector — drives whether the cron tries
+              ManyChat or just generates the link for manual wa.me share. */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Como avisar o cliente</Label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label
+                className={cn(
+                  "cursor-pointer rounded-lg border p-3 text-xs transition-colors",
+                  mode === "auto_manychat"
+                    ? "border-primary bg-primary/5"
+                    : "hover:bg-accent",
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name={`approval-mode-${clientId}`}
+                    value="auto_manychat"
+                    checked={mode === "auto_manychat"}
+                    onChange={() => setMode("auto_manychat")}
+                    className="h-3.5 w-3.5"
+                  />
+                  <span className="font-medium">Automático via ManyChat</span>
+                </div>
+                <p className="mt-1 ml-5 text-muted-foreground">
+                  O cron dispara WhatsApp pelo ManyChat assim que um post entra em &quot;aguardando&quot;. Requer token + Flow do ManyChat.
+                </p>
+              </label>
+              <label
+                className={cn(
+                  "cursor-pointer rounded-lg border p-3 text-xs transition-colors",
+                  mode === "manual_whatsapp"
+                    ? "border-primary bg-primary/5"
+                    : "hover:bg-accent",
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name={`approval-mode-${clientId}`}
+                    value="manual_whatsapp"
+                    checked={mode === "manual_whatsapp"}
+                    onChange={() => setMode("manual_whatsapp")}
+                    className="h-3.5 w-3.5"
+                  />
+                  <span className="font-medium">Manual via wa.me</span>
+                </div>
+                <p className="mt-1 ml-5 text-muted-foreground">
+                  Sem ManyChat. O app gera o link e você envia pelo seu WhatsApp clicando &quot;Enviar via WA&quot; em /scheduled.
+                </p>
+              </label>
+            </div>
+          </div>
+
+          {mode === "manual_whatsapp" && (
+            <div className="rounded-md border border-success/30 bg-success/5 p-3 text-xs">
+              <p className="font-medium text-success">Modo manual ativo</p>
+              <p className="mt-1 text-foreground/80">
+                Configure só os campos do Notion em <a href="/settings" className="underline">/settings</a>. Quando um post entrar em &quot;aguardando aprovação&quot;, ele aparece em <a href="/scheduled" className="underline">/scheduled</a> com um botão <strong>Enviar via WA</strong> que abre o wa.me com a mensagem pronta.
+              </p>
+            </div>
+          )}
+
+          {mode === "auto_manychat" && (
+          <>
           <div className="space-y-1.5">
             <Label className="text-xs">ManyChat API Key (token da página)</Label>
             <p className="text-xs text-muted-foreground">
@@ -1010,6 +1150,8 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
               </div>
             )}
           </div>
+          </>
+          )}
 
           <ApprovalHistory clientId={clientId} />
         </>

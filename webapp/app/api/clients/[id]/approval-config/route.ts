@@ -1,18 +1,23 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { client, notionConnection } from "@/lib/db/schema"
-import { eq } from "drizzle-orm"
+import { client, fieldMapping, notionConnection } from "@/lib/db/schema"
+import { eq, inArray } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { getOrCreateClientCalendarToken } from "@/lib/approval-link"
 import { userIsClientOwner } from "@/lib/active-client"
 
-// Returns the per-client config the agency uses to enable the approval
-// flow: the public calendar URL (lazily creates the permanent token) +
-// ManyChat creds. Owner-only because the API key is sensitive.
+export type ApprovalConfigStatus = "configured" | "partial" | "missing"
+
+// Returns the per-client approval flow config + a derived completeness
+// status the UI uses to render the green/yellow/red pill on the client
+// card and to gate the "tudo certo" CTA in the panel.
 //
-// The PATCH for ManyChat fields lives on /api/clients/[id] (same handler
-// that PATCHes name/logoUrl).
+// Status is derived (not stored) so it stays in sync with the source
+// data — agency can flip a Notion field mapping in /settings and the
+// pill updates on next refresh without an explicit "save" anywhere.
+//
+// Owner-only because the API key is sensitive.
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -31,6 +36,7 @@ export async function GET(
     .select({
       manychatApiKey: client.manychatApiKey,
       manychatApprovalFlowNs: client.manychatApprovalFlowNs,
+      approvalNotificationMode: client.approvalNotificationMode,
     })
     .from(client)
     .where(eq(client.id, id))
@@ -40,8 +46,10 @@ export async function GET(
   // Lazy create — first call generates the token. Idempotent.
   const calendarToken = await getOrCreateClientCalendarToken(id)
 
-  // Connections for this client — populates the test-dispatch dropdown
-  // so the agency doesn't have to look up connectionId by hand.
+  // Connections + their fieldMappings — drives the per-connection
+  // checklist below. Each connection needs awaitingApprovalValue +
+  // revisionRequestedValue + clientContactField + contactEmailField +
+  // contactPhoneField for the cron approval sweep to fire.
   const connections = await db
     .select({
       id: notionConnection.id,
@@ -51,11 +59,119 @@ export async function GET(
     .from(notionConnection)
     .where(eq(notionConnection.clientId, id))
 
+  const connectionIds = connections.map((c) => c.id)
+  const mappings = connectionIds.length > 0
+    ? await db
+        .select({
+          connectionId: fieldMapping.connectionId,
+          awaitingApprovalValue: fieldMapping.awaitingApprovalValue,
+          revisionRequestedValue: fieldMapping.revisionRequestedValue,
+          clientContactField: fieldMapping.clientContactField,
+          contactEmailField: fieldMapping.contactEmailField,
+          contactPhoneField: fieldMapping.contactPhoneField,
+        })
+        .from(fieldMapping)
+        .where(inArray(fieldMapping.connectionId, connectionIds))
+    : []
+
+  const mappingByConn = new Map(mappings.map((m) => [m.connectionId, m]))
+
+  // Per-connection completeness — a connection is "ready" when all 5
+  // approval fields are non-empty.
+  type ConnStatus = {
+    id: string
+    workspaceName: string
+    databaseName: string | null
+    notionReady: boolean
+    missingNotionFields: string[]
+  }
+  type Mapping = (typeof mappings)[number]
+  type ApprovalKey = Exclude<keyof Mapping, "connectionId">
+  const required: Array<[ApprovalKey, string]> = [
+    ["awaitingApprovalValue", "Status que dispara aprovação"],
+    ["revisionRequestedValue", 'Status quando "pedir alterações"'],
+    ["clientContactField", "Coluna de relação Contato"],
+    ["contactEmailField", "Coluna de email"],
+    ["contactPhoneField", "Coluna de WhatsApp"],
+  ]
+  const connectionStatus: ConnStatus[] = connections.map((c) => {
+    const m = mappingByConn.get(c.id)
+    const missing: string[] = []
+    if (!m) {
+      // No mapping row at all → all 5 missing.
+      for (const [, label] of required) missing.push(label)
+    } else {
+      for (const [key, label] of required) {
+        const val = m[key]
+        if (typeof val !== "string" || !val.trim()) missing.push(label)
+      }
+    }
+    return {
+      id: c.id,
+      workspaceName: c.workspaceName,
+      databaseName: c.databaseName,
+      notionReady: missing.length === 0,
+      missingNotionFields: missing,
+    }
+  })
+
+  // Derive overall status:
+  //   'configured'  — at least one connection's Notion mapping is ready
+  //                   AND (mode='manual_whatsapp' OR ManyChat creds set)
+  //   'partial'     — some Notion mapping done, but not enough to dispatch
+  //   'missing'     — no Notion mapping AND no Notion connections
+  const mode = (row.approvalNotificationMode ?? "auto_manychat") as
+    | "auto_manychat"
+    | "manual_whatsapp"
+  const hasManychat = !!row.manychatApiKey?.trim() && !!row.manychatApprovalFlowNs?.trim()
+  const anyNotionReady = connectionStatus.some((c) => c.notionReady)
+  const anyNotionPartial = connectionStatus.some(
+    (c) => !c.notionReady && c.missingNotionFields.length < 5,
+  )
+
+  let status: ApprovalConfigStatus
+  if (connections.length === 0) {
+    status = "missing"
+  } else if (anyNotionReady && (mode === "manual_whatsapp" || hasManychat)) {
+    status = "configured"
+  } else if (anyNotionReady || anyNotionPartial || hasManychat) {
+    status = "partial"
+  } else {
+    status = "missing"
+  }
+
   return NextResponse.json({
     calendarToken,
     calendarPath: `/c/${calendarToken}`,
     manychatApiKey: row.manychatApiKey ?? "",
     manychatApprovalFlowNs: row.manychatApprovalFlowNs ?? "",
-    connections,
+    approvalNotificationMode: mode,
+    connections: connectionStatus,
+    status,
+    // Highest-impact missing-thing summary for the UI to render in one line.
+    nextStepHint: deriveNextStep({
+      connections: connectionStatus,
+      mode,
+      hasManychat,
+    }),
   })
+}
+
+function deriveNextStep(args: {
+  connections: Array<{ notionReady: boolean; missingNotionFields: string[]; workspaceName: string }>
+  mode: "auto_manychat" | "manual_whatsapp"
+  hasManychat: boolean
+}): string | null {
+  if (args.connections.length === 0) {
+    return "Conecte um workspace do Notion antes de configurar aprovações."
+  }
+  const firstUnready = args.connections.find((c) => !c.notionReady)
+  if (firstUnready) {
+    const fields = firstUnready.missingNotionFields.slice(0, 2).join(", ")
+    return `Em /settings → ${firstUnready.workspaceName}, preencha: ${fields}${firstUnready.missingNotionFields.length > 2 ? "..." : ""}`
+  }
+  if (args.mode === "auto_manychat" && !args.hasManychat) {
+    return "Cole a API key do ManyChat e o Flow Namespace abaixo (ou troque pra modo manual)."
+  }
+  return null
 }
