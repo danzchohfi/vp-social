@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { Building2, Check, Loader2, Plus, Trash2, Pencil, X, Users, Mail, Copy, MessageCircle, Tag, RefreshCw } from "lucide-react"
+import { Building2, Check, Loader2, Plus, Trash2, Pencil, X, Users, Mail, Copy, MessageCircle, Tag, RefreshCw, ListChecks, Pause, Play } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -50,6 +50,7 @@ export default function ClientsPage() {
   const [membersOpen, setMembersOpen] = useState<string | null>(null)
   const [approvalOpen, setApprovalOpen] = useState<string | null>(null)
   const [contasOpen, setContasOpen] = useState<string | null>(null)
+  const [setupOpen, setSetupOpen] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
@@ -264,6 +265,16 @@ export default function ClientsPage() {
                             Tornar ativo
                           </Button>
                         )}
+                        {isOwner && (
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => setSetupOpen(setupOpen === c.id ? null : c.id)}
+                            title="Status de configuração (checklist)"
+                          >
+                            <ListChecks className="h-4 w-4" />
+                          </Button>
+                        )}
                         <Button
                           variant="ghost"
                           size="icon"
@@ -328,6 +339,12 @@ export default function ClientsPage() {
                   {contasOpen === c.id && !isEditing && isOwner && (
                     <div className="mt-4 pt-4 border-t">
                       <NotionContasPanel clientId={c.id} clientName={c.name} />
+                    </div>
+                  )}
+
+                  {setupOpen === c.id && !isEditing && isOwner && (
+                    <div className="mt-4 pt-4 border-t">
+                      <SetupChecklistPanel clientId={c.id} />
                     </div>
                   )}
                 </CardContent>
@@ -1439,6 +1456,177 @@ function ApprovalHistorySection({
 //   - the user hasn't entered an API key yet (can't list)
 //   - the saved flow_ns isn't in the fetched list (kept for legacy or
 //     newly-created flows the user wants to wire by hand)
+// Setup completeness checklist with one-click action links per step.
+// Reduces "I forgot to configure X and now nothing publishes" mistakes
+// for new clients. Also exposes the publishing-pause toggle since
+// pause/resume is closely tied to "is this client live" decisions.
+type SetupStep = {
+  key: string
+  label: string
+  status: "done" | "partial" | "missing"
+  action: { label: string; href: string }
+  detail?: string | null
+}
+
+function SetupChecklistPanel({ clientId }: { clientId: string }) {
+  const [loading, setLoading] = useState(true)
+  const [steps, setSteps] = useState<SetupStep[]>([])
+  const [percent, setPercent] = useState(0)
+  const [paused, setPaused] = useState(false)
+  const [togglingPause, setTogglingPause] = useState(false)
+
+  async function load() {
+    setLoading(true)
+    try {
+      const res = await fetch(`/api/clients/${clientId}/setup-status`)
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? "Erro ao carregar status")
+        return
+      }
+      setSteps(Array.isArray(data.steps) ? data.steps : [])
+      setPercent(typeof data.percentComplete === "number" ? data.percentComplete : 0)
+      setPaused(data.publishingPaused === true)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    load()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId])
+
+  async function togglePause() {
+    setTogglingPause(true)
+    try {
+      const res = await fetch(`/api/clients/${clientId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ publishingPaused: !paused }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => null)
+        throw new Error(data?.error ?? "Erro ao atualizar")
+      }
+      setPaused(!paused)
+      toast.success(!paused ? "Publicações pausadas" : "Publicações retomadas")
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setTogglingPause(false)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <ListChecks className="h-4 w-4 text-muted-foreground" />
+        <p className="text-sm font-semibold">Checklist de configuração</p>
+      </div>
+
+      {paused && (
+        <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-xs">
+          <p className="font-medium text-warning">⏸ Publicações pausadas</p>
+          <p className="mt-1 text-foreground/80">
+            O cron está pulando este cliente — nenhum post vai ser publicado nem nenhuma aprovação vai disparar até retomar.
+          </p>
+        </div>
+      )}
+
+      {loading ? (
+        <div className="flex justify-center py-6">
+          <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
+        </div>
+      ) : (
+        <>
+          {/* Progress bar */}
+          <div>
+            <div className="flex items-baseline justify-between mb-1.5">
+              <span className="text-xs text-muted-foreground">{percent}% configurado</span>
+              <span className="text-[11px] text-muted-foreground">
+                {steps.filter((s) => s.status === "done").length}/{steps.length} passos
+              </span>
+            </div>
+            <div className="h-1.5 w-full overflow-hidden rounded-full bg-muted">
+              <div
+                className={cn(
+                  "h-full transition-all",
+                  percent === 100 ? "bg-success" : percent > 50 ? "bg-primary" : "bg-warning",
+                )}
+                style={{ width: `${percent}%` }}
+              />
+            </div>
+          </div>
+
+          {/* Step list */}
+          <ul className="space-y-2">
+            {steps.map((s) => (
+              <li
+                key={s.key}
+                className={cn(
+                  "flex items-start gap-3 rounded-md border bg-card px-3 py-2.5",
+                  s.status === "done" && "border-success/30",
+                  s.status === "partial" && "border-warning/30",
+                )}
+              >
+                <span
+                  className={cn(
+                    "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-medium",
+                    s.status === "done" && "bg-success/15 text-success",
+                    s.status === "partial" && "bg-warning/15 text-warning",
+                    s.status === "missing" && "bg-muted text-muted-foreground",
+                  )}
+                >
+                  {s.status === "done" ? "✓" : s.status === "partial" ? "·" : "○"}
+                </span>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-medium">{s.label}</p>
+                  {s.detail && (
+                    <p className="mt-0.5 text-[11px] text-muted-foreground">{s.detail}</p>
+                  )}
+                </div>
+                <Button asChild size="sm" variant={s.status === "done" ? "ghost" : "outline"}>
+                  <a href={s.action.href}>{s.action.label}</a>
+                </Button>
+              </li>
+            ))}
+          </ul>
+
+          {/* Pause toggle */}
+          <div className="flex items-center justify-between rounded-lg border p-3">
+            <div className="min-w-0 flex-1">
+              <p className="text-sm font-medium">
+                {paused ? "Retomar publicações" : "Pausar publicações"}
+              </p>
+              <p className="text-[11px] text-muted-foreground">
+                {paused
+                  ? "O cron volta a publicar e disparar aprovações deste cliente."
+                  : "O cron para de publicar e de disparar aprovações deste cliente até você retomar."}
+              </p>
+            </div>
+            <Button
+              variant={paused ? "default" : "outline"}
+              size="sm"
+              onClick={togglePause}
+              disabled={togglingPause}
+            >
+              {togglingPause ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : paused ? (
+                <Play className="h-3.5 w-3.5" />
+              ) : (
+                <Pause className="h-3.5 w-3.5" />
+              )}
+              {paused ? "Retomar" : "Pausar"}
+            </Button>
+          </div>
+        </>
+      )}
+    </div>
+  )
+}
+
 // Sends the saved ManyChat Flow to a phone the agency picks (usually
 // their own) — confirms token + Flow + WA template are all wired
 // without spamming the real client. Result includes a "subscriber not
