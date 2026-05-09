@@ -77,6 +77,11 @@ export const client = pgTable("client", {
   // {{client_name}}. Used by the "Enviar via WA" button in /scheduled.
   // NULL = use the hardcoded default ("Olá X! Link pra você aprovar...").
   manualWhatsappTemplate: text("manual_whatsapp_template"),
+  // When true, the cron skips this client entirely — no publishing, no
+  // approval sweep, no analytics sync. Used for paused contracts,
+  // disputes, holidays, etc. Toggled from /clients card; surfaced as
+  // a banner on every client view so the agency knows publishing is off.
+  publishingPaused: boolean("publishing_paused").notNull().default(false),
   // Permanent client-facing calendar token. Used in the public URL
   // /c/{token} that the agency shares with the client (one link, never
   // expires) showing pending approvals + scheduled + published posts of

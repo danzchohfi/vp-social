@@ -76,9 +76,18 @@ export const publishForConnection = task({
           manychatApiKey: schema.client.manychatApiKey,
           manychatApprovalFlowNs: schema.client.manychatApprovalFlowNs,
           approvalNotificationMode: schema.client.approvalNotificationMode,
+          publishingPaused: schema.client.publishingPaused,
         })
         .from(schema.client)
         .where(eq(schema.client.id, connection.clientId))
+      // Hard pause: skip publish + approval sweep entirely. We exit here
+      // (not before the connection lookup) so the log line includes the
+      // client name for clarity, and so the cron schedule itself isn't
+      // affected — only the per-connection work.
+      if (c?.publishingPaused) {
+        logger.info(`[paused] cliente "${c.name}" — publicações pausadas, pulando este tick.`)
+        return { published: 0, failed: 0, skipped: 0 }
+      }
       clientName = c?.name ?? null
       manychatApiKey = c?.manychatApiKey ?? null
       manychatFlowNs = c?.manychatApprovalFlowNs ?? null

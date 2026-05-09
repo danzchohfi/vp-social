@@ -50,6 +50,13 @@
       "when": 1778325429545,
       "tag": "0006_misty_loki",
       "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "7",
+      "when": 1778331462085,
+      "tag": "0007_funny_thunderbolts",
+      "breakpoints": true
     }
   ]
 }

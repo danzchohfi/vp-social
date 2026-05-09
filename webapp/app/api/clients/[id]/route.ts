@@ -45,6 +45,10 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ? body.manualWhatsappTemplate
       : null
   }
+  // Pause-publish toggle. When TRUE, the cron skips this client entirely.
+  if (body.publishingPaused !== undefined) {
+    update.publishingPaused = body.publishingPaused === true
+  }
   // Notion `conta` values that belong to this client. Used by
   // /api/notion/scheduled + trigger/publish.ts to route posts to the
   // right tenant without name-matching heuristics. Empty array clears
