@@ -231,3 +231,50 @@ export async function getPostMetrics(mediaId: string, accessToken: string): Prom
     impressions: get("impressions") ?? get("plays") ?? null,
   }
 }
+
+// ─── List account media (grid preview) ──────────────────────────
+// Returns the most recent N media items posted to this IG account.
+// Used by /api/grid-preview to render the actual published grid behind
+// the upcoming-posts overlay, so the agency sees how their feed will
+// look after the next batch publishes.
+export type IgGridMedia = {
+  id: string
+  thumbnailUrl: string
+  permalink: string
+  // YYYY-MM-DDTHH:MM:SSZ from IG's API
+  timestamp: string
+  caption: string | null
+  mediaType: "IMAGE" | "VIDEO" | "CAROUSEL_ALBUM" | string
+}
+
+export async function listInstagramMedia(
+  igUserId: string,
+  accessToken: string,
+  limit = 12,
+): Promise<IgGridMedia[]> {
+  if (!igUserId || !accessToken) return []
+  const fields = "id,media_type,media_url,thumbnail_url,permalink,timestamp,caption"
+  const url = `${GRAPH}/${igUserId}/media?fields=${fields}&limit=${limit}&access_token=${accessToken}`
+  try {
+    const res = await fetch(url)
+    if (!res.ok) return []
+    const data = await res.json().catch(() => null)
+    const arr: any[] = Array.isArray(data?.data) ? data.data : []
+    return arr.map((m) => ({
+      id: typeof m.id === "string" ? m.id : "",
+      // For VIDEO/REEL the thumbnail_url is the cover frame; for IMAGE
+      // we just use media_url. CAROUSEL_ALBUM gives the first child's
+      // media_url as media_url, which is fine for grid rendering.
+      thumbnailUrl: typeof m.thumbnail_url === "string" && m.thumbnail_url
+        ? m.thumbnail_url
+        : (typeof m.media_url === "string" ? m.media_url : ""),
+      permalink: typeof m.permalink === "string" ? m.permalink : "",
+      timestamp: typeof m.timestamp === "string" ? m.timestamp : "",
+      caption: typeof m.caption === "string" ? m.caption : null,
+      mediaType: typeof m.media_type === "string" ? m.media_type : "IMAGE",
+    })).filter((m) => m.id && m.thumbnailUrl)
+  } catch (e) {
+    console.warn(`[listInstagramMedia] failed for ${igUserId}:`, e)
+    return []
+  }
+}
