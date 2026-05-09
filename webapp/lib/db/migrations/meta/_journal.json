@@ -43,6 +43,13 @@
       "when": 1778321282131,
       "tag": "0005_free_loki",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1778325429545,
+      "tag": "0006_misty_loki",
+      "breakpoints": true
     }
   ]
 }

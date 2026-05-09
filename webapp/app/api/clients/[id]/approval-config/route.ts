@@ -34,9 +34,11 @@ export async function GET(
 
   const [row] = await db
     .select({
+      name: client.name,
       manychatApiKey: client.manychatApiKey,
       manychatApprovalFlowNs: client.manychatApprovalFlowNs,
       approvalNotificationMode: client.approvalNotificationMode,
+      manualWhatsappTemplate: client.manualWhatsappTemplate,
     })
     .from(client)
     .where(eq(client.id, id))
@@ -141,11 +143,13 @@ export async function GET(
   }
 
   return NextResponse.json({
+    clientName: row.name,
     calendarToken,
     calendarPath: `/c/${calendarToken}`,
     manychatApiKey: row.manychatApiKey ?? "",
     manychatApprovalFlowNs: row.manychatApprovalFlowNs ?? "",
     approvalNotificationMode: mode,
+    manualWhatsappTemplate: row.manualWhatsappTemplate ?? "",
     connections: connectionStatus,
     status,
     // Highest-impact missing-thing summary for the UI to render in one line.

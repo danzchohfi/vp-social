@@ -203,3 +203,46 @@ export function buildWhatsAppClickToChatUrl(phone: string, message: string): str
   if (!digits) return null
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`
 }
+
+// ─── List flows ────────────────────────────────────────
+// Returns the page's existing Flows so the UI can render a dropdown
+// instead of asking the user to copy/paste the flow_ns string. Same
+// auth as validateManychatToken — Bearer page API key.
+//
+// Endpoint: GET /fb/page/getFlows
+// Response shape: { status: "success", data: { flows: [{ ns, name, folder_id, ... }] } }
+export type ManychatFlow = { ns: string; name: string; folderName: string | null }
+
+export type ListFlowsResult =
+  | { ok: true; flows: ManychatFlow[] }
+  | { ok: false; reason: string }
+
+export async function listManychatFlows(apiKey: string): Promise<ListFlowsResult> {
+  if (!apiKey?.trim()) return { ok: false, reason: "API key vazio" }
+  try {
+    const res = await fetch(`${MANYCHAT_BASE}/fb/page/getFlows`, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${apiKey.trim()}` },
+    })
+    const data: any = await res.json().catch(() => null)
+    if (!res.ok || data?.status !== "success") {
+      const reason = data?.message || data?.error || `HTTP ${res.status}`
+      return { ok: false, reason: typeof reason === "string" ? reason : JSON.stringify(reason).slice(0, 200) }
+    }
+    const flowsRaw = data.data?.flows ?? data.flows ?? []
+    const folders = data.data?.folders ?? []
+    const folderById = new Map<number | string, string>(
+      Array.isArray(folders) ? folders.map((f: any) => [f.id, f.name as string]) : []
+    )
+    const flows: ManychatFlow[] = (Array.isArray(flowsRaw) ? flowsRaw : [])
+      .map((f: any) => ({
+        ns: typeof f.ns === "string" ? f.ns : "",
+        name: typeof f.name === "string" ? f.name : "(sem nome)",
+        folderName: f.folder_id ? folderById.get(f.folder_id) ?? null : null,
+      }))
+      .filter((f: ManychatFlow) => f.ns)
+    return { ok: true, flows }
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : "Erro de rede" }
+  }
+}

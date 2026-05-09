@@ -37,6 +37,14 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
     update.approvalNotificationMode = v
   }
+  // Custom wa.me template for manual mode. Empty string clears (back to
+  // hardcoded default). We don't validate placeholders — if the user
+  // skips one their message just renders without that piece.
+  if (body.manualWhatsappTemplate !== undefined) {
+    update.manualWhatsappTemplate = typeof body.manualWhatsappTemplate === "string" && body.manualWhatsappTemplate.trim()
+      ? body.manualWhatsappTemplate
+      : null
+  }
   // Notion `conta` values that belong to this client. Used by
   // /api/notion/scheduled + trigger/publish.ts to route posts to the
   // right tenant without name-matching heuristics. Empty array clears
