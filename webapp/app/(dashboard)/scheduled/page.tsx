@@ -24,13 +24,18 @@ type ApprovalState = {
   token?: string | null
   decision?: "approved" | "rejected" | "revision" | null
   comment?: string | null
-  sentVia?: "manychat" | "none" | null
+  sentVia?: "manychat" | "manual" | "none" | null
   sentAt?: string | null
   decidedAt?: string | null
   expiresAt?: string | null
   contactName?: string | null
   contactPhone?: string | null
   approvalUrl?: string | null
+  // Per-client wa.me message template — used by the "Enviar via WA"
+  // button to fill in {{contact_name}} {{post_title}} {{approval_url}}
+  // {{client_name}}. NULL = use the hardcoded default.
+  manualWaTemplate?: string | null
+  ownerClientName?: string | null
 }
 
 type ScheduledPost = {
@@ -1021,6 +1026,36 @@ function ApprovalBanner({
   onAction?: () => void
 }) {
   const [resending, setResending] = useState(false)
+  const [triggering, setTriggering] = useState(false)
+
+  // Force-create the approvalLink + dispatch ManyChat for this one post,
+  // bypassing the 5-min cron wait. Used when the post just transitioned
+  // to "aguardando aprovação" and the agency wants the link out NOW.
+  // Reuses the admin test-approval-sweep endpoint with dispatch=true.
+  async function triggerNow() {
+    if (!post.connectionId) {
+      toast.error("Post sem connection do Notion — não dá pra disparar")
+      return
+    }
+    setTriggering(true)
+    try {
+      const res = await fetch("/api/admin/test-approval-sweep", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pageId: post.pageId, connectionId: post.connectionId, dispatch: true }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) throw new Error(data?.error ?? "Falha ao disparar")
+      if (data?.manychat?.ok) toast.success("ManyChat disparado")
+      else if (data?.approvalLink?.approvalUrl) toast.success("Link criado — use o botão WA pra enviar")
+      else toast.warning("Link criado mas o WA falhou — veja o painel do cliente")
+      onAction?.()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setTriggering(false)
+    }
+  }
 
   // Visual treatment per state. "decided" intentionally renders even after
   // the agency moves the post forward — it lets them see "approved 4h ago"
@@ -1081,8 +1116,18 @@ function ApprovalBanner({
     // Open wa.me with a pre-filled message. We don't go through ManyChat
     // here because if it failed once, it'll fail again — manual deep-link
     // bypasses that and lets the agency owner send from their phone.
+    //
+    // Use the per-client custom template if set; fall back to a sensible
+    // default. Placeholders are simple {{name}} substitutions — keep
+    // parity with the documented set in /clients ApprovalPanel.
     const phoneDigits = approval.contactPhone.replace(/\D/g, "")
-    const msg = `Olá${approval.contactName ? ` ${approval.contactName}` : ""}! Link pra você aprovar o post "${post.title}":\n${approval.approvalUrl}`
+    const tpl = approval.manualWaTemplate?.trim() ||
+      `Olá {{contact_name}}! Link pra você aprovar o post "{{post_title}}":\n{{approval_url}}`
+    const msg = tpl
+      .replace(/\{\{\s*contact_name\s*\}\}/g, approval.contactName || "")
+      .replace(/\{\{\s*post_title\s*\}\}/g, post.title || "")
+      .replace(/\{\{\s*approval_url\s*\}\}/g, approval.approvalUrl || "")
+      .replace(/\{\{\s*client_name\s*\}\}/g, approval.ownerClientName || "")
     const waUrl = `https://wa.me/${phoneDigits}?text=${encodeURIComponent(msg)}`
     window.open(waUrl, "_blank")
     setResending(false)
@@ -1109,6 +1154,17 @@ function ApprovalBanner({
           <span className="text-[11px] opacity-80">· WhatsApp não foi enviado automaticamente</span>
         )}
         <div className="ml-auto flex items-center gap-1.5">
+          {approval.state === "no_link" && (
+            <button
+              onClick={triggerNow}
+              disabled={triggering}
+              className="inline-flex items-center gap-1 rounded border border-current/30 bg-background/70 px-1.5 py-0.5 text-[11px] font-medium hover:bg-background disabled:opacity-50"
+              title="Forçar criação do link agora (sem esperar o cron)"
+            >
+              {triggering ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+              Disparar agora
+            </button>
+          )}
           {approval.approvalUrl && approval.state !== "decided" && approval.state !== "expired" && (
             <button
               onClick={copyLink}

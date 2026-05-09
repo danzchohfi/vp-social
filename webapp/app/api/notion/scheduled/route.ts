@@ -281,6 +281,10 @@ export async function GET() {
         else if (now - sentMs > STALE_MS) state = "stale"
         else state = "pending"
 
+        // Pull the owning client's manual WA template so the /scheduled
+        // "Enviar via WA" button can render it without a second round-trip.
+        const owning = clientById.get(p.clientId ?? "")
+
         return {
           ...p,
           approval: {
@@ -295,6 +299,8 @@ export async function GET() {
             contactName: link.contactName,
             contactPhone: link.contactPhone,
             approvalUrl: appUrl ? `${appUrl}/approve/${link.token}` : null,
+            manualWaTemplate: owning?.manualWhatsappTemplate ?? null,
+            ownerClientName: owning?.name ?? null,
           },
         }
       })

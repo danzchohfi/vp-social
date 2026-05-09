@@ -72,6 +72,11 @@ export const client = pgTable("client", {
   // Surfaces in /clients ApprovalPanel as a radio + drives which fields
   // are required for the "Configurada" status pill.
   approvalNotificationMode: text("approval_notification_mode"),
+  // Customizable wa.me message template for the manual approval flow.
+  // Placeholders: {{contact_name}}, {{post_title}}, {{approval_url}},
+  // {{client_name}}. Used by the "Enviar via WA" button in /scheduled.
+  // NULL = use the hardcoded default ("Olá X! Link pra você aprovar...").
+  manualWhatsappTemplate: text("manual_whatsapp_template"),
   // Permanent client-facing calendar token. Used in the public URL
   // /c/{token} that the agency shares with the client (one link, never
   // expires) showing pending approvals + scheduled + published posts of

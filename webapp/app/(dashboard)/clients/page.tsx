@@ -4,7 +4,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { Building2, Check, Loader2, Plus, Trash2, Pencil, X, Users, Mail, Copy, MessageCircle, Tag } from "lucide-react"
+import { Building2, Check, Loader2, Plus, Trash2, Pencil, X, Users, Mail, Copy, MessageCircle, Tag, RefreshCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 
@@ -635,6 +635,8 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
   const [apiKey, setApiKey] = useState("")
   const [flowNs, setFlowNs] = useState("")
   const [mode, setMode] = useState<"auto_manychat" | "manual_whatsapp">("auto_manychat")
+  const [waTemplate, setWaTemplate] = useState("")
+  const [origWaTemplate, setOrigWaTemplate] = useState("")
   // Track originals to know if anything is dirty.
   const [origApiKey, setOrigApiKey] = useState("")
   const [origFlowNs, setOrigFlowNs] = useState("")
@@ -672,6 +674,9 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
         : "auto_manychat") as "auto_manychat" | "manual_whatsapp"
       setMode(nextMode)
       setOrigMode(nextMode)
+      const tpl = typeof data.manualWhatsappTemplate === "string" ? data.manualWhatsappTemplate : ""
+      setWaTemplate(tpl)
+      setOrigWaTemplate(tpl)
       const conns: ConnectionStatus[] = Array.isArray(data.connections) ? data.connections : []
       setConnections(conns)
       setStatus(typeof data.status === "string" ? data.status : null)
@@ -701,6 +706,7 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
           manychatApiKey: apiKey.trim() || null,
           manychatApprovalFlowNs: flowNs.trim() || null,
           approvalNotificationMode: mode,
+          manualWhatsappTemplate: waTemplate,
         }),
       })
       if (!res.ok) {
@@ -711,6 +717,7 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
       setOrigApiKey(apiKey.trim())
       setOrigFlowNs(flowNs.trim())
       setOrigMode(mode)
+      setOrigWaTemplate(waTemplate)
       // Re-fetch so the status pill + hints reflect the saved state
       // without a full page reload.
       await load()
@@ -721,7 +728,11 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
     }
   }
 
-  const dirty = apiKey.trim() !== origApiKey || flowNs.trim() !== origFlowNs || mode !== origMode
+  const dirty =
+    apiKey.trim() !== origApiKey ||
+    flowNs.trim() !== origFlowNs ||
+    mode !== origMode ||
+    waTemplate !== origWaTemplate
 
   async function validateToken() {
     if (!apiKey.trim()) {
@@ -914,12 +925,33 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
           </div>
 
           {mode === "manual_whatsapp" && (
-            <div className="rounded-md border border-success/30 bg-success/5 p-3 text-xs">
-              <p className="font-medium text-success">Modo manual ativo</p>
-              <p className="mt-1 text-foreground/80">
-                Configure só os campos do Notion em <a href="/settings" className="underline">/settings</a>. Quando um post entrar em &quot;aguardando aprovação&quot;, ele aparece em <a href="/scheduled" className="underline">/scheduled</a> com um botão <strong>Enviar via WA</strong> que abre o wa.me com a mensagem pronta.
-              </p>
-            </div>
+            <>
+              <div className="rounded-md border border-success/30 bg-success/5 p-3 text-xs">
+                <p className="font-medium text-success">Modo manual ativo</p>
+                <p className="mt-1 text-foreground/80">
+                  Configure só os campos do Notion em <a href="/settings" className="underline">/settings</a>. Quando um post entrar em &quot;aguardando aprovação&quot;, ele aparece em <a href="/scheduled" className="underline">/scheduled</a> com um botão <strong>Enviar via WA</strong> que abre o wa.me com a mensagem pronta.
+                </p>
+              </div>
+
+              <div className="space-y-1.5">
+                <Label className="text-xs">Mensagem padrão do WhatsApp (opcional)</Label>
+                <p className="text-xs text-muted-foreground">
+                  Texto que aparece pré-preenchido no botão &quot;Enviar via WA&quot;. Suporta os placeholders <code className="rounded bg-muted px-1 font-mono text-[10px]">{"{{contact_name}}"}</code>, <code className="rounded bg-muted px-1 font-mono text-[10px]">{"{{post_title}}"}</code>, <code className="rounded bg-muted px-1 font-mono text-[10px]">{"{{approval_url}}"}</code>, <code className="rounded bg-muted px-1 font-mono text-[10px]">{"{{client_name}}"}</code>. Em branco = mensagem padrão simples.
+                </p>
+                <textarea
+                  value={waTemplate}
+                  onChange={(e) => setWaTemplate(e.target.value)}
+                  placeholder={`Olá {{contact_name}}!\n\nA ${clientName} preparou um post pra você revisar:\n*{{post_title}}*\n\nClique aqui pra aprovar ou pedir alterações:\n{{approval_url}}`}
+                  rows={6}
+                  className="w-full rounded border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                />
+              </div>
+
+              <Button onClick={save} disabled={saving || !dirty} size="sm">
+                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
+                Salvar mensagem
+              </Button>
+            </>
           )}
 
           {mode === "auto_manychat" && (
@@ -960,14 +992,15 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs">Flow Namespace de aprovação</Label>
+            <Label className="text-xs">Flow de aprovação</Label>
             <p className="text-xs text-muted-foreground">
-              No ManyChat, crie um Flow que use o template do WhatsApp aprovado pela Meta (criado na sua Meta Business Manager → WhatsApp Manager). O Flow injeta as variáveis dinâmicas — inclua <code className="rounded bg-muted px-1 font-mono text-[10px]">approval_url</code> e <code className="rounded bg-muted px-1 font-mono text-[10px]">post_title</code> como custom fields. Depois copie o namespace do Flow (ex.: <code className="rounded bg-muted px-1 font-mono text-[10px]">content20240501123456_abc123</code>).
+              No ManyChat, crie um Flow que use o template do WhatsApp aprovado pela Meta (criado na sua Meta Business Manager → WhatsApp Manager). O Flow injeta as variáveis dinâmicas — inclua <code className="rounded bg-muted px-1 font-mono text-[10px]">approval_url</code> e <code className="rounded bg-muted px-1 font-mono text-[10px]">post_title</code> como custom fields. Depois clique em <em>Carregar Flows</em> abaixo pra escolher.
             </p>
-            <Input
-              placeholder="content20240501123456_abc123"
+            <FlowPicker
+              clientId={clientId}
+              apiKey={apiKey}
               value={flowNs}
-              onChange={(e) => setFlowNs(e.target.value)}
+              onChange={setFlowNs}
             />
           </div>
 
@@ -1388,6 +1421,122 @@ function ApprovalHistorySection({
           )
         })}
       </ul>
+    </div>
+  )
+}
+
+// Flow dropdown — fetches the user's ManyChat Flows so they pick a name
+// instead of pasting a cryptic content20240501... namespace string. Falls
+// back to a free-text input when:
+//   - the user hasn't entered an API key yet (can't list)
+//   - the saved flow_ns isn't in the fetched list (kept for legacy or
+//     newly-created flows the user wants to wire by hand)
+function FlowPicker({
+  clientId,
+  apiKey,
+  value,
+  onChange,
+}: {
+  clientId: string
+  apiKey: string
+  value: string
+  onChange: (next: string) => void
+}) {
+  const [flows, setFlows] = useState<Array<{ ns: string; name: string; folderName: string | null }> | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [showRaw, setShowRaw] = useState(false)
+
+  async function load() {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/clients/${clientId}/manychat-flows`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ apiKey: apiKey.trim() || undefined }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        setError(data?.error ?? "Erro ao listar Flows")
+        return
+      }
+      setFlows(Array.isArray(data?.flows) ? data.flows : [])
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const selectedInList = flows?.some((f) => f.ns === value)
+
+  return (
+    <div className="space-y-1.5">
+      {flows === null ? (
+        <div className="flex flex-wrap gap-2">
+          <Input
+            placeholder="content20240501123456_abc123"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="flex-1 font-mono text-xs"
+          />
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={load}
+            disabled={loading || !apiKey.trim()}
+            title={apiKey.trim() ? "Buscar Flows do ManyChat" : "Cole a API key acima primeiro"}
+          >
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+            Carregar Flows
+          </Button>
+        </div>
+      ) : showRaw ? (
+        <div className="flex flex-wrap gap-2">
+          <Input
+            placeholder="content20240501123456_abc123"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="flex-1 font-mono text-xs"
+          />
+          <Button variant="ghost" size="sm" onClick={() => setShowRaw(false)}>
+            Voltar pra lista
+          </Button>
+        </div>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <select
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            className="h-9 flex-1 rounded border bg-background px-2 text-sm"
+          >
+            <option value="">— Escolher Flow —</option>
+            {!selectedInList && value && (
+              <option value={value}>(salvo) {value.slice(0, 24)}…</option>
+            )}
+            {flows.map((f) => (
+              <option key={f.ns} value={f.ns}>
+                {f.folderName ? `${f.folderName} / ` : ""}{f.name}
+              </option>
+            ))}
+          </select>
+          <Button variant="outline" size="sm" onClick={load} disabled={loading} title="Atualizar lista">
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => setShowRaw(true)}>
+            Colar manualmente
+          </Button>
+        </div>
+      )}
+      {error && (
+        <p className="rounded border border-destructive/30 bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
+          ManyChat: {error}
+        </p>
+      )}
+      {flows && flows.length === 0 && !error && (
+        <p className="text-[11px] text-muted-foreground">
+          Nenhum Flow encontrado nessa conta. Crie um Flow no ManyChat (com bloco &quot;Send Message Template&quot;) e clique em <em>Atualizar</em>.
+        </p>
+      )}
     </div>
   )
 }
