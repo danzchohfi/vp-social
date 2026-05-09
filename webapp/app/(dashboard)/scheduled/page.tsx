@@ -68,6 +68,12 @@ type ScheduledPost = {
   thumbnailUrl?: string | null
   fullCaption?: string
   caption?: string
+  // Populated when this Notion page also has rows in publish_log within the
+  // 90-day window (typical after a partial failure: IG ✓, FB ✗ → status
+  // flipped back to ready). Surfaces inline so we don't render the same
+  // post twice (one upcoming card + one past card). The cron's idempotency
+  // pre-check skips platforms that already succeeded, so retry is safe.
+  priorAttempts?: PastPlatform[]
 }
 
 type PastPlatform = {
@@ -258,32 +264,50 @@ export default function ScheduledPage() {
 
   // The API already filters out posts whose `conta` isn't connected in this
   // view (single client or agency). What arrives here is what should show.
-  const upcomingScoped = upcomingAll
+  //
+  // Merge step: when a Notion page has both an active ready/awaiting status
+  // (upcoming) AND prior publish_log rows (past), we collapse them into ONE
+  // upcoming card with priorAttempts attached. Common case: partial failure
+  // where IG published but FB failed; status went to Erro then user clicked
+  // "Tentar novamente" → status back to Agendado, so the post is in upcoming
+  // again WHILE the failed log row still exists in past. Without the merge
+  // calendar/list show two cards for the same Notion page.
+  const upcomingPageIds = new Set(upcomingAll.map((p) => p.pageId))
+  const upcomingMerged: ScheduledPost[] = upcomingAll.map((p) => {
+    const prior = pastAll.find((x) => x.pageId === p.pageId)
+    return prior ? { ...p, priorAttempts: prior.platforms } : p
+  })
+  const standalonePast = pastAll.filter((p) => !upcomingPageIds.has(p.pageId))
 
   // Posts in awaiting-approval state get their own bucket above the
   // ready ones — they don't publish until the client approves, and the
   // typical agency workflow needs to know which ones are still waiting
   // (vs stale, vs decided). Filter chip "Aprovação" narrows to this bucket.
-  const awaitingApproval = upcomingScoped.filter((p) => p.workflowState === "awaiting")
-  const readyScoped = upcomingScoped.filter((p) => p.workflowState !== "awaiting")
+  const awaitingApproval = upcomingMerged.filter((p) => p.workflowState === "awaiting")
+  const readyScoped = upcomingMerged.filter((p) => p.workflowState !== "awaiting")
 
-  // Apply status filter
-  const visibleUpcoming = filter === "published" || filter === "errors"
-    ? []
-    : filter === "approval"
-      ? awaitingApproval
-      : upcomingScoped
-  const visiblePast = filter === "upcoming" || filter === "approval"
-    ? []
-    : filter === "published"
-      ? pastAll.filter((p) => p.platforms.some((pl) => pl.status === "published") && !p.platforms.some((pl) => pl.status === "failed"))
+  // Apply status filter. "errors" pulls from BOTH buckets: posts still in
+  // upcoming with failed prior attempts AND standalone past with failures.
+  const visibleUpcoming =
+    filter === "published"
+      ? []
       : filter === "errors"
-        ? pastAll.filter((p) => p.platforms.some((pl) => pl.status === "failed"))
-        : pastAll
+      ? upcomingMerged.filter((p) => p.priorAttempts?.some((pl) => pl.status === "failed"))
+      : filter === "approval"
+      ? awaitingApproval
+      : upcomingMerged
+  const visiblePast =
+    filter === "upcoming" || filter === "approval"
+      ? []
+      : filter === "published"
+      ? standalonePast.filter((p) => p.platforms.some((pl) => pl.status === "published") && !p.platforms.some((pl) => pl.status === "failed"))
+      : filter === "errors"
+      ? standalonePast.filter((p) => p.platforms.some((pl) => pl.status === "failed"))
+      : standalonePast
 
   const allVisible: AnyPost[] = [...visibleUpcoming, ...visiblePast]
 
-  const hasTikTokTarget = upcomingScoped.some((p) =>
+  const hasTikTokTarget = upcomingMerged.some((p) =>
     (p.targetChecks ?? []).some((c) => c.raw?.toLowerCase().includes("tiktok"))
   )
 
@@ -723,7 +747,12 @@ function PastPostRow({ post, onRetried }: { post: PastPost; onRetried?: () => vo
 
   async function retry() {
     if (!post.connectionId) return
-    if (!confirm(`Reagendar "${post.title || "este post"}" para tentar novamente?`)) return
+    const failedNames = post.platforms.filter((pl) => pl.status === "failed").map((pl) => pl.raw)
+    const publishedNames = post.platforms.filter((pl) => pl.status === "published").map((pl) => pl.raw)
+    let msg = `Reagendar "${post.title || "este post"}" para tentar novamente?`
+    if (failedNames.length > 0) msg += `\n\nVai retentar apenas em: ${failedNames.join(", ")}.`
+    if (publishedNames.length > 0) msg += `\nJá publicado em ${publishedNames.join(", ")} — será pulado para evitar duplicação.`
+    if (!confirm(msg)) return
     setRetrying(true)
     try {
       const res = await fetch("/api/posts/retry", {
@@ -914,10 +943,27 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
   const hasIssues = (issues?.length ?? 0) > 0
   const [publishing, setPublishing] = useState(false)
   const [previewOpen, setPreviewOpen] = useState(false)
+  const [showPriorErrors, setShowPriorErrors] = useState(false)
+
+  const priorAttempts = post.priorAttempts ?? []
+  const failedAttempts = priorAttempts.filter((pl) => pl.status === "failed")
+  const publishedAttempts = priorAttempts.filter((pl) => pl.status === "published")
+  const hasFailedHistory = failedAttempts.length > 0
+  const hasPublishedHistory = publishedAttempts.length > 0
 
   async function publishNow() {
     if (!post.connectionId) return
-    if (!confirm(`Publicar "${post.title || "este post"}" agora?`)) return
+    let confirmMsg = `Publicar "${post.title || "este post"}" agora?`
+    if (priorAttempts.length > 0) {
+      confirmMsg = `Tentar novamente "${post.title || "este post"}" agora?`
+      if (hasFailedHistory) {
+        confirmMsg += `\n\nVai retentar apenas em: ${failedAttempts.map((p) => p.raw).join(", ")}.`
+      }
+      if (hasPublishedHistory) {
+        confirmMsg += `\nJá publicado em ${publishedAttempts.map((p) => p.raw).join(", ")} — será pulado para evitar duplicação.`
+      }
+    }
+    if (!confirm(confirmMsg)) return
     setPublishing(true)
     try {
       const res = await fetch("/api/posts/publish-now", {
@@ -1050,15 +1096,65 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
                   ? 'Preencha o campo "Publicar em" no Notion'
                   : allMissing
                   ? "Nenhuma plataforma com conta conectada"
+                  : hasFailedHistory
+                  ? "Retentar apenas nas plataformas que falharam"
                   : "Publicar imediatamente"
               }
             >
-              {publishing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
-              {publishing ? "Publicando..." : "Publicar agora"}
+              {publishing ? (
+                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              ) : hasFailedHistory ? (
+                <RefreshCw className="h-3.5 w-3.5" />
+              ) : (
+                <Zap className="h-3.5 w-3.5" />
+              )}
+              {publishing ? "Publicando..." : hasFailedHistory ? "Tentar novamente" : "Publicar agora"}
             </Button>
           )}
         </div>
       </div>
+
+      {/* Histórico de tentativas — aparece quando o Notion ainda tem o post
+          como agendado mas o publish_log já tem rows pra essa página. Mostra
+          status por plataforma + erro expansível. O cron tem pre-check anti-
+          duplicação (publish.ts:180-198): plataformas com row 'published'
+          são puladas no próximo ciclo, então o botão acima é seguro. */}
+      {priorAttempts.length > 0 && (
+        <div className="mt-3 rounded-md border border-dashed border-warning/40 bg-warning/5 p-3">
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+              Tentativas anteriores
+            </p>
+            {hasFailedHistory && (
+              <button
+                onClick={() => setShowPriorErrors((v) => !v)}
+                className="text-xs text-destructive underline hover:no-underline"
+              >
+                {showPriorErrors ? "Ocultar erros" : `Ver erro${failedAttempts.length > 1 ? "s" : ""}`}
+              </button>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-1.5">
+            {priorAttempts.map((pl) => <PastPlatformBadge key={pl.logId} pl={pl} />)}
+          </div>
+          {hasPublishedHistory && (
+            <p className="mt-2 text-[11px] text-muted-foreground">
+              Já publicado em {publishedAttempts.map((p) => p.raw).join(", ")} — não vai republicar para evitar duplicação.
+            </p>
+          )}
+          {showPriorErrors && hasFailedHistory && (
+            <div className="mt-2 space-y-2">
+              {failedAttempts.map((pl) => (
+                <div key={pl.logId} className="rounded bg-destructive/10 px-3 py-2 text-xs">
+                  <p className="font-medium text-destructive">{pl.raw}</p>
+                  <p className="mt-1 text-destructive/80 break-words font-mono">{pl.error}</p>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
+
       {previewOpen && <PreviewDialog post={post} onClose={() => setPreviewOpen(false)} />}
     </div>
   )
@@ -1682,14 +1778,16 @@ function CalendarChip({ post, ok }: { post: AnyPost; ok: boolean }) {
   }
 
   const platform = post.targetChecks?.[0]?.platform ?? "instagram"
+  const failedHistory = (post.priorAttempts ?? []).some((pl) => pl.status === "failed")
   return (
     <div
       className={cn(
         "flex items-center gap-1 truncate rounded px-1 py-0.5 text-[11px] leading-tight",
-        ok ? platformClass(platform) : "bg-warning/15 text-warning"
+        failedHistory ? "bg-warning/15 text-warning" : ok ? platformClass(platform) : "bg-warning/15 text-warning"
       )}
-      title={post.title}
+      title={failedHistory ? `${post.title} (com tentativas anteriores)` : post.title}
     >
+      {failedHistory && <RefreshCw className="h-2.5 w-2.5 shrink-0" />}
       <span className="shrink-0 font-mono text-[10px] opacity-70">{time}</span>
       <span className="truncate">{post.title || "Sem título"}</span>
     </div>
