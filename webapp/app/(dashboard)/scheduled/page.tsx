@@ -24,7 +24,7 @@ type ApprovalState = {
   token?: string | null
   decision?: "approved" | "rejected" | "revision" | null
   comment?: string | null
-  sentVia?: "manychat" | "manual" | "none" | null
+  sentVia?: "manychat" | "manual" | "invalid_phone" | "none" | null
   sentAt?: string | null
   decidedAt?: string | null
   expiresAt?: string | null
@@ -1152,6 +1152,11 @@ function ApprovalBanner({
         )}
         {approval.sentVia === "none" && (approval.state === "pending" || approval.state === "stale") && (
           <span className="text-[11px] opacity-80">· WhatsApp não foi enviado automaticamente</span>
+        )}
+        {approval.sentVia === "invalid_phone" && (
+          <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-[11px] font-medium text-destructive">
+            ⚠ Telefone inválido na DB Contato — corrija no Notion
+          </span>
         )}
         <div className="ml-auto flex items-center gap-1.5">
           {approval.state === "no_link" && (

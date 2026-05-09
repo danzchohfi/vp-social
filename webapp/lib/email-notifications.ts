@@ -84,6 +84,77 @@ export function notifyPublishFailureAsync(
   })
 }
 
+// ─── Client-decision notification ────────────────────────────────
+// Closes the loop when the end client decides on /approve/[token]:
+// pings the agency owner (post.userId) so they don't have to refresh
+// /scheduled to find out. Same Resend setup, same fire-and-forget
+// semantics as notifyPublishFailureAsync.
+//
+// Only sends on real decisions ('approved' | 'changes_requested') —
+// 'expired' (the cron's synthetic marker) is internal.
+
+type ClientDecisionEmail = {
+  postTitle: string | null
+  contactName: string | null
+  decision: "approved" | "changes_requested"
+  comment: string | null
+  approvalUrl: string | null
+  notionPageId: string | null
+}
+
+export async function notifyClientDecision(
+  userId: string,
+  clientName: string | null,
+  decision: ClientDecisionEmail,
+): Promise<void> {
+  const [u] = await db.select({ email: userTable.email, name: userTable.name }).from(userTable).where(eq(userTable.id, userId))
+  if (!u?.email) return
+
+  const verb = decision.decision === "approved" ? "aprovou" : "pediu alterações"
+  const who = decision.contactName || "Cliente"
+  const titleSafe = decision.postTitle || "post sem título"
+  const clientLabel = clientName ? ` (${clientName})` : ""
+
+  const subject = decision.decision === "approved"
+    ? `✅ ${who} aprovou: ${titleSafe}`
+    : `✏️ ${who} pediu alterações em: ${titleSafe}`
+
+  const link = decision.notionPageId
+    ? `https://www.notion.so/${decision.notionPageId.replace(/-/g, "")}`
+    : `${APP_URL}/scheduled`
+
+  const html = `<div style="font-family:system-ui,sans-serif;max-width:520px;margin:0 auto;padding:24px;color:#111">
+    <h2 style="margin:0 0 12px;font-size:20px">${esc(who)} ${esc(verb)}${clientLabel ? ` <span style="color:#666;font-weight:normal">${esc(clientLabel.trim())}</span>` : ""}</h2>
+    <p style="margin:0 0 16px;font-size:15px;line-height:1.5">
+      <strong>${esc(titleSafe)}</strong>
+    </p>
+    ${decision.comment
+      ? `<div style="background:#f5f5f7;border-radius:8px;padding:12px 14px;margin:0 0 16px">
+          <p style="margin:0 0 4px;font-size:12px;color:#666;text-transform:uppercase;letter-spacing:0.5px">Comentário do cliente</p>
+          <p style="margin:0;font-size:14px;line-height:1.5;white-space:pre-wrap">${esc(decision.comment)}</p>
+        </div>`
+      : ""}
+    <p style="margin:0 0 8px">
+      <a href="${esc(link)}" style="display:inline-block;background:#111;color:#fff;padding:10px 16px;border-radius:6px;text-decoration:none;font-size:14px">Ver no Notion</a>
+    </p>
+    ${decision.approvalUrl
+      ? `<p style="margin:8px 0 0;font-size:12px;color:#666">Link de aprovação: <a href="${esc(decision.approvalUrl)}" style="color:#666">${esc(decision.approvalUrl)}</a></p>`
+      : ""}
+  </div>`
+
+  await sendEmail(u.email, subject, html, "client-decision")
+}
+
+export function notifyClientDecisionAsync(
+  userId: string,
+  clientName: string | null,
+  decision: ClientDecisionEmail,
+): void {
+  notifyClientDecision(userId, clientName, decision).catch((e) => {
+    console.warn("[notifyClientDecision] background notify failed:", e)
+  })
+}
+
 // ─── Invite email ────────────────────────────────────
 
 type InviteEmail = {

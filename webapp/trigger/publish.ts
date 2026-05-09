@@ -8,7 +8,7 @@ import { publishToPlatform, saveLog, claimPublishSlot, completePublishSlot, isVi
 import { createInstagramPublisher, fetchInstagramPermalink } from "../lib/instagram"
 import { probeVideoDurationSec, splitStoryVideo } from "../lib/video-splitter"
 import { notifyPublishFailureAsync } from "../lib/email-notifications"
-import { sendApprovalRequest } from "../lib/manychat"
+import { sendApprovalRequest, validatePhoneE164 } from "../lib/manychat"
 import { generateId } from "../lib/utils"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
@@ -453,11 +453,27 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
     //   auto_manychat   → try ManyChat. On failure or missing creds, fall
     //                     back to sentVia='none' and the agency manually
     //                     nudges via the same click-to-chat button.
-    let sentVia: "manychat" | "manual" | "none" = "none"
+    // 'invalid_phone' = ManyChat dispatch was skipped because the
+    // contact's phone in the Notion DB doesn't look like a real E.164
+    // number. UI surfaces this clearly in /scheduled so the agency
+    // knows to fix the Contato page (vs. silent ManyChat 'not found').
+    let sentVia: "manychat" | "manual" | "invalid_phone" | "none" = "none"
+
+    // Pre-flight phone validation. We only call this when there's
+    // actually a phone — when phone is null, the existing "no phone"
+    // warning path below handles it.
+    let phoneIssue: string | null = null
+    if (contact.phone) {
+      const v = validatePhoneE164(contact.phone)
+      if (!v.valid) phoneIssue = v.reason
+    }
 
     if (approvalMode === "manual_whatsapp") {
       sentVia = "manual"
       logger.info(`[approval] modo manual: link gerado para "${post.title}" — agência envia via wa.me em /scheduled`)
+    } else if (phoneIssue) {
+      sentVia = "invalid_phone"
+      logger.warn(`[approval] telefone inválido pra "${post.title}" (${contact.phone}): ${phoneIssue}. Agência precisa corrigir a página Contato no Notion.`)
     } else if (contact.phone && manychatApiKey && manychatFlowNs) {
       const result = await sendApprovalRequest({
         apiKey: manychatApiKey,
@@ -499,9 +515,9 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
         sentVia,
         // 'manual' counts as "we generated the link" for sentAt — the
         // agency-side dispatch happens via wa.me click-to-chat which we
-        // don't track separately. 'none' means the dispatch never fired
-        // at all (wait state).
-        sentAt: sentVia === "none" ? null : new Date(),
+        // don't track separately. 'none' / 'invalid_phone' = dispatch
+        // never fired at all (wait state OR config error).
+        sentAt: (sentVia === "none" || sentVia === "invalid_phone") ? null : new Date(),
       })
       .where(eq(schema.approvalLink.token, token))
   }
