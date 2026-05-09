@@ -27,6 +27,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       ? body.manychatApprovalFlowNs.trim()
       : null
   }
+  // Approval-notification mode. Only accept the two known values; null
+  // clears (treated as auto_manychat default by the cron). Anything else
+  // is a 400 to surface UI bugs early.
+  if (body.approvalNotificationMode !== undefined) {
+    const v = body.approvalNotificationMode
+    if (v !== null && v !== "auto_manychat" && v !== "manual_whatsapp") {
+      return NextResponse.json({ error: "approvalNotificationMode inválido" }, { status: 400 })
+    }
+    update.approvalNotificationMode = v
+  }
   // Notion `conta` values that belong to this client. Used by
   // /api/notion/scheduled + trigger/publish.ts to route posts to the
   // right tenant without name-matching heuristics. Empty array clears
