@@ -1009,6 +1009,14 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
             Salvar ManyChat
           </Button>
 
+          {/* Self-test dispatch — sends the configured Flow to a phone
+              the agency picks (typically their own) so they can confirm
+              the whole pipeline works before going live. Only useful
+              when the API key + Flow are saved and persisted. */}
+          {!dirty && origApiKey && origFlowNs && (
+            <SelfTestPanel clientId={clientId} />
+          )}
+
           <div className="rounded-lg border bg-muted/10">
             <button
               onClick={() => setShowFlowGuide((v) => !v)}
@@ -1431,6 +1439,118 @@ function ApprovalHistorySection({
 //   - the user hasn't entered an API key yet (can't list)
 //   - the saved flow_ns isn't in the fetched list (kept for legacy or
 //     newly-created flows the user wants to wire by hand)
+// Sends the saved ManyChat Flow to a phone the agency picks (usually
+// their own) — confirms token + Flow + WA template are all wired
+// without spamming the real client. Result includes a "subscriber not
+// found" hint when applicable since that's the most common failure.
+function SelfTestPanel({ clientId }: { clientId: string }) {
+  const [phone, setPhone] = useState("")
+  const [name, setName] = useState("")
+  const [sending, setSending] = useState(false)
+  const [result, setResult] = useState<{ ok: boolean; reason?: string; hint?: string | null } | null>(null)
+  const [open, setOpen] = useState(false)
+
+  async function send() {
+    if (!phone.trim()) {
+      toast.error("Cole seu telefone")
+      return
+    }
+    setSending(true)
+    setResult(null)
+    try {
+      const res = await fetch(`/api/clients/${clientId}/test-approval-self`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phone: phone.trim(), name: name.trim() || undefined }),
+      })
+      const data = await res.json().catch(() => null)
+      if (!res.ok) {
+        setResult({ ok: false, reason: data?.error ?? "Erro", hint: data?.hint ?? null })
+        return
+      }
+      setResult({ ok: true })
+      toast.success("Mensagem enviada — confira seu WhatsApp")
+    } catch (e) {
+      setResult({ ok: false, reason: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setSending(false)
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="inline-flex items-center gap-1.5 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+      >
+        <MessageCircle className="h-3.5 w-3.5" />
+        Testar com meu próprio WhatsApp
+      </button>
+    )
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+      <div className="flex items-baseline justify-between">
+        <p className="text-sm font-semibold">Testar com seu WhatsApp</p>
+        <button
+          type="button"
+          onClick={() => { setOpen(false); setResult(null) }}
+          className="text-xs text-muted-foreground hover:text-foreground"
+        >
+          Fechar
+        </button>
+      </div>
+      <p className="text-xs text-muted-foreground">
+        Dispara o Flow configurado pra você em vez do cliente real, com um post de teste. Confirma que ManyChat + Meta + Flow estão todos OK antes de mandar pro cliente.
+      </p>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Seu telefone (E.164)</Label>
+        <Input
+          type="tel"
+          placeholder="+5511999999999"
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          className="font-mono text-xs"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label className="text-xs">Seu nome (vai aparecer como contact_name)</Label>
+        <Input
+          type="text"
+          placeholder="Vai usar o nome da sua conta se ficar em branco"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </div>
+      <Button size="sm" onClick={send} disabled={sending || !phone.trim()}>
+        {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageCircle className="h-3.5 w-3.5" />}
+        Enviar pra mim
+      </Button>
+      {result && (
+        <div
+          className={cn(
+            "rounded border px-2 py-1.5 text-xs",
+            result.ok
+              ? "border-success/30 bg-success/10 text-success"
+              : "border-destructive/30 bg-destructive/10 text-destructive",
+          )}
+        >
+          {result.ok ? (
+            <span>✓ Enviado. Verifique seu WhatsApp em alguns segundos.</span>
+          ) : (
+            <div className="space-y-1">
+              <p className="font-medium">{result.reason}</p>
+              {result.hint && <p className="text-foreground/80">{result.hint}</p>}
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function FlowPicker({
   clientId,
   apiKey,
