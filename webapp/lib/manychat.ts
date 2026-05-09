@@ -204,6 +204,39 @@ export function buildWhatsAppClickToChatUrl(phone: string, message: string): str
   return `https://wa.me/${digits}?text=${encodeURIComponent(message)}`
 }
 
+// Validates phone for E.164 sanity. ManyChat's findByPhone silently
+// returns "not found" when phones don't have country code, so a typo
+// in the Notion contact DB results in sentVia='none' with no obvious
+// reason. This check catches the common mistakes (no country code,
+// too short/long, letters mixed in) BEFORE the ManyChat round-trip.
+//
+// Returns:
+//   { valid: true } — looks like a real phone (≥10 digits, max 15)
+//   { valid: false, reason } — explain why so the agency UI can fix it
+export function validatePhoneE164(raw: string): { valid: true } | { valid: false; reason: string } {
+  if (!raw || !raw.trim()) return { valid: false, reason: "telefone vazio" }
+  const cleaned = raw.replace(/[^\d+]/g, "")
+  const digitsOnly = cleaned.replace(/\D/g, "")
+  // Letters/symbols beyond + are noise the agency probably typed by accident.
+  if (raw.match(/[a-z]/i)) return { valid: false, reason: "telefone tem letras" }
+  // E.164: 1–3 digit country code + subscriber number = 7–15 digits total.
+  // Brazil real-world: +55 + 11 digits = 13 total; we accept 10+ to allow
+  // tests against truncated CPFs etc. Below 10 is almost certainly bad.
+  if (digitsOnly.length < 10) return { valid: false, reason: `só ${digitsOnly.length} dígitos (mínimo 10)` }
+  if (digitsOnly.length > 15) return { valid: false, reason: `${digitsOnly.length} dígitos (máximo 15)` }
+  // Most agencies forget the country code. If the phone doesn't start
+  // with a + AND has no leading country code (BR=55, US=1), warn.
+  // Heuristic: BR mobile starts with 55 + 9X. Strip leading + first.
+  const noPlus = cleaned.replace(/^\+/, "")
+  // 11-digit Brazilian without country code (e.g. "11999999999"). Tell
+  // the user to add +55. We don't auto-fix because some agencies do
+  // serve other countries.
+  if (!cleaned.startsWith("+") && noPlus.length === 11 && /^[1-9]/.test(noPlus)) {
+    return { valid: false, reason: "falta o código do país (ex: +55 para Brasil)" }
+  }
+  return { valid: true }
+}
+
 // ─── List flows ────────────────────────────────────────
 // Returns the page's existing Flows so the UI can render a dropdown
 // instead of asking the user to copy/paste the flow_ns string. Same

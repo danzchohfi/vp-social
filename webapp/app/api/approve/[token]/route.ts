@@ -20,6 +20,7 @@ import {
 } from "@/lib/approval-link"
 import { advanceChain } from "@/lib/productions"
 import { sendApprovalRequest } from "@/lib/manychat"
+import { notifyClientDecisionAsync } from "@/lib/email-notifications"
 import { generateId } from "@/lib/utils"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
@@ -406,6 +407,28 @@ export async function POST(
     }
   } catch (e) {
     console.error(`[approve POST] Notion side-effect failed for token ${token}:`, e)
+  }
+
+  // Notify the agency owner via email so they don't have to refresh
+  // /scheduled to learn about the decision. Fire-and-forget so a Resend
+  // outage doesn't make the public approval flow look broken.
+  try {
+    const [ownerClient] = await db
+      .select({ name: clientTable.name, userId: clientTable.userId })
+      .from(clientTable)
+      .where(eq(clientTable.id, row.clientId))
+    if (ownerClient?.userId) {
+      notifyClientDecisionAsync(ownerClient.userId, ownerClient.name ?? null, {
+        postTitle: row.postTitle,
+        contactName: row.contactName,
+        decision: body.decision,
+        comment: comment || null,
+        approvalUrl: `${APP_URL}/approve/${row.token}`,
+        notionPageId: row.notionPageId,
+      })
+    }
+  } catch (e) {
+    console.warn(`[approve POST] decision-email lookup failed for token ${token}:`, e)
   }
 
   return NextResponse.json({
