@@ -577,11 +577,19 @@ export default function ScheduledPage() {
           {/* Past — published + failed */}
           {visiblePast.length > 0 && (
             <section>
-              <div className="mb-4 flex items-center gap-2">
-                <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
-                  {filter === "errors" ? "Posts com erro" : filter === "published" ? "Já publicados" : "Histórico recente"} ({visiblePast.length})
-                </h2>
+              <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
+                  <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                    {filter === "errors" ? "Posts com erro" : filter === "published" ? "Já publicados" : "Histórico recente"} ({visiblePast.length})
+                  </h2>
+                </div>
+                {/* Bulk retry — only meaningful when viewing errors. Wraps
+                    individual retry calls in Promise.allSettled so a single
+                    Notion 5xx doesn't abort the rest. */}
+                {filter === "errors" && visiblePast.length > 1 && (
+                  <BulkRetryButton posts={visiblePast} onDone={load} />
+                )}
               </div>
               <div className="space-y-2">
                 {visiblePast.map((p) => <PastPostRow key={p.pageId + p.date} post={p} onRetried={load} />)}
@@ -604,6 +612,55 @@ export default function ScheduledPage() {
         </Link>
       </div>
     </div>
+  )
+}
+
+// Bulk retry: re-flips every visible failed post back to "ready" status
+// in Notion. Wraps individual /api/posts/retry calls in Promise.allSettled
+// so one Notion 5xx doesn't abort the rest. Cron picks them up on next
+// tick — duplicates physically impossible thanks to the partial unique
+// index from PR #3 (publish_log_inflight_uniq).
+function BulkRetryButton({ posts, onDone }: { posts: PastPost[]; onDone: () => void }) {
+  const [retrying, setRetrying] = useState(false)
+
+  // Only retry posts that have at least one failed platform AND a
+  // connectionId (older logs without one can't be retried).
+  const retryable = posts.filter((p) => p.connectionId && p.platforms.some((pl) => pl.status === "failed"))
+  if (retryable.length === 0) return null
+
+  async function bulkRetry() {
+    if (!confirm(`Reagendar ${retryable.length} post(s) com erro pra tentar novamente? O cron vai pegar no próximo tick (até 5min).`)) return
+    setRetrying(true)
+    try {
+      const results = await Promise.allSettled(
+        retryable.map((p) =>
+          fetch("/api/posts/retry", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ pageId: p.pageId, connectionId: p.connectionId }),
+          }),
+        ),
+      )
+      const failures = results.filter((r) => r.status === "rejected" || (r.status === "fulfilled" && !r.value.ok)).length
+      const successes = retryable.length - failures
+      if (failures === 0) {
+        toast.success(`${successes} post(s) reagendados — aguarde o próximo tick do cron`)
+      } else if (successes > 0) {
+        toast.warning(`${successes} reagendados, ${failures} falharam — confira o log`)
+      } else {
+        toast.error("Nada foi reagendado — confira o log")
+      }
+      onDone()
+    } finally {
+      setRetrying(false)
+    }
+  }
+
+  return (
+    <Button variant="outline" size="sm" onClick={bulkRetry} disabled={retrying}>
+      {retrying ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+      Tentar novamente todos ({retryable.length})
+    </Button>
   )
 }
 
