@@ -962,7 +962,16 @@ export default async function DashboardPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-medium break-words">{p.title || "Sem título"}</p>
+                            <a
+                              href={notionUrlFor(p)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Abrir no Notion"
+                              className="group inline-flex items-center gap-1.5 min-w-0 text-sm font-medium hover:underline"
+                            >
+                              <span className="break-words">{p.title || "Sem título"}</span>
+                              <ExternalLink className="h-3 w-3 shrink-0 opacity-40 transition-opacity group-hover:opacity-100" />
+                            </a>
                             {isAgency && owning && (
                               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                                 {owning.logoUrl ? (
@@ -1020,15 +1029,6 @@ export default async function DashboardPage() {
                         </ul>
                       )}
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                        <a
-                          href={notionUrlFor(p)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs font-medium hover:bg-accent"
-                        >
-                          <ExternalLink className="h-3 w-3" />
-                          Notion
-                        </a>
                         <Link
                           href={`/scheduled?postId=${encodeURIComponent(p.pageId)}`}
                           className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs font-medium hover:bg-accent"
@@ -1136,7 +1136,16 @@ export default async function DashboardPage() {
                         {log.status === "skipped" && <Clock className="h-5 w-5 shrink-0 text-muted-foreground" />}
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <p className="text-sm font-medium truncate">{log.postTitle || "Post sem título"}</p>
+                            <a
+                              href={`https://www.notion.so/${log.notionPageId.replace(/-/g, "")}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              title="Abrir no Notion"
+                              className="group inline-flex items-center gap-1.5 min-w-0 text-sm font-medium hover:underline"
+                            >
+                              <span className="truncate">{log.postTitle || "Post sem título"}</span>
+                              <ExternalLink className="h-3 w-3 shrink-0 opacity-40 transition-opacity group-hover:opacity-100" />
+                            </a>
                             {isAgency && owning && (
                               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                                 {owning.logoUrl ? (

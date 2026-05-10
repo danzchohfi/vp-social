@@ -793,7 +793,20 @@ function PastPostRow({ post, onRetried }: { post: PastPost; onRetried?: () => vo
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium truncate">{post.title || "Sem título"}</p>
+            {post.pageId ? (
+              <a
+                href={`https://www.notion.so/${post.pageId.replace(/-/g, "")}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Abrir no Notion"
+                className="group inline-flex items-center gap-1.5 min-w-0 font-medium hover:underline"
+              >
+                <span className="truncate">{post.title || "Sem título"}</span>
+                <ExternalLink className="h-3 w-3 shrink-0 opacity-40 transition-opacity group-hover:opacity-100" />
+              </a>
+            ) : (
+              <p className="font-medium truncate">{post.title || "Sem título"}</p>
+            )}
             {post.clientName && (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
                 {post.clientLogoUrl ? (
@@ -832,21 +845,6 @@ function PastPostRow({ post, onRetried }: { post: PastPost; onRetried?: () => vo
               {previewLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Eye className="h-3.5 w-3.5" />}
               Preview
             </Button>
-          )}
-          {/* Notion URL is constructed from the page ID since the publishLog
-              row doesn't store the full URL — Notion accepts the bare ID
-              with or without dashes. */}
-          {post.pageId && (
-            <a
-              href={`https://www.notion.so/${post.pageId.replace(/-/g, "")}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Abrir no Notion"
-              className="inline-flex h-9 items-center gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Notion
-            </a>
           )}
           {hasFailure && post.connectionId && (
             <Button
@@ -1011,7 +1009,20 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
       <div className="flex items-center justify-between gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-medium truncate">{post.title || "Sem título"}</p>
+            {post.notionUrl ? (
+              <a
+                href={post.notionUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                title="Abrir no Notion"
+                className="group inline-flex items-center gap-1.5 min-w-0 font-medium hover:underline"
+              >
+                <span className="truncate">{post.title || "Sem título"}</span>
+                <ExternalLink className="h-3 w-3 shrink-0 opacity-40 transition-opacity group-hover:opacity-100" />
+              </a>
+            ) : (
+              <p className="font-medium truncate">{post.title || "Sem título"}</p>
+            )}
             {/* Client chip — only shown in agency view (clientName present). */}
             {post.clientName && (
               <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
@@ -1085,18 +1096,6 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
             <Eye className="h-3.5 w-3.5" />
             Preview
           </Button>
-          {post.notionUrl && (
-            <a
-              href={post.notionUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Abrir no Notion"
-              className="inline-flex h-9 items-center gap-2 rounded-md border border-input bg-background px-3 text-sm font-medium shadow-xs transition-colors hover:bg-accent hover:text-accent-foreground"
-            >
-              <ExternalLink className="h-3.5 w-3.5" />
-              Notion
-            </a>
-          )}
           {canPublishNow && (
             <Button
               size="sm"
