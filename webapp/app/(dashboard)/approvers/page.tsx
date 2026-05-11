@@ -42,7 +42,8 @@ type Approver = {
   magicToken: string
   magicTokenIssuedAt: string
   notes: string | null
-  usageCount: number
+  usageCount: number          // productions in chain
+  postPendingCount?: number   // posts currently awaiting this approver (PR AQ)
   createdAt: string
 }
 
@@ -154,9 +155,16 @@ export default function ApproversPage() {
   }
 
   async function deleteApprover(approver: Approver) {
+    const parts: string[] = []
     if (approver.usageCount > 0) {
+      parts.push(`${approver.usageCount} produção${approver.usageCount === 1 ? "" : "ões"}`)
+    }
+    if ((approver.postPendingCount ?? 0) > 0) {
+      parts.push(`${approver.postPendingCount} post${approver.postPendingCount === 1 ? "" : "s"} pendente${approver.postPendingCount === 1 ? "" : "s"}`)
+    }
+    if (parts.length > 0) {
       if (!confirm(
-        `${approver.name} está em ${approver.usageCount} produção${approver.usageCount === 1 ? "" : "ões"}. Excluir vai removê-lo dessas chains. Continuar?`,
+        `${approver.name} está em ${parts.join(" e ")}. Excluir vai desvincular dessas chains/posts (o post-link ainda funciona pelo /approve/<token>). Continuar?`,
       )) return
     } else {
       if (!confirm(`Excluir ${approver.name}?`)) return
@@ -178,9 +186,9 @@ export default function ApproversPage() {
         <div>
           <h1 className="text-3xl tracking-tight sm:text-4xl">Aprovadores</h1>
           <p className="text-muted-foreground">
-            Pessoas que aprovam roteiros das produções. Cada um tem um portal pessoal{" "}
+            Pessoas que aprovam <strong>posts</strong> e <strong>roteiros de produções</strong>. Cada uma tem um portal pessoal{" "}
             <code className="rounded bg-muted px-1 py-0.5 font-mono text-[13px]">/a/&#123;token&#125;</code> com tudo
-            que está aguardando decisão.
+            que está aguardando decisão — produções entram pela chain editada na produção; posts entram automaticamente quando o telefone bate com o contato resolvido do Notion.
           </p>
         </div>
         <Button onClick={() => setShowNew(true)} disabled={showNew}>
@@ -419,8 +427,19 @@ function ApproverRow({
                 {ROLE_LABEL[approver.role] ?? approver.role}
               </span>
               {approver.usageCount > 0 && (
-                <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary">
+                <span
+                  className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary"
+                  title="Produções nas quais este aprovador faz parte da chain"
+                >
                   {approver.usageCount} produção{approver.usageCount === 1 ? "" : "ões"}
+                </span>
+              )}
+              {(approver.postPendingCount ?? 0) > 0 && (
+                <span
+                  className="shrink-0 rounded-full bg-warning/15 px-2 py-0.5 text-[12px] font-medium text-warning"
+                  title="Posts atualmente aguardando aprovação deste contato"
+                >
+                  {approver.postPendingCount} post{approver.postPendingCount === 1 ? "" : "s"} pendente{approver.postPendingCount === 1 ? "" : "s"}
                 </span>
               )}
             </div>

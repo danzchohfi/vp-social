@@ -1,7 +1,7 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { approver, productionApprover, production } from "@/lib/db/schema"
-import { and, asc, eq, inArray } from "drizzle-orm"
+import { approver, productionApprover, production, approvalLink } from "@/lib/db/schema"
+import { and, asc, eq, inArray, isNull } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { findOrCreateApprover } from "@/lib/approvers"
@@ -44,6 +44,27 @@ export async function GET() {
     usageCount.set(u.approverId, (usageCount.get(u.approverId) ?? 0) + 1)
   }
 
+  // Wave 3: also count pending post approvalLinks linked to each
+  // approver (cron does phone-match in /lib/approvers.findApproverByPhone).
+  // Shown separately so the roster row can distinguish "5 produções"
+  // from "3 posts" — same approver, different work types.
+  const postUsage = approverIds.length > 0 && clientIds.length > 0
+    ? await db
+        .select({ approverId: approvalLink.approverId })
+        .from(approvalLink)
+        .where(and(
+          eq(approvalLink.kind, "post"),
+          inArray(approvalLink.approverId, approverIds),
+          inArray(approvalLink.clientId, clientIds),
+          isNull(approvalLink.decision),
+        ))
+    : []
+  const postUsageCount = new Map<string, number>()
+  for (const u of postUsage) {
+    if (!u.approverId) continue
+    postUsageCount.set(u.approverId, (postUsageCount.get(u.approverId) ?? 0) + 1)
+  }
+
   return NextResponse.json({
     approvers: rows.map((r) => ({
       id: r.id,
@@ -55,6 +76,7 @@ export async function GET() {
       magicTokenIssuedAt: r.magicTokenIssuedAt,
       notes: r.notes,
       usageCount: usageCount.get(r.id) ?? 0,
+      postPendingCount: postUsageCount.get(r.id) ?? 0,
       createdAt: r.createdAt,
     })),
   })

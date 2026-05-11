@@ -55,9 +55,20 @@ type HistoryItem = {
   comment: string | null
 }
 
+type PostPendingItem = {
+  approvalLinkToken: string
+  notionPageId: string | null
+  postTitle: string
+  clientName: string | null
+  sentAt: string | null
+  expiresAt: string
+  kind: "post"
+}
+
 type ApiResponse = {
   approver: { id: string; name: string; email: string | null; phone: string | null; role: string }
   pending: PendingItem[]
+  postPending?: PostPendingItem[]
   history: HistoryItem[]
   error?: string
 }
@@ -171,6 +182,7 @@ export default function ApproverPortalPage() {
   }
 
   const { approver, pending, history } = data
+  const postPending: PostPendingItem[] = data.postPending ?? []
 
   return (
     <div className="min-h-screen bg-muted/20">
@@ -198,7 +210,7 @@ export default function ApproverPortalPage() {
                 : "text-muted-foreground hover:text-foreground",
             )}
           >
-            Aguardando você ({pending.length})
+            Aguardando você ({pending.length + postPending.length})
           </button>
           <button
             type="button"
@@ -217,7 +229,7 @@ export default function ApproverPortalPage() {
         {/* Pending */}
         {tab === "pending" && (
           <div className="space-y-3">
-            {pending.length === 0 ? (
+            {pending.length === 0 && postPending.length === 0 ? (
               <Card>
                 <CardContent className="py-10 text-center">
                   <CheckCircle2 className="mx-auto mb-3 h-8 w-8 text-success" />
@@ -226,7 +238,45 @@ export default function ApproverPortalPage() {
                   </p>
                 </CardContent>
               </Card>
-            ) : (
+            ) : null}
+
+            {postPending.length > 0 && (
+              <>
+                <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  Posts ({postPending.length})
+                </p>
+                {postPending.map((p) => (
+                  <Card key={p.approvalLinkToken} className="overflow-hidden">
+                    <CardHeader className="pb-3">
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-base">{p.postTitle}</p>
+                          {p.clientName && (
+                            <p className="mt-0.5 text-sm text-muted-foreground">{p.clientName}</p>
+                          )}
+                        </div>
+                        <Badge variant="outline" className="shrink-0">Post</Badge>
+                      </div>
+                    </CardHeader>
+                    <CardContent className="pt-0">
+                      <Button asChild className="w-full">
+                        <a href={`/approve/${p.approvalLinkToken}`}>
+                          Abrir post pra aprovar
+                          <ExternalLink className="ml-1 h-3.5 w-3.5" />
+                        </a>
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </>
+            )}
+
+            {pending.length > 0 && (
+              <p className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                Produções ({pending.length})
+              </p>
+            )}
+            {pending.length > 0 && (
               pending.map((p) => (
                 <Card key={p.approvalLinkToken} className="overflow-hidden">
                   <CardHeader className="pb-3">
