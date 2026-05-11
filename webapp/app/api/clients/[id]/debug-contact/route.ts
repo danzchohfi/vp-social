@@ -124,19 +124,24 @@ export async function GET(
       firstItemSample: Array.isArray(rd?.array) ? rd.array[0] : null,
     })
     // 2-hop attempt (read directly from rollup.array)
+    let rollupIsRelationShape = false
     if (rd?.type === "array" && Array.isArray(rd.array)) {
       for (const item of rd.array) {
-        if (item?.type === "relation" && Array.isArray(item.relation)) {
-          for (const r of item.relation) {
-            if (r?.id) relatedIds.push(r.id)
+        if (item?.type === "relation") {
+          rollupIsRelationShape = true
+          if (Array.isArray(item.relation)) {
+            for (const r of item.relation) {
+              if (r?.id) relatedIds.push(r.id)
+            }
           }
         }
       }
       relatedIds = Array.from(new Set(relatedIds))
-      log("rollup_2hop_result", { foundIds: relatedIds })
+      log("rollup_2hop_result", { foundIds: relatedIds, rollupIsRelationShape })
     }
-    // 1-hop fallback
-    if (relatedIds.length === 0) {
+    // 1-hop fallback — only when the rollup is NOT a relation-shape
+    // rollup. See lib/notion.ts for rationale.
+    if (relatedIds.length === 0 && !rollupIsRelationShape) {
       try {
         const dbInfo: any = await client.databases.retrieve({ database_id: conn.databaseId })
         const schemaProp = dbInfo?.properties?.[fieldName]
@@ -156,6 +161,10 @@ export async function GET(
       } catch (e) {
         log("rollup_1hop_error", { error: String(e) })
       }
+    } else if (relatedIds.length === 0 && rollupIsRelationShape) {
+      log("rollup_empty_contacts", {
+        reason: "Rollup está configurado como relation (2-hop) mas a(s) página(s) intermediária(s) Conta não têm nenhum contato linkado. Adicione contatos na DB Conta antes de testar.",
+      })
     }
   } else {
     log("unsupported_type", { type: mappedProp?.type ?? null })
