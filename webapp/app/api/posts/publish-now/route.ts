@@ -116,12 +116,12 @@ export async function POST(req: Request) {
 
     // Pre-check: IG Story video > 60s would fail with the cryptic 2207082
     // from Meta's side. The auto-split pipeline (lib/video-splitter.ts) only
-    // runs in the Trigger.dev worker (ffmpeg + Vercel Blob, can't fit in a
-    // 50MB Vercel function). So here we use a pure-JS MP4 box parser to
-    // probe duration; if > 60s, refuse with a clear message pointing the
-    // user at scheduled publish (which the cron will split). When the
-    // probe returns null (non-fast-start MP4 or non-MP4) we fall through
-    // and let IG decide.
+    // runs in the Trigger.dev worker (ffmpeg can't fit in a 50MB Vercel
+    // function). So here we use a pure-JS MP4 box parser to probe duration;
+    // if > 60s, refuse with a clear message pointing the user at scheduled
+    // publish (which the cron will split + upload direct to IG via
+    // resumable upload). When the probe returns null (non-fast-start MP4
+    // or non-MP4) we fall through and let IG decide.
     const tipoLower = target.tipo.toLowerCase().trim()
     if (target.platform === "instagram" && tipoLower === "story") {
       const storyVideoUrl = post.verticalUrls[0]

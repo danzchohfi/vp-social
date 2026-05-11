@@ -86,6 +86,21 @@ export function createInstagramPublisher(accountId: string, accessToken: string)
       return publishContainer(accountId, accessToken, id)
     },
 
+    /**
+     * Story de vídeo direto do disco — usa IG Resumable Upload API.
+     *
+     * Diferente de publishStoryVideo, este path NÃO precisa de URL pública
+     * intermediária. O worker faz upload do arquivo local direto pro
+     * rupload.facebook.com. Usado pelo splitter de Stories > 60s pra
+     * evitar dependência de Vercel Blob/S3/etc.
+     */
+    async publishStoryVideoFromBuffer(buffer: Buffer): Promise<string> {
+      const containerId = await initResumableUpload(accountId, accessToken, "STORIES")
+      await uploadResumableBytes(containerId, accessToken, buffer)
+      await waitForContainer(accountId, accessToken, containerId, 20)
+      return publishContainer(accountId, accessToken, containerId)
+    },
+
     /** Vídeo no feed */
     async publishFeedVideo(videoUrl: string, caption: string, thumbnailUrl?: string | null): Promise<string> {
       const id = await createContainer(accountId, accessToken, {
@@ -173,6 +188,61 @@ async function postGraph(
     throw new Error(`Instagram API (${path}): ${data.error?.message ?? res.statusText}`)
   }
   return data.id
+}
+
+// ─── IG Resumable Upload ─────────────────────────────────────────
+//
+// Two-step direct-upload flow. The standard /media endpoint takes a
+// `video_url` field and pulls the bytes from a URL we control — that
+// forces the caller to host the file publicly somewhere (Vercel Blob,
+// S3, etc.). The resumable variant returns a `rupload.facebook.com`
+// upload URI; the worker POSTs the bytes directly. No public host
+// needed, no leftover blobs to garbage-collect.
+//
+// Docs: https://developers.facebook.com/docs/graph-api/guides/upload
+//       https://developers.facebook.com/docs/instagram-platform/content-publishing#resumable-upload
+
+const RUPLOAD_BASE = "https://rupload.facebook.com/ig-api-upload/v19.0"
+
+async function initResumableUpload(
+  accountId: string,
+  token: string,
+  mediaType: "STORIES" | "REELS" | "VIDEO",
+): Promise<string> {
+  // The init call returns { id } (the container id, which is reused as
+  // the upload session id) and optionally { uri } we could honor — but
+  // for IG the uri is always rupload.facebook.com/ig-api-upload/<v>/<id>,
+  // so we construct it directly to skip a JSON field that varies by
+  // Graph version.
+  return postGraph(`/${accountId}/media`, token, {
+    media_type: mediaType,
+    upload_type: "resumable",
+  })
+}
+
+async function uploadResumableBytes(
+  containerId: string,
+  token: string,
+  buffer: Buffer,
+): Promise<void> {
+  const res = await fetch(`${RUPLOAD_BASE}/${containerId}`, {
+    method: "POST",
+    headers: {
+      "Authorization": `OAuth ${token}`,
+      "offset": "0",
+      "file_size": String(buffer.length),
+      "Content-Type": "application/octet-stream",
+    },
+    body: new Uint8Array(buffer),
+  })
+  const data = await res.json().catch(() => ({}))
+  if (!res.ok || data.error) {
+    const msg = data.error?.message ?? data.debug_info?.message ?? res.statusText
+    throw new Error(`IG resumable upload: ${msg}`)
+  }
+  // Successful upload returns { success: true } or { h: "<hash>" }
+  // depending on the upload route version. Either way absence of error
+  // is the only thing we care about here — waitForContainer follows.
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms))
