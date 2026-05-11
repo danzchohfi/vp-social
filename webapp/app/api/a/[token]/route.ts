@@ -105,8 +105,95 @@ export async function GET(
       decidedAt: r.decidedAt,
       round: r.round,
       comment: r.comment,
+      kind: "production_script" as const,
     }
   })
+
+  // ─── Posts pending for this approver ──────────────────────────
+  // Wave 3: a post-approvalLink links to an Approver via cron's
+  // phone-match (lib/approvers.findApproverByPhone). Surface those
+  // in the same portal so the approver has ONE URL covering both
+  // productions and posts.
+  const postsPending = await db
+    .select({
+      token: approvalLink.token,
+      notionPageId: approvalLink.notionPageId,
+      postTitle: approvalLink.postTitle,
+      clientId: approvalLink.clientId,
+      sentAt: approvalLink.sentAt,
+      expiresAt: approvalLink.expiresAt,
+    })
+    .from(approvalLink)
+    .where(and(
+      eq(approvalLink.kind, "post"),
+      eq(approvalLink.approverId, approver.id),
+    ))
+
+  type RawPostRow = {
+    token: string
+    notionPageId: string | null
+    postTitle: string | null
+    clientId: string | null
+    sentAt: Date | null
+    expiresAt: Date
+  }
+  const livePostsPending = (postsPending as RawPostRow[])
+    .filter((p) => p.expiresAt > new Date())
+
+  const postClientIds: string[] = Array.from(
+    new Set(livePostsPending
+      .map((p) => p.clientId)
+      .filter((id): id is string => !!id)),
+  )
+  const postClients = postClientIds.length
+    ? await db
+        .select({ id: clientTable.id, name: clientTable.name })
+        .from(clientTable)
+        .where(inArray(clientTable.id, postClientIds))
+    : []
+  const postClientById = new Map<string, string>(
+    (postClients as Array<{ id: string; name: string }>).map((c) => [c.id, c.name]),
+  )
+
+  // Filter only un-decided post links (the SELECT didn't include
+  // decision; re-query keeping the shape consistent with the
+  // production pending list).
+  const postsPendingFinal = await db
+    .select({
+      token: approvalLink.token,
+      notionPageId: approvalLink.notionPageId,
+      postTitle: approvalLink.postTitle,
+      clientId: approvalLink.clientId,
+      sentAt: approvalLink.sentAt,
+      expiresAt: approvalLink.expiresAt,
+      decision: approvalLink.decision,
+    })
+    .from(approvalLink)
+    .where(and(
+      eq(approvalLink.kind, "post"),
+      eq(approvalLink.approverId, approver.id),
+    ))
+
+  type PostRow = {
+    token: string
+    notionPageId: string | null
+    postTitle: string | null
+    clientId: string | null
+    sentAt: Date | null
+    expiresAt: Date
+    decision: string | null
+  }
+  const postPending = (postsPendingFinal as PostRow[])
+    .filter((p) => p.decision == null && p.expiresAt > new Date())
+    .map((p) => ({
+      approvalLinkToken: p.token,
+      notionPageId: p.notionPageId,
+      postTitle: p.postTitle ?? "Sem título",
+      clientName: p.clientId ? postClientById.get(p.clientId) ?? null : null,
+      sentAt: p.sentAt,
+      expiresAt: p.expiresAt,
+      kind: "post" as const,
+    }))
 
   return NextResponse.json({
     approver: {
@@ -116,7 +203,8 @@ export async function GET(
       phone: approver.phone,
       role: approver.role,
     },
-    pending,
+    pending,        // production-script items (existing structure)
+    postPending,    // post items (new in PR AQ)
     history,
   })
 }

@@ -10,6 +10,7 @@ import { probeVideoDurationSec, splitStoryVideo } from "../lib/video-splitter"
 import { notifyPublishFailureAsync } from "../lib/email-notifications"
 import { sendApprovalRequest, validatePhoneE164 } from "../lib/manychat"
 import { generateId } from "../lib/utils"
+import { findApproverByPhone } from "../lib/approvers"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
 const APPROVAL_TTL_DAYS = 14
@@ -127,6 +128,7 @@ export const publishForConnection = task({
           connectionId,
           clientId: connection.clientId,
           clientName,
+          userId,
           mapping,
           approvalMode,
           approvalDispatchMode,
@@ -388,6 +390,10 @@ type SweepArgs = {
   connectionId: string
   clientId: string
   clientName: string | null
+  // Agency owner — used to look up an existing Approver by phone so
+  // post approvalLinks get the same approverId as production chains.
+  // Unifies the /a/[token] magic-link portal across both kinds.
+  userId: string
   mapping: FieldMapping
   // Notification mode for this client. 'manual_whatsapp' = skip ManyChat
   // dispatch entirely — agency uses the click-to-chat WA button on
@@ -402,7 +408,7 @@ type SweepArgs = {
 }
 
 async function runApprovalSweep(a: SweepArgs): Promise<void> {
-  const { db, notion, connectionId, clientId, clientName, mapping, approvalMode, approvalDispatchMode, manychatApiKey, manychatFlowNs } = a
+  const { db, notion, connectionId, clientId, clientName, userId, mapping, approvalMode, approvalDispatchMode, manychatApiKey, manychatFlowNs } = a
   if (!mapping.awaitingApprovalValue) return
   const connection = await db
     .select()
@@ -473,6 +479,18 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
 
     const token = generateId() + generateId().replace(/-/g, "")
     const approvalUrl = `${APP_URL}/approve/${token}`
+
+    // Try to link this post approvalLink to an existing Approver row
+    // matched by phone (digits-normalized). When matched, the same
+    // person's magic-link portal at /a/<token> surfaces this post
+    // alongside their productions — the "unified approver" Wave 3
+    // promise. No match → approverId stays null and the post-only
+    // WhatsApp flow runs as before.
+    const matchedApprover = await findApproverByPhone(db, userId, contact.phone)
+    if (matchedApprover) {
+      logger.info(`[approval] post "${post.title}" linked to approver ${matchedApprover.id} (${matchedApprover.name}) via phone match`)
+    }
+
     const linkRow = {
       id: generateId(),
       token,
@@ -483,6 +501,7 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       contactName: contact.name,
       contactEmail: contact.email,
       contactPhone: contact.phone,
+      approverId: matchedApprover?.id ?? null,
       sentVia: "none" as const,
       sentAt: null as Date | null,
       expiresAt: new Date(Date.now() + APPROVAL_TTL_DAYS * 24 * 60 * 60 * 1000),
