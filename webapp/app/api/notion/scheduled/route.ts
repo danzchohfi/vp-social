@@ -81,40 +81,40 @@ export async function GET() {
   )
 
   // ── Cross-tenant ownership routing ──────────────────────────
-  // When agency clients have explicit client.notionContaValues mappings,
-  // a post's "owner" is the first ACCESSIBLE client whose mapping
-  // includes the post's conta. The post is then visible only when its
-  // owner is in the current view scope. This solves the cross-tenant
-  // leak (one Notion DB serving multiple agency clients): without this,
-  // a post tagged conta="Alfa Pesca" would show up as "ignored" in every
-  // sibling client's view because the implicit name-matching against
-  // instagramAccount.conta misses.
+  // A Notion post's "owner" is the accessible client whose name OR
+  // notionContaValues match the post's `conta` field. The post is
+  // visible in the current view ONLY when its owner is in scope.
+  // Resolution order (strongest signal wins):
+  //   1. Client whose `name` matches `conta` (case-insensitive trim).
+  //   2. Client that explicitly lists `conta` in `notionContaValues`.
+  //   3. No owner → fall through to legacy IG-account name match below.
   //
-  // Lookup uses lowercased conta. We scan ALL accessible clients (not
-  // just the current view) so a sibling's explicit ownership wins even
-  // when the user is currently scoped to a different client. Clients
-  // with no mapping fall through to the legacy heuristic.
+  // Why name-match takes priority: a misconfigured notionContaValues
+  // (e.g. agency adds "ComparaCar" to Vitamina's claimed contas by
+  // mistake) used to leak posts cross-tenant because the previous
+  // logic did "first writer wins" by iteration order. Name-match
+  // pins the post to the obvious owner regardless of accidental
+  // claims elsewhere.
   const allAccessible = await listAccessibleClients(session.user.id)
-  const ownerByConta = new Map<string, string>() // lowercased conta → ownerClientId
-  for (const c of allAccessible) {
-    for (const v of c.notionContaValues ?? []) {
-      const key = v.trim().toLowerCase()
-      if (key && !ownerByConta.has(key)) ownerByConta.set(key, c.id)
+  function findExplicitOwner(contaKey: string): string | null {
+    if (!contaKey) return null
+    const byName = allAccessible.find((c) => c.name.trim().toLowerCase() === contaKey)
+    if (byName) return byName.id
+    for (const c of allAccessible) {
+      const claims = c.notionContaValues ?? []
+      if (claims.some((v) => v.trim().toLowerCase() === contaKey)) return c.id
     }
+    return null
   }
 
-  // Conta values allowed in this view = union of (a) lowercased
-  // instagramAccount.conta of every active in-scope client AND (b) the
-  // current scope's client.notionContaValues. (b) lets a client claim
-  // posts whose Notion conta doesn't match an IG account name yet.
+  // Conta values that the legacy fallback considers "ours" when no
+  // accessible client has explicit ownership. ONLY active in-scope
+  // IG-account contas count — we intentionally don't union with
+  // notionContaValues here so a misconfigured claim on the current
+  // client can't override the explicit-owner check above.
   const clientContas = new Set<string>()
   for (const a of accounts) {
     if (a.active) clientContas.add(a.conta.toLowerCase())
-  }
-  for (const c of allowedClients) {
-    for (const v of c.notionContaValues ?? []) {
-      if (v) clientContas.add(v.toLowerCase())
-    }
   }
   const clientIdSet = new Set(clientIds)
 
@@ -172,16 +172,16 @@ export async function GET() {
           const contaKey = p.conta?.toLowerCase() ?? ""
           const contaConnected = contaKey ? accounts.some((a) => a.active && a.conta.toLowerCase() === contaKey) : false
           // Ownership routing:
-          //  - If a sibling client has explicit ownership of this conta
-          //    AND that sibling is NOT in the current view, the post is
-          //    not ours — exclude (cross-tenant fix).
-          //  - If an in-scope client has explicit ownership, the post
-          //    belongs to it.
-          //  - Otherwise fall back to the legacy heuristic (conta has an
-          //    in-scope IG account OR the connection itself belongs to
-          //    an in-scope client).
+          //  - findExplicitOwner returns the client whose name matches
+          //    the conta, OR a client that explicitly claims it in
+          //    notionContaValues. Name match always wins.
+          //  - If an owner is found and is NOT in the current scope,
+          //    the post belongs to a sibling client → hide.
+          //  - If no owner is found, fall back to: does THIS client
+          //    have an active IG account named `conta`? (strict, no
+          //    notionContaValues fallback to avoid misconfig leaks.)
           let belongsToClient: boolean
-          const explicitOwnerId = contaKey ? ownerByConta.get(contaKey) : undefined
+          const explicitOwnerId = findExplicitOwner(contaKey)
           if (explicitOwnerId) {
             belongsToClient = clientIdSet.has(explicitOwnerId)
           } else {
