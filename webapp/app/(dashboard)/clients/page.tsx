@@ -9,6 +9,7 @@ import { Building2, Check, Loader2, Plus, Trash2, Pencil, X, Users, Mail, Copy, 
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { LogoUploader } from "@/components/dashboard/logo-uploader"
 
 type Client = {
   id: string
@@ -194,14 +195,7 @@ export default function ClientsPage() {
                 placeholder="Nome do cliente (ex: Vitamina, Naydacury)"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label>Logo (URL opcional)</Label>
-              <Input
-                value={newLogo}
-                onChange={(e) => setNewLogo(e.target.value)}
-                placeholder="https://exemplo.com/logo.png"
-              />
-            </div>
+            <LogoUploader value={newLogo} onChange={setNewLogo} />
             <div className="flex gap-2 pt-1">
               <Button onClick={createClient} disabled={creating || !newName.trim()}>
                 {creating ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
@@ -240,14 +234,7 @@ export default function ClientsPage() {
                           onKeyDown={(e) => { if (e.key === "Enter") saveEdit() }}
                         />
                       </div>
-                      <div className="space-y-1.5">
-                        <Label>Logo (URL)</Label>
-                        <Input
-                          value={editLogo}
-                          onChange={(e) => setEditLogo(e.target.value)}
-                          placeholder="https://exemplo.com/logo.png"
-                        />
-                      </div>
+                      <LogoUploader value={editLogo} onChange={setEditLogo} />
                       <div className="flex gap-2 pt-1">
                         <Button onClick={saveEdit} disabled={savingEdit || !editName.trim()} size="sm">
                           {savingEdit ? <Loader2 className="h-4 w-4 animate-spin" /> : <Check className="h-4 w-4" />}
