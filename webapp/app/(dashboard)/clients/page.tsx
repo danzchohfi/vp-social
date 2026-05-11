@@ -376,7 +376,7 @@ export default function ClientsPage() {
   )
 }
 
-function MembersPanel({ clientId, canManage }: { clientId: string; canManage: boolean }) {
+export function MembersPanel({ clientId, canManage }: { clientId: string; canManage: boolean }) {
   const [members, setMembers] = useState<Member[]>([])
   const [invites, setInvites] = useState<Invite[]>([])
   const [loading, setLoading] = useState(true)
@@ -664,7 +664,7 @@ type ConnectionStatus = {
   missingNotionFields: string[]
 }
 
-function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName: string }) {
+export function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName: string }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [calendarPath, setCalendarPath] = useState("")
@@ -1553,7 +1553,7 @@ type SetupStep = {
   detail?: string | null
 }
 
-function SetupChecklistPanel({ clientId }: { clientId: string }) {
+export function SetupChecklistPanel({ clientId }: { clientId: string }) {
   const [loading, setLoading] = useState(true)
   const [steps, setSteps] = useState<SetupStep[]>([])
   const [percent, setPercent] = useState(0)
@@ -1989,7 +1989,7 @@ function MemberEditRow({
 
 type ContaSource = { workspaceName: string | null; dbName: string | null; accountField: string }
 
-function NotionContasPanel({ clientId, clientName }: { clientId: string; clientName: string }) {
+export function NotionContasPanel({ clientId, clientName }: { clientId: string; clientName: string }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [available, setAvailable] = useState<string[]>([])

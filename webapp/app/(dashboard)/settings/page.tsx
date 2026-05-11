@@ -8,9 +8,15 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSession } from "@/lib/auth-client"
 import { toast } from "sonner"
-import { ArrowRight, ListChecks, MessageCircle, Tag, UserCheck, Users } from "lucide-react"
+import { ArrowRight, UserCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RequiresSingleClient } from "@/components/dashboard/requires-single-client"
+import {
+  ApprovalPanel,
+  MembersPanel,
+  NotionContasPanel,
+  SetupChecklistPanel,
+} from "@/app/(dashboard)/clients/page"
 
 type Workspace = {
   id: string
@@ -115,34 +121,6 @@ function StatusValueSelect({ label, value, options, onChange }: { label: string;
         </SelectContent>
       </Select>
     </div>
-  )
-}
-
-function ClientConfigCard({
-  clientId,
-  panel,
-  icon,
-  label,
-  description,
-}: {
-  clientId: string
-  panel: "setup" | "approval" | "contas" | "members"
-  icon: React.ReactNode
-  label: string
-  description: string
-}) {
-  return (
-    <Link
-      href={`/clients?focus=${encodeURIComponent(clientId)}&panel=${panel}`}
-      className="flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03]"
-    >
-      <div className="text-muted-foreground">{icon}</div>
-      <div className="min-w-0 flex-1">
-        <p className="text-base font-medium">{label}</p>
-        <p className="text-[13px] text-muted-foreground truncate">{description}</p>
-      </div>
-      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60" />
-    </Link>
   )
 }
 
@@ -435,64 +413,72 @@ export default function SettingsPage() {
         <p className="text-muted-foreground mt-1">Configure seus workspaces do Notion e o mapeamento de campos.</p>
       </div>
 
-      {/* Per-client configuration shortcuts. Each card jumps to the
-          right panel in /clients with the panel already expanded — so
-          configs that used to be buried 3-4 clicks deep are reachable
-          in one. Full inline rendering is planned for a follow-up. */}
+      {/* All per-client configuration rendered inline here — moved
+          from /clients in PR #65 ("juntar tudo em uma"). Each section
+          carries its own state via the imported panel component, so
+          adding/removing sections doesn't risk cross-panel coupling. */}
       {activeClient && (
-        <section className="space-y-3">
-          <div>
-            <h2 className="text-base font-semibold uppercase tracking-wide text-muted-foreground">
-              Configurações de <span className="text-foreground">{activeClient.name}</span>
-            </h2>
-            <p className="mt-1 text-sm text-muted-foreground">
-              Atalhos pras configurações que vivem em <Link href="/clients" className="underline">Gerenciar clientes</Link>. Cada um abre o painel certo já expandido.
-            </p>
+        <div className="space-y-8">
+          <div className="flex items-center gap-3 border-b pb-4">
+            {activeClient.logoUrl ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={activeClient.logoUrl} alt="" className="h-10 w-10 rounded-lg object-cover" />
+            ) : null}
+            <div>
+              <h2 className="text-2xl">{activeClient.name}</h2>
+              <p className="text-sm text-muted-foreground">Cliente ativo · troque pelo seletor no menu lateral</p>
+            </div>
           </div>
-          <div className="grid gap-2 sm:grid-cols-2">
-            <ClientConfigCard
-              clientId={activeClient.id}
-              panel="setup"
-              icon={<ListChecks className="h-4 w-4" />}
-              label="Status de configuração"
-              description="Checklist do que falta pra publicar + botão de pausar publicações"
-            />
-            <ClientConfigCard
-              clientId={activeClient.id}
-              panel="approval"
-              icon={<MessageCircle className="h-4 w-4" />}
-              label="Aprovação cliente (ManyChat / WhatsApp)"
-              description="API key ManyChat, Flow, template wa.me, link calendário"
-            />
-            <ClientConfigCard
-              clientId={activeClient.id}
-              panel="contas"
-              icon={<Tag className="h-4 w-4" />}
-              label="Contas do Notion mapeadas"
-              description="Quais valores do campo Conta pertencem a este cliente"
-            />
-            <ClientConfigCard
-              clientId={activeClient.id}
-              panel="members"
-              icon={<Users className="h-4 w-4" />}
-              label="Membros e convites"
-              description="Quem mais pode acessar este cliente"
-            />
+
+          <section className="space-y-3">
+            <h3 className="text-base font-semibold uppercase tracking-wide text-muted-foreground">
+              Status de configuração
+            </h3>
+            <SetupChecklistPanel clientId={activeClient.id} />
+          </section>
+
+          <section className="space-y-3">
+            <h3 className="text-base font-semibold uppercase tracking-wide text-muted-foreground">
+              Aprovação cliente (ManyChat / WhatsApp)
+            </h3>
+            <ApprovalPanel clientId={activeClient.id} clientName={activeClient.name} />
+          </section>
+
+          <section className="space-y-3">
+            <h3 className="text-base font-semibold uppercase tracking-wide text-muted-foreground">
+              Contas do Notion mapeadas
+            </h3>
+            <NotionContasPanel clientId={activeClient.id} clientName={activeClient.name} />
+          </section>
+
+          <section className="space-y-3">
+            <h3 className="text-base font-semibold uppercase tracking-wide text-muted-foreground">
+              Membros e convites
+            </h3>
+            <MembersPanel clientId={activeClient.id} canManage={true} />
+          </section>
+
+          <section className="space-y-3">
+            <h3 className="text-base font-semibold uppercase tracking-wide text-muted-foreground">
+              Aprovadores (Magic Link / Chain de produção)
+            </h3>
             <Link
               href="/approvers"
               className="flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03]"
             >
               <div className="text-muted-foreground"><UserCheck className="h-4 w-4" /></div>
               <div className="min-w-0 flex-1">
-                <p className="text-base font-medium">Aprovadores</p>
+                <p className="text-base font-medium">Gerenciar aprovadores</p>
                 <p className="text-[13px] text-muted-foreground truncate">
-                  Cadastro reutilizável de aprovadores (Magic Link, chain de produção)
+                  Cadastro reutilizável de aprovadores entre clientes — Magic Link, chain sequencial pra Produções
                 </p>
               </div>
               <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60" />
             </Link>
-          </div>
-        </section>
+          </section>
+
+          <div className="border-t" />
+        </div>
       )}
 
       <div className="space-y-3">
