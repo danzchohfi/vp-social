@@ -7,14 +7,14 @@ import { eq, desc, count, inArray, and, gte, max, isNotNull } from "drizzle-orm"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, Zap, ArrowRight, Facebook, Youtube, Linkedin, CalendarClock, LayoutGrid, Building2, AlertTriangle, MoonStar, ExternalLink, MessageCircle, ThumbsUp, Heart } from "lucide-react"
+import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, Zap, ArrowRight, Facebook, Youtube, Linkedin, CalendarClock, LayoutGrid, Building2, AlertTriangle, MoonStar, ExternalLink, MessageCircle, ThumbsUp, Heart, Tag } from "lucide-react"
 import Link from "next/link"
 import { PublishButton } from "@/components/dashboard/publish-button"
 import { SwitchClientButton } from "@/components/dashboard/switch-client-button"
 import { AgencyClientCard } from "@/components/dashboard/agency-client-card"
 import { RecentActivityActions } from "@/components/dashboard/recent-activity-actions"
 import { DashboardPublishNow } from "@/components/dashboard/dashboard-publish-now"
-import { getActiveClientScope } from "@/lib/active-client"
+import { getActiveClientScope, listAccessibleClients } from "@/lib/active-client"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "@/lib/notion"
 import { cn } from "@/lib/utils"
 
@@ -150,13 +150,55 @@ export default async function DashboardPage() {
   // Best-effort upcoming-post count + next 5 list. Failures fall back to []
   // so a flaky Notion call doesn't break the dashboard.
   const upcomingRaw = await fetchUpcomingForConnections(notion).catch(() => [])
-  // Same filter as /api/notion/scheduled: drop posts whose `conta` isn't a
-  // connected account in this scope. Otherwise the dashboard would surface
-  // posts that can't publish from here (limbo).
+  // Mirror /api/notion/scheduled's conta-ownership routing so the dashboard
+  // doesn't show ComparaCar posts in Vitamina view (etc.). Strongest signal
+  // first: client name match → notionContaValues claim → IG account fallback.
+  const allAccessible = await listAccessibleClients(userId)
+  const clientIdSet = new Set(clientIds)
+  function findExplicitOwner(contaKey: string): string | null {
+    if (!contaKey) return null
+    const byName = allAccessible.find((c) => c.name.trim().toLowerCase() === contaKey)
+    if (byName) return byName.id
+    for (const c of allAccessible) {
+      const claims = c.notionContaValues ?? []
+      if (claims.some((v) => v.trim().toLowerCase() === contaKey)) return c.id
+    }
+    return null
+  }
   const clientContas = new Set(accounts.filter((a) => a.active).map((a) => a.conta.toLowerCase()))
-  const upcoming = upcomingRaw.filter((p) => p.conta && clientContas.has(p.conta.toLowerCase()))
+  function postBelongsHere(conta: string | null | undefined): boolean {
+    const k = (conta ?? "").trim().toLowerCase()
+    if (!k) return false
+    const ownerId = findExplicitOwner(k)
+    if (ownerId) return clientIdSet.has(ownerId)
+    return clientContas.has(k)
+  }
+  const upcoming = upcomingRaw.filter((p) => postBelongsHere(p.conta))
   const upcomingCount = upcoming.length
   const nextFive = upcoming.slice(0, 5)
+
+  // Health check: posts whose conta doesn't resolve to ANY accessible
+  // client. Surfaces upstream as a warning so the agency catches typos
+  // or missing notionContaValues claims early. Counted by conta name +
+  // sample post titles; we cap details at 5 to keep the dashboard tight.
+  type UnmappedConta = { conta: string; count: number; samples: string[] }
+  const unmappedContasMap = new Map<string, UnmappedConta>()
+  for (const p of upcomingRaw) {
+    const k = (p.conta ?? "").trim().toLowerCase()
+    if (!k) continue
+    if (postBelongsHere(p.conta) || findExplicitOwner(k)) continue
+    const display = (p.conta ?? "").trim()
+    const existing = unmappedContasMap.get(k)
+    if (existing) {
+      existing.count++
+      if (existing.samples.length < 3) existing.samples.push(p.title)
+    } else {
+      unmappedContasMap.set(k, { conta: display, count: 1, samples: [p.title] })
+    }
+  }
+  const unmappedContas = Array.from(unmappedContasMap.values())
+    .sort((a, b) => b.count - a.count)
+    .slice(0, 5)
 
   // ─── Health panel + per-client aggregates ────────────────────────────────────
   // These are cheap (couple of GROUP BY queries) and feed both the
@@ -316,7 +358,7 @@ export default async function DashboardPage() {
     return !last || last < fourteenDaysAgo
   })
 
-  const hasHealthIssues = recentFailures.length > 0 || inactiveClients.length > 0
+  const hasHealthIssues = recentFailures.length > 0 || inactiveClients.length > 0 || unmappedContas.length > 0
 
   const notionConnected = notion.length > 0
   const notionHasDb = notion.some((n) => n.databaseId)
@@ -457,6 +499,41 @@ export default async function DashboardPage() {
                     )
                   })}
                 </ul>
+              </div>
+            )}
+            {unmappedContas.length > 0 && (
+              <div>
+                <p className="text-xs font-medium text-muted-foreground">
+                  {unmappedContas.reduce((s, u) => s + u.count, 0)} post{unmappedContas.reduce((s, u) => s + u.count, 0) === 1 ? "" : "s"} com <code className="rounded bg-muted px-1 font-mono text-[10px]">conta</code> não mapeada — não vão publicar até resolver
+                </p>
+                <ul className="mt-1.5 space-y-1">
+                  {unmappedContas.map((u) => (
+                    <li key={u.conta} className="flex flex-wrap items-start gap-2 text-sm">
+                      <Tag className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
+                      <div className="min-w-0 flex-1">
+                        <span className="font-medium">{u.conta || "(sem conta)"}</span>
+                        <span className="ml-1.5 text-xs text-muted-foreground">
+                          · {u.count} post{u.count === 1 ? "" : "s"}
+                        </span>
+                        {u.samples.length > 0 && (
+                          <p className="mt-0.5 text-[11px] text-muted-foreground truncate">
+                            ex: {u.samples.join(", ")}
+                          </p>
+                        )}
+                      </div>
+                      <Link
+                        href={`/clients`}
+                        className="ml-auto inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning hover:bg-warning/20"
+                      >
+                        Mapear
+                        <ArrowRight className="h-3 w-3" />
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+                <p className="mt-2 text-[11px] text-muted-foreground">
+                  Para resolver: abra <Link href="/clients" className="underline">/clients</Link> → edite o cliente correto → painel <strong>Contas do Notion mapeadas</strong> → adicione o valor exato como aparece no Notion.
+                </p>
               </div>
             )}
           </div>
