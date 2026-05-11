@@ -53,7 +53,7 @@ type FieldMapping = {
   likesField: string; commentsField: string; reachField: string; savesField: string; impressionsField: string
   postUrlField: string
   // Approval flow (opt-in). Empty string = not configured.
-  awaitingApprovalValue: string; revisionRequestedValue: string
+  awaitingApprovalValue: string; revisionRequestedValue: string; approvedValue: string
   // Optional: when set, the approval values above live in this Notion
   // property instead of `statusField`. Empty string = same field.
   approvalStatusField: string
@@ -69,7 +69,7 @@ const DEFAULT_MAPPING: FieldMapping = {
   feedImageUrlsField: "Imagens Feed", verticalUrlsField: "Mídia Vertical", horizontalUrlsField: "Mídia Horizontal", thumbnailUrlField: "Thumbnail",
   likesField: "", commentsField: "", reachField: "", savesField: "", impressionsField: "",
   postUrlField: "",
-  awaitingApprovalValue: "", revisionRequestedValue: "", approvalStatusField: "",
+  awaitingApprovalValue: "", revisionRequestedValue: "", approvedValue: "", approvalStatusField: "",
   clientContactField: "", contactEmailField: "", contactPhoneField: "", contactApproverField: "",
 }
 
@@ -715,6 +715,17 @@ export default function SettingsPage() {
                 <div className="grid gap-3 sm:grid-cols-2">
                   <StatusValueSelect label="Status que dispara aprovação" value={mapping.awaitingApprovalValue} options={approvalStatusOptions} onChange={(v) => setField("awaitingApprovalValue", v)} />
                   <StatusValueSelect label='Status quando "pedir alterações"' value={mapping.revisionRequestedValue} options={approvalStatusOptions} onChange={(v) => setField("revisionRequestedValue", v)} />
+                  <div className="sm:col-span-2">
+                    <StatusValueSelect
+                      label="Status quando o cliente APROVA"
+                      value={mapping.approvedValue}
+                      options={approvalStatusOptions}
+                      onChange={(v) => setField("approvedValue", v)}
+                    />
+                    <p className="mt-1 text-sm text-muted-foreground">
+                      Quando o cliente aprova, o app flipa este campo (no Status de aprovação) — <strong>NÃO mexe</strong> no Status de publicação. Você continua dono do agendamento: define a data e muda o status pra publicar quando quiser. Deixe vazio pra voltar ao comportamento antigo (aprovar = agendar pra publicar).
+                    </p>
+                  </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
                   Para descobrir o contato, criamos uma <strong>relação</strong> no post apontando para a sua DB de <strong>Contato</strong> (com colunas para email e WhatsApp). O app segue a relação e lê os campos lá. Os nomes das colunas variam por workspace — preencha exatamente como aparecem no seu Notion.

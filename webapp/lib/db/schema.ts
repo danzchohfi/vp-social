@@ -227,6 +227,14 @@ export const fieldMapping = pgTable("field_mapping", {
   // on the Notion page via comments.create.
   awaitingApprovalValue: text("awaiting_approval_value"),
   revisionRequestedValue: text("revision_requested_value"),
+  // Value to write on the approval property when the client approves.
+  // When SET alongside approvalStatusField, the cron flips ONLY the
+  // approval property to this value — it does NOT touch the publish
+  // status (statusField). Lets the agency keep schedule control:
+  // approval signals "production OK", scheduling is a separate beat.
+  // When unset (legacy): on approve, statusField flips to
+  // statusReadyValue — old behavior preserved for backward compat.
+  approvedValue: text("approved_value"),
   // Optional override: when the agency keeps the approval state in a
   // *different* Notion select than the publish status (common in workspaces
   // that separate "Status produção" from "Status agendamento"), this points

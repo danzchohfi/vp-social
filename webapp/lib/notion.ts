@@ -77,6 +77,11 @@ export interface FieldMapping {
   // the cron detects posts in that status and notifies the client. See
   // schema.ts comment for the full flow.
   awaitingApprovalValue?: string | null
+  // Value written to approvalStatusField when client approves. When set
+  // alongside approvalStatusField, markReady flips ONLY that property —
+  // the publish status (statusField) stays untouched so scheduling
+  // remains a separate, agency-controlled beat.
+  approvedValue?: string | null
   revisionRequestedValue?: string | null
   // When approval state lives in a different Notion select than the
   // publish status (e.g. "Status produção" vs "Status agendamento"),
@@ -178,7 +183,54 @@ export function createNotionClient(accessToken: string) {
 
     async markReady(pageId: string, mapping: FieldMapping): Promise<void> {
       // Reset a previously-failed post back to "Agendado" so the cron can
-      // pick it up on the next tick. Used by the manual retry button in /scheduled.
+      // pick it up on the next tick. Used by the manual retry button in
+      // /scheduled — publish status flip is intended here.
+      await client.pages.update({
+        page_id: pageId,
+        properties: {
+          [mapping.statusField]: { status: { name: mapping.statusReadyValue } },
+        },
+      })
+    },
+
+    async markApproved(pageId: string, mapping: FieldMapping): Promise<void> {
+      // Client-approval flip. Two regimes:
+      //
+      //   New (when approvalStatusField + approvedValue are set):
+      //     Approve only flips the APPROVAL property to approvedValue.
+      //     Publish status (statusField) stays untouched — the agency
+      //     decides scheduling separately. User asked for this in 2026-05.
+      //
+      //   Legacy (when no approvedValue configured):
+      //     Approve flips statusField → statusReadyValue, same as markReady.
+      //     The post becomes immediately publishable, matching the old
+      //     coupled behavior.
+      //
+      // Like markRevision (PR #41) we try `status` then `select` for the
+      // property type — works whether the agency uses Notion's Status
+      // type or a plain Select for their approval column.
+      if (mapping.approvalStatusField?.trim() && mapping.approvedValue?.trim()) {
+        const targetField = mapping.approvalStatusField.trim()
+        const value = mapping.approvedValue.trim()
+        try {
+          await client.pages.update({
+            page_id: pageId,
+            properties: { [targetField]: { status: { name: value } } },
+          })
+        } catch (e) {
+          const msg = e instanceof Error ? e.message : String(e)
+          if (/status|property.*type|validation/i.test(msg)) {
+            await client.pages.update({
+              page_id: pageId,
+              properties: { [targetField]: { select: { name: value } } },
+            })
+          } else {
+            throw e
+          }
+        }
+        return
+      }
+      // Legacy fallback — couple approval to publish (old behavior).
       await client.pages.update({
         page_id: pageId,
         properties: {

@@ -30,6 +30,7 @@ function dbToUi(row: any) {
     // Approval flow — opt-in; null in DB = empty string in UI.
     awaitingApprovalValue: row.awaitingApprovalValue ?? "",
     revisionRequestedValue: row.revisionRequestedValue ?? "",
+    approvedValue: row.approvedValue ?? "",
     approvalStatusField: row.approvalStatusField ?? "",
     clientContactField: row.clientContactField ?? "",
     contactEmailField: row.contactEmailField ?? "",
@@ -92,6 +93,7 @@ export async function POST(
     postUrlField: ui.postUrlField || null,
     awaitingApprovalValue: ui.awaitingApprovalValue || null,
     revisionRequestedValue: ui.revisionRequestedValue || null,
+    approvedValue: ui.approvedValue || null,
     approvalStatusField: ui.approvalStatusField || null,
     clientContactField: ui.clientContactField || null,
     contactEmailField: ui.contactEmailField || null,
