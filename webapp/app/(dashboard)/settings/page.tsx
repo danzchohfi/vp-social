@@ -21,7 +21,19 @@ type Workspace = {
 }
 
 type NotionDatabase = { id: string; name: string }
-type PropInfo = { name: string; type: string; options: string[] }
+type PropInfo = {
+  name: string
+  type: string
+  options: string[]
+  // For relation/rollup: title of the DB the property ultimately
+  // points at. Lets us render "Contatos Relacionados → DB 'Contatos'"
+  // so the user can spot a rollup that resolves to the wrong DB
+  // (e.g. accidentally aggregating data from the Contas/Marcas
+  // relation instead of the Contatos relation).
+  targetDbName?: string | null
+  // For rollup: the underlying relation property name.
+  rollupRelationName?: string | null
+}
 type CloneSource = { id: string; workspaceName: string; databaseName: string | null; clientId: string | null; clientName: string | null }
 
 type FieldMapping = {
@@ -131,7 +143,13 @@ function normalizeProps(data: any): PropInfo[] {
   if (!Array.isArray(data)) return []
   return data.map((p: any) => {
     if (typeof p === "string") return { name: p, type: "unknown", options: [] }
-    return { name: p.name, type: p.type ?? "unknown", options: Array.isArray(p.options) ? p.options : [] }
+    return {
+      name: p.name,
+      type: p.type ?? "unknown",
+      options: Array.isArray(p.options) ? p.options : [],
+      targetDbName: typeof p.targetDbName === "string" ? p.targetDbName : null,
+      rollupRelationName: typeof p.rollupRelationName === "string" ? p.rollupRelationName : null,
+    }
   })
 }
 
@@ -705,6 +723,48 @@ export default function SettingsPage() {
                           : `Propriedades tipo Relation ou Rollup aparecem aqui (${relationPropNames.length} encontrada${relationPropNames.length === 1 ? "" : "s"}). Rollup funciona se ele agrega uma Relation pra DB de Contatos.`
                       }
                     />
+                    {(() => {
+                      const selected = props.find((p) => p.name === mapping.clientContactField)
+                      if (!selected) return null
+                      if (selected.type === "rollup") {
+                        const okHint = selected.targetDbName && /contat/i.test(selected.targetDbName)
+                        return (
+                          <div
+                            className={cn(
+                              "rounded-md border p-2 text-sm",
+                              okHint
+                                ? "border-success/30 bg-success/5 text-success"
+                                : "border-warning/40 bg-warning/10 text-warning",
+                            )}
+                          >
+                            <p className="font-medium">
+                              {okHint ? "✓" : "⚠"} Rollup{selected.rollupRelationName ? ` "${selected.rollupRelationName}"` : ""} aponta pra DB
+                              {selected.targetDbName ? ` "${selected.targetDbName}"` : " desconhecida"}
+                            </p>
+                            {!okHint && (
+                              <p className="mt-1 text-foreground/80">
+                                O nome do banco não parece "Contatos". Confira no Notion: o rollup agrega a relation correta? Se ele estiver agregando dados da relation com a DB de Contas/Marcas, o telefone que o app vai ler é o da página da Conta, não do Contato.
+                              </p>
+                            )}
+                          </div>
+                        )
+                      }
+                      if (selected.type === "relation" && selected.targetDbName) {
+                        const okHint = /contat/i.test(selected.targetDbName)
+                        return (
+                          <p
+                            className={cn(
+                              "text-sm",
+                              okHint ? "text-success" : "text-warning",
+                            )}
+                          >
+                            {okHint ? "✓" : "⚠"} Relation aponta pra DB &quot;{selected.targetDbName}&quot;.
+                            {!okHint && " Verifica se é mesmo a DB de Contatos — o nome não parece bater."}
+                          </p>
+                        )
+                      }
+                      return null
+                    })()}
                     <div className="flex flex-wrap items-center gap-2">
                       <Button
                         size="sm"
@@ -740,7 +800,15 @@ export default function SettingsPage() {
                                   )}
                                 >
                                   <span className="inline-block w-24 shrink-0 text-muted-foreground">{p.type}</span>
-                                  <span className="truncate">{p.name}</span>
+                                  <span className="truncate">
+                                    {p.name}
+                                    {p.targetDbName && (
+                                      <span className="ml-1.5 font-normal opacity-70">
+                                        → {p.targetDbName}
+                                        {p.type === "rollup" && p.rollupRelationName ? ` (via "${p.rollupRelationName}")` : ""}
+                                      </span>
+                                    )}
+                                  </span>
                                 </li>
                               ))}
                           </ul>

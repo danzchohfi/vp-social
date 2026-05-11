@@ -31,18 +31,57 @@ export async function GET(
     const notion = new Client({ auth: connection.accessToken })
     const database = await notion.databases.retrieve({ database_id: connection.databaseId })
     const properties = (database as any).properties as Record<string, any>
-    const props = Object.entries(properties).map(([name, p]) => {
-      const type = p.type as string
-      let options: string[] = []
-      if (type === "status") {
-        options = (p.status?.options ?? []).map((o: any) => o.name)
-      } else if (type === "select") {
-        options = (p.select?.options ?? []).map((o: any) => o.name)
-      } else if (type === "multi_select") {
-        options = (p.multi_select?.options ?? []).map((o: any) => o.name)
+
+    // For relation + rollup props, surface enough metadata for the
+    // /settings picker to render "<name> → DB '<title>'". Without
+    // this, the user can't see WHICH database a rollup actually
+    // resolves to — leading to "wait, the phone came from the
+    // Contas DB, not Contatos" surprises.
+    //
+    // For rollups we walk: rollup.relation_property_name → the
+    // underlying relation's database_id → fetch that DB's title.
+    // Cached by db id within this request so we don't re-fetch for
+    // every rollup column.
+    const dbTitleCache = new Map<string, string>()
+    async function dbTitle(dbId: string): Promise<string | null> {
+      if (dbTitleCache.has(dbId)) return dbTitleCache.get(dbId)!
+      try {
+        const target: any = await notion.databases.retrieve({ database_id: dbId })
+        const title = (target?.title ?? []).map((t: any) => t.plain_text ?? "").join("").trim() || null
+        if (title) dbTitleCache.set(dbId, title)
+        return title
+      } catch {
+        return null
       }
-      return { name, type, options }
-    })
+    }
+
+    const props = await Promise.all(
+      Object.entries(properties).map(async ([name, p]) => {
+        const type = p.type as string
+        let options: string[] = []
+        let targetDbName: string | null = null
+        let rollupRelationName: string | null = null
+        if (type === "status") {
+          options = (p.status?.options ?? []).map((o: any) => o.name)
+        } else if (type === "select") {
+          options = (p.select?.options ?? []).map((o: any) => o.name)
+        } else if (type === "multi_select") {
+          options = (p.multi_select?.options ?? []).map((o: any) => o.name)
+        } else if (type === "relation") {
+          const targetDbId = p.relation?.database_id as string | undefined
+          if (targetDbId) targetDbName = await dbTitle(targetDbId)
+        } else if (type === "rollup") {
+          // The rollup's source relation lives on this same DB.
+          rollupRelationName = (p.rollup?.relation_property_name as string | undefined) ?? null
+          if (rollupRelationName) {
+            const sourceRel = properties[rollupRelationName]
+            const targetDbId = sourceRel?.relation?.database_id as string | undefined
+            if (targetDbId) targetDbName = await dbTitle(targetDbId)
+          }
+        }
+        return { name, type, options, targetDbName, rollupRelationName }
+      })
+    )
     return NextResponse.json(props)
   } catch (e) {
     console.error("Notion props fetch error:", e)
