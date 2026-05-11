@@ -16,7 +16,7 @@ import {
   MembersPanel,
   NotionContasPanel,
   SetupChecklistPanel,
-} from "@/app/(dashboard)/clients/page"
+} from "@/components/dashboard/client-config-panels"
 
 type Workspace = {
   id: string
