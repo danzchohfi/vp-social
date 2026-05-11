@@ -228,6 +228,11 @@ export const fieldMapping = pgTable("field_mapping", {
   clientContactField: text("client_contact_field"),
   contactEmailField: text("contact_email_field"),
   contactPhoneField: text("contact_phone_field"),
+  // Optional: name of a Checkbox property on the Contato DB. When set,
+  // resolveContact filters multi-relation lists to contacts whose box is
+  // marked. Lets the agency declare "this is the approver" in Notion
+  // when a post links several contacts.
+  contactApproverField: text("contact_approver_field"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })

@@ -38,7 +38,7 @@ type FieldMapping = {
   // Optional: when set, the approval values above live in this Notion
   // property instead of `statusField`. Empty string = same field.
   approvalStatusField: string
-  clientContactField: string; contactEmailField: string; contactPhoneField: string
+  clientContactField: string; contactEmailField: string; contactPhoneField: string; contactApproverField: string
 }
 
 const DEFAULT_MAPPING: FieldMapping = {
@@ -51,7 +51,7 @@ const DEFAULT_MAPPING: FieldMapping = {
   likesField: "", commentsField: "", reachField: "", savesField: "", impressionsField: "",
   postUrlField: "",
   awaitingApprovalValue: "", revisionRequestedValue: "", approvalStatusField: "",
-  clientContactField: "", contactEmailField: "", contactPhoneField: "",
+  clientContactField: "", contactEmailField: "", contactPhoneField: "", contactApproverField: "",
 }
 
 const NONE_VALUE = "__none__"
@@ -760,21 +760,25 @@ export default function SettingsPage() {
                     )}
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-sm">Coluna de email (na DB Contato)</Label>
-                    <p className="text-xs text-muted-foreground">Nome exato da propriedade Email/Texto na DB de Contato (ex.: &quot;Email&quot;, &quot;E-mail&quot;).</p>
-                    <Input
-                      placeholder="Email"
-                      value={mapping.contactEmailField}
-                      onChange={(e) => setField("contactEmailField", e.target.value)}
-                    />
-                  </div>
-                  <div className="space-y-1">
                     <Label className="text-sm">Coluna de WhatsApp (na DB Contato)</Label>
                     <p className="text-xs text-muted-foreground">Nome exato da propriedade Phone/Texto (ex.: &quot;Celular&quot;, &quot;WhatsApp&quot;, &quot;Telefone&quot;). Valor com DDI: <code className="rounded bg-muted px-1 font-mono text-[10px]">+5511999999999</code>.</p>
                     <Input
                       placeholder="Celular / WhatsApp"
                       value={mapping.contactPhoneField}
                       onChange={(e) => setField("contactPhoneField", e.target.value)}
+                    />
+                  </div>
+                  <div className="space-y-1">
+                    <Label className="text-sm">Coluna &quot;Aprovador?&quot; (na DB Contato) — opcional</Label>
+                    <p className="text-xs text-muted-foreground">
+                      Nome exato de uma propriedade <strong>Checkbox</strong> na DB de Contato (ex.: &quot;Aprovador&quot;, &quot;Responsável aprovação&quot;).
+                      Use quando o post linka múltiplos contatos e só um deles deve receber o WhatsApp.
+                      Deixe vazio = usa o primeiro contato linkado.
+                    </p>
+                    <Input
+                      placeholder="Aprovador"
+                      value={mapping.contactApproverField}
+                      onChange={(e) => setField("contactApproverField", e.target.value)}
                     />
                   </div>
                 </div>

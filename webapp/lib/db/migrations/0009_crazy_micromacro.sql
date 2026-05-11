@@ -1,0 +1,1 @@
+ALTER TABLE "field_mapping" ADD COLUMN "contact_approver_field" text;
