@@ -382,30 +382,38 @@ export function createNotionClient(accessToken: string) {
         if (mappedProp?.type === "relation") {
           relatedIds = mappedProp.relation?.map((r: any) => r.id) ?? []
         } else if (mappedProp?.type === "rollup") {
-          // 2-hop case (Post → Conta → Contatos): when the rollup
-          // aggregates a relation property from a linked page, Notion
-          // returns the related page IDs directly in `rollup.array`.
-          // Each item is itself a relation value — we collect IDs from
-          // all of them (works for one linked Conta or several).
+          // Track whether the rollup payload is a relation-rollup so we
+          // know not to fall back to 1-hop on an empty result. If the
+          // user has it set up correctly as 2-hop (Post → Conta → Contatos)
+          // and the Conta has zero linked contacts, the right answer is
+          // "no contacts" — NOT "use the Conta page as a contact".
+          let rollupIsRelationShape = false
           const rollupData = mappedProp.rollup
           if (rollupData?.type === "array" && Array.isArray(rollupData.array)) {
             for (const item of rollupData.array) {
-              if (item?.type === "relation" && Array.isArray(item.relation)) {
-                for (const r of item.relation) {
-                  if (r?.id) relatedIds.push(r.id)
+              if (item?.type === "relation") {
+                rollupIsRelationShape = true
+                if (Array.isArray(item.relation)) {
+                  for (const r of item.relation) {
+                    if (r?.id) relatedIds.push(r.id)
+                  }
                 }
               }
             }
-            // Dedup just in case the same Contato is reachable via
-            // multiple Contas in the rollup source.
             if (relatedIds.length > 1) {
               relatedIds = Array.from(new Set(relatedIds))
             }
           }
-          // 1-hop fallback: rollup that just exposes a relation on the
-          // SAME page (rare in practice but kept so older configs still
-          // work). Walks DB schema to find the source relation name.
-          if (relatedIds.length === 0) try {
+          // 1-hop fallback: ONLY for rollups whose array isn't already
+          // shaped as relations. The legacy case was a rollup of a
+          // same-page relation (rare config) where rollup.array might
+          // be empty/different. For the common case where rollupItems
+          // are typed 'relation' but happen to be empty (Conta with no
+          // Contatos linked yet), we must NOT walk back to the source
+          // relation — that would treat the linked Conta page as a
+          // contact and read its phone. User reported this bug in
+          // 2026-05-12; trace showed exactly this misfire.
+          if (relatedIds.length === 0 && !rollupIsRelationShape) try {
             const parentDbId = (page as any).parent?.database_id
             if (parentDbId) {
               const dbInfo: any = await client.databases.retrieve({ database_id: parentDbId })
@@ -420,6 +428,9 @@ export function createNotionClient(accessToken: string) {
             }
           } catch (e) {
             console.warn(`[notion.resolveContact] rollup ${fieldName} fallback schema lookup failed: ${e}`)
+          }
+          if (relatedIds.length === 0 && rollupIsRelationShape) {
+            console.warn(`[notion.resolveContact] post ${pageId}: rollup "${fieldName}" returned 0 contacts (linked Conta(s) have no Contatos relation). Agency needs to link contacts on the Conta page in Notion.`)
           }
         }
         if (relatedIds.length === 0) return null
