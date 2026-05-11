@@ -6,7 +6,7 @@ import { publishTikTokVideo } from "./tiktok"
 import { publishLinkedInPost } from "./linkedin"
 import { generateId } from "./utils"
 import type { NotionPost } from "./notion"
-import { eq } from "drizzle-orm"
+import { and, desc, eq } from "drizzle-orm"
 
 type Account = typeof schema.instagramAccount.$inferSelect
 
@@ -192,6 +192,27 @@ export async function claimPublishSlot(
   platform: string,
   clientId?: string | null,
 ): Promise<ClaimResult> {
+  // Belt-and-suspenders SELECT pre-check. The partial unique index is the
+  // race-proof guarantee, but a separate SELECT here protects against the
+  // edge case where the index was somehow not enforcing (migration not
+  // applied, manually dropped, schema drift). It's not race-proof on its
+  // own — two workers could both see "no row" and both INSERT — but the
+  // unique index still wins that race. With both layers, even if the index
+  // is gone we never publish to IG/FB twice for the same (conn,page,platform).
+  const existing = await db
+    .select({ status: schema.publishLog.status })
+    .from(schema.publishLog)
+    .where(and(
+      eq(schema.publishLog.connectionId, connectionId),
+      eq(schema.publishLog.notionPageId, post.pageId),
+      eq(schema.publishLog.platform, platform),
+    ))
+    .orderBy(desc(schema.publishLog.publishedAt))
+    .limit(1)
+  if (existing.length > 0 && (existing[0].status === "published" || existing[0].status === "pending")) {
+    return { conflict: true }
+  }
+
   const rowId = generateId()
   try {
     await db.insert(schema.publishLog).values({
@@ -218,6 +239,32 @@ export async function claimPublishSlot(
 }
 
 /**
+ * Page-level pre-check: returns `true` if ANY `publish_log` row exists
+ * for the (connection, page) pair with status='published'. Used by the
+ * cron BEFORE it splits + publishes a post — if any prior tick already
+ * published anything for this page, we refuse to process any of its
+ * targets and let the Notion-status-flip recovery path handle catching
+ * up. This is the strongest defense against duplicate publishes: it
+ * doesn't depend on the per-target dedup index holding.
+ */
+export async function hasPriorPublish(
+  db: any,
+  connectionId: string,
+  notionPageId: string,
+): Promise<boolean> {
+  const rows = await db
+    .select({ id: schema.publishLog.id })
+    .from(schema.publishLog)
+    .where(and(
+      eq(schema.publishLog.connectionId, connectionId),
+      eq(schema.publishLog.notionPageId, notionPageId),
+      eq(schema.publishLog.status, "published"),
+    ))
+    .limit(1)
+  return rows.length > 0
+}
+
+/**
  * Transition a pending publish_log row to its terminal state. Pair with
  * claimPublishSlot — never call this without a successful claim first.
  */
@@ -230,13 +277,19 @@ export async function completePublishSlot(
   postUrl: string | null,
   error: string | null,
 ): Promise<void> {
+  // `platform` here is the full target.raw or chunk variant (e.g.
+  // "Instagram Reel", "Instagram Story 1/2") — never the bare word
+  // "instagram". Case-insensitive prefix check covers both. Without
+  // this, instagramPostId stays null for every IG row and the analytics
+  // sync silently skips them all (it filters on instagramPostId IS NOT NULL).
+  const isInstagram = /^instagram(\s|$)/i.test(platform.trim())
   await db
     .update(schema.publishLog)
     .set({
       status,
       platformPostId: postId,
       platformPostUrl: postUrl,
-      instagramPostId: platform === "instagram" ? postId : null,
+      instagramPostId: isInstagram ? postId : null,
       error,
     })
     .where(eq(schema.publishLog.id, rowId))

@@ -4,7 +4,7 @@ import { drizzle } from "drizzle-orm/neon-http"
 import { and, eq, isNull, lt } from "drizzle-orm"
 import * as schema from "../lib/db/schema"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "../lib/notion"
-import { publishToPlatform, saveLog, claimPublishSlot, completePublishSlot, isVideo } from "../lib/publisher"
+import { publishToPlatform, saveLog, claimPublishSlot, completePublishSlot, hasPriorPublish, isVideo } from "../lib/publisher"
 import { createInstagramPublisher, fetchInstagramPermalink } from "../lib/instagram"
 import { probeVideoDurationSec, splitStoryVideo } from "../lib/video-splitter"
 import { notifyPublishFailureAsync } from "../lib/email-notifications"
@@ -174,6 +174,29 @@ export const publishForConnection = task({
           await notion.markFailed(post.pageId, mapping)
         } catch (e) {
           logger.warn(`Falha ao marcar erro no Notion para "${post.title}" (sem publishTargets): ${e}`)
+        }
+        results.skipped++
+        continue
+      }
+
+      // ─── Page-level dedup ────────────────────────────────────────
+      // If ANY successful publish_log row already exists for this post on
+      // this connection, we refuse to process any of its targets and
+      // instead try to flip the Notion status (recovery). This is the
+      // strongest defense against duplicate publishes — it doesn't rely
+      // on the per-target unique index holding. When the user manually
+      // triggers a retry via /api/posts/retry, that path is unaffected:
+      // retry only flips Notion status to ready; it doesn't delete
+      // publish_log rows. If they actually want to republish, they need
+      // a fresh Notion page (duplicate the page) — there's no UX path
+      // that justifies overwriting a successful publish silently.
+      if (await hasPriorPublish(db, connectionId, post.pageId)) {
+        logger.warn(`Post "${post.title}" (${post.pageId}) já tem publicações anteriores em publish_log. Pulando para evitar duplicata e tentando recuperar status no Notion.`)
+        try {
+          await notion.markPublished(post.pageId, mapping)
+          logger.info(`Status Notion recuperado para "${post.title}".`)
+        } catch (e) {
+          logger.error(`CRÍTICO: post "${post.title}" tem publishes prévios mas markPublished falhou (${e instanceof Error ? e.message : e}). Cron vai pular este post nos próximos ticks também — investigue a configuração do statusField/statusPublishedValue no Notion.`)
         }
         results.skipped++
         continue
