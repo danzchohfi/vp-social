@@ -69,8 +69,6 @@ export async function GET(
           awaitingApprovalValue: fieldMapping.awaitingApprovalValue,
           revisionRequestedValue: fieldMapping.revisionRequestedValue,
           clientContactField: fieldMapping.clientContactField,
-          contactEmailField: fieldMapping.contactEmailField,
-          contactPhoneField: fieldMapping.contactPhoneField,
         })
         .from(fieldMapping)
         .where(inArray(fieldMapping.connectionId, connectionIds))
@@ -89,12 +87,13 @@ export async function GET(
   }
   type Mapping = (typeof mappings)[number]
   type ApprovalKey = Exclude<keyof Mapping, "connectionId">
+  // Email + WhatsApp picker were removed from /settings — resolveContact
+  // auto-detects the phone now and email isn't part of the WhatsApp-only
+  // flow. Only the relation/rollup + status values are required.
   const required: Array<[ApprovalKey, string]> = [
     ["awaitingApprovalValue", "Status que dispara aprovação"],
     ["revisionRequestedValue", 'Status quando "pedir alterações"'],
     ["clientContactField", "Coluna de relação Contato"],
-    ["contactEmailField", "Coluna de email"],
-    ["contactPhoneField", "Coluna de WhatsApp"],
   ]
   const connectionStatus: ConnStatus[] = connections.map((c) => {
     const m = mappingByConn.get(c.id)
