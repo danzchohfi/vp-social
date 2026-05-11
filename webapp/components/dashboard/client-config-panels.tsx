@@ -771,7 +771,10 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
               the whole pipeline works before going live. Only useful
               when the API key + Flow are saved and persisted. */}
           {!dirty && origApiKey && origFlowNs && (
-            <SelfTestPanel clientId={clientId} />
+            <>
+              <SelfTestPanel clientId={clientId} />
+              <ContactDebugButton clientId={clientId} />
+            </>
           )}
 
           <div className="rounded-lg border bg-muted/10">
