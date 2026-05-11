@@ -522,10 +522,12 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
         customFields: {
           approval_url: approvalUrl,
           post_title: post.title || "",
-          // Optional fields the WA template may want. Agency creates the
-          // matching custom fields in ManyChat — undefined names get
-          // surfaced as setCustomFields errors (see lib/manychat.ts).
-          contact_name: contact.name || "",
+          // post_url and other custom fields the WA template may want.
+          // The agency creates the matching custom fields in ManyChat —
+          // undefined field names get surfaced as setCustomFields errors
+          // (see lib/manychat.ts). For the recipient's name, prefer the
+          // native `{{Primeiro Nome}}` (first_name) in the template — no
+          // custom field needed.
           post_url: post.notionUrl || "",
         },
       })
@@ -681,13 +683,13 @@ export const productionApprovalReminders = schedules.task({
           customFields: {
             approval_url: `${APP_URL}/approve/${row.token}`,
             post_title: row.postTitle,
-            contact_name: approver.name,
             post_url: "",
             // Custom flag the user's ManyChat flow CAN read to switch the
             // template (e.g. "Lembrete: você ainda tem ..."). If the
             // custom field doesn't exist in their ManyChat account the
             // dispatch still goes through — ManyChat ignores unknown
-            // fields by default.
+            // fields by default. For the recipient's name, prefer the
+            // native `{{Primeiro Nome}}` (first_name) in the template.
             is_reminder: "true",
           },
         })

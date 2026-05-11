@@ -323,8 +323,9 @@ export async function POST(
               customFields: {
                 approval_url: `${APP_URL}/approve/${next.approvalLinkRow.token}`,
                 post_title: next.approvalLinkRow.postTitle,
-                contact_name: next.approver.name,
                 post_url: "",
+                // Use {{Primeiro Nome}} (native first_name) in the
+                // template instead of a custom contact_name field.
               },
             })
             if (sendResult.ok) nextSentVia = "manychat"

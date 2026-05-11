@@ -1103,14 +1103,16 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
                 <div>
                   <p className="font-semibold">2. Criar custom fields no ManyChat</p>
                   <p className="text-muted-foreground">
-                    Settings → Audience → Custom User Fields → New. Crie 4 campos do tipo <strong>Text</strong> (case-sensitive):
+                    Settings → Audience → Custom User Fields → New. Crie 3 campos do tipo <strong>Text</strong> (case-sensitive):
                   </p>
                   <ul className="mt-1 ml-4 list-disc space-y-0.5 font-mono text-[11px]">
                     <li>approval_url</li>
                     <li>post_title</li>
-                    <li>contact_name</li>
                     <li>post_url</li>
                   </ul>
+                  <p className="mt-2 text-muted-foreground">
+                    <strong>Pro nome do destinatário</strong>, use a variável <strong>nativa</strong> do ManyChat <code className="rounded bg-muted px-1 font-mono text-[11px]">{"{{Primeiro Nome}}"}</code> (System Field → First Name) direto no template — ela já vem preenchida do perfil WhatsApp, sem precisar criar custom field.
+                  </p>
                 </div>
 
                 <div>
@@ -1119,7 +1121,7 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
                     <li>Automation → New Flow → escolha o canal <strong>WhatsApp</strong>.</li>
                     <li>Adicione um bloco <strong>Send Message Template</strong> (não Free Form).</li>
                     <li>Selecione o template aprovado pela Meta.</li>
-                    <li>Mapeie as variáveis: {"{{1}}"} → <code className="rounded bg-muted px-1 font-mono">contact_name</code>, {"{{2}}"} → <code className="rounded bg-muted px-1 font-mono">post_title</code>, {"{{3}}"} → <code className="rounded bg-muted px-1 font-mono">approval_url</code>.</li>
+                    <li>Mapeie as variáveis: {"{{1}}"} → <code className="rounded bg-muted px-1 font-mono">{"{{Primeiro Nome}}"}</code> (System Field), {"{{2}}"} → <code className="rounded bg-muted px-1 font-mono">post_title</code>, {"{{3}}"} → <code className="rounded bg-muted px-1 font-mono">approval_url</code>.</li>
                     <li>Salve. Clique em ⋯ → <strong>Get API Reference</strong> → copie o <code className="rounded bg-muted px-1 font-mono">flow_ns</code> e cole acima.</li>
                   </ol>
                 </div>

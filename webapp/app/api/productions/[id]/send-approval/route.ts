@@ -114,8 +114,9 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
       customFields: {
         approval_url: approvalUrl,
         post_title: prod.title,
-        contact_name: approver.name,
         post_url: "",
+        // Use {{Primeiro Nome}} (native first_name) in the template
+        // instead of a custom contact_name field.
       },
     })
     if (sendResult.ok) {
