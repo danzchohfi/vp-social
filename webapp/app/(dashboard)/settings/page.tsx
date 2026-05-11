@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSession } from "@/lib/auth-client"
 import { toast } from "sonner"
-import { ArrowRight, UserCheck } from "lucide-react"
+import { ArrowRight, ChevronDown, UserCheck } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RequiresSingleClient } from "@/components/dashboard/requires-single-client"
 import {
@@ -121,6 +121,39 @@ function StatusValueSelect({ label, value, options, onChange }: { label: string;
         </SelectContent>
       </Select>
     </div>
+  )
+}
+
+// Top-level collapsible section. Native <details> for accessibility +
+// no JS state to manage. Default closed except for Setup (which is
+// the "what's broken" overview) so /settings reads as a clean menu
+// instead of a giant scrolling page.
+function CollapsibleSection({
+  title,
+  description,
+  defaultOpen = false,
+  children,
+}: {
+  title: string
+  description?: string
+  defaultOpen?: boolean
+  children: React.ReactNode
+}) {
+  return (
+    <details open={defaultOpen} className="group rounded-lg border bg-card transition-colors open:bg-background">
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 hover:bg-accent/40 list-none [&::-webkit-details-marker]:hidden">
+        <div className="min-w-0 flex-1">
+          <p className="text-base font-semibold">{title}</p>
+          {description && (
+            <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
+          )}
+        </div>
+        <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
+      </summary>
+      <div className="border-t px-4 py-4">
+        {children}
+      </div>
+    </details>
   )
 }
 
@@ -449,57 +482,55 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <section className="space-y-3">
-            <h3 className="text-base font-semibold uppercase tracking-wide text-muted-foreground">
-              Status de configuração
-            </h3>
+          <CollapsibleSection
+            title="Status de configuração"
+            description="Checklist de tudo que falta pra publicar + pausa de publicações"
+            defaultOpen
+          >
             <SetupChecklistPanel clientId={activeClient.id} />
-          </section>
+          </CollapsibleSection>
 
-          <section className="space-y-3">
-            <h3 className="text-base font-semibold uppercase tracking-wide text-muted-foreground">
-              Aprovação cliente (ManyChat / WhatsApp)
-            </h3>
+          <CollapsibleSection
+            title="Aprovação cliente"
+            description="ManyChat / WhatsApp, dispatch mode, template, diagnóstico de contato"
+          >
             <ApprovalPanel clientId={activeClient.id} clientName={activeClient.name} />
-          </section>
+          </CollapsibleSection>
 
-          <section className="space-y-3">
-            <h3 className="text-base font-semibold uppercase tracking-wide text-muted-foreground">
-              Contas do Notion mapeadas
-            </h3>
+          <CollapsibleSection
+            title="Contas do Notion mapeadas"
+            description="Quais valores do campo Conta pertencem a este cliente"
+          >
             <NotionContasPanel clientId={activeClient.id} clientName={activeClient.name} />
-          </section>
+          </CollapsibleSection>
 
-          <section className="space-y-3">
-            <h3 className="text-base font-semibold uppercase tracking-wide text-muted-foreground">
-              Membros e convites
-            </h3>
+          <CollapsibleSection
+            title="Membros e convites"
+            description="Quem mais pode acessar este cliente"
+          >
             <MembersPanel clientId={activeClient.id} canManage={true} />
-          </section>
+          </CollapsibleSection>
 
-          <section className="space-y-3">
-            <h3 className="text-base font-semibold uppercase tracking-wide text-muted-foreground">
-              Aprovadores (Magic Link / Chain de produção)
-            </h3>
-            <Link
-              href="/approvers"
-              className="flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03]"
-            >
-              <div className="text-muted-foreground"><UserCheck className="h-4 w-4" /></div>
-              <div className="min-w-0 flex-1">
-                <p className="text-base font-medium">Gerenciar aprovadores</p>
-                <p className="text-[13px] text-muted-foreground truncate">
-                  Cadastro reutilizável de aprovadores entre clientes — Magic Link, chain sequencial pra Produções
-                </p>
-              </div>
-              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60" />
-            </Link>
-          </section>
-
-          <div className="border-t" />
+          <Link
+            href="/approvers"
+            className="flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03]"
+          >
+            <div className="text-muted-foreground"><UserCheck className="h-4 w-4" /></div>
+            <div className="min-w-0 flex-1">
+              <p className="text-base font-medium">Aprovadores (Magic Link / Chain de produção)</p>
+              <p className="text-sm text-muted-foreground truncate">
+                Cadastro reutilizável de aprovadores entre clientes — abre em página própria
+              </p>
+            </div>
+            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60" />
+          </Link>
         </div>
       )}
 
+      <CollapsibleSection
+        title="Notion: workspace, banco de dados e mapeamento"
+        description="Conectar/desconectar workspace, escolher DB, mapear campos (status, plataforma, contato, analytics)"
+      >
       <div className="space-y-3">
         <Label>Workspace do Notion</Label>
         <Select value={selectedId} onValueChange={(v) => { setSelectedId(v); localStorage.setItem("vpsocial_selected_workspace", v) }}>
@@ -1023,6 +1054,7 @@ export default function SettingsPage() {
           )}
         </>
       )}
+      </CollapsibleSection>
     </div>
   )
 }
