@@ -220,6 +220,11 @@ export const fieldMapping = pgTable("field_mapping", {
   // on the Notion page via comments.create.
   awaitingApprovalValue: text("awaiting_approval_value"),
   revisionRequestedValue: text("revision_requested_value"),
+  // Optional override: when the agency keeps the approval state in a
+  // *different* Notion select than the publish status (common in workspaces
+  // that separate "Status produção" from "Status agendamento"), this points
+  // the cron + UI at the right property. NULL = same as statusField.
+  approvalStatusField: text("approval_status_field"),
   clientContactField: text("client_contact_field"),
   contactEmailField: text("contact_email_field"),
   contactPhoneField: text("contact_phone_field"),

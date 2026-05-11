@@ -78,6 +78,11 @@ export interface FieldMapping {
   // schema.ts comment for the full flow.
   awaitingApprovalValue?: string | null
   revisionRequestedValue?: string | null
+  // When approval state lives in a different Notion select than the
+  // publish status (e.g. "Status produção" vs "Status agendamento"),
+  // this names the property the cron should filter on. Falls back to
+  // `statusField` when null/empty.
+  approvalStatusField?: string | null
   clientContactField?: string | null
   contactEmailField?: string | null
   contactPhoneField?: string | null
@@ -182,15 +187,36 @@ export function createNotionClient(accessToken: string) {
       // Flip status to revisionRequestedValue ("Em Revisão" by convention)
       // when the client requests changes via /approve/{token}. Caller must
       // ensure mapping.revisionRequestedValue is set.
+      //
+      // Writes to mapping.approvalStatusField when configured (workspaces
+      // that keep the approval flow in a separate Notion property like
+      // "Status produção"); falls back to mapping.statusField otherwise.
       if (!mapping.revisionRequestedValue) {
         throw new Error("revisionRequestedValue not configured in field mapping")
       }
-      await client.pages.update({
-        page_id: pageId,
-        properties: {
-          [mapping.statusField]: { status: { name: mapping.revisionRequestedValue } },
-        },
-      })
+      const targetField = mapping.approvalStatusField?.trim() || mapping.statusField
+      // Same status-vs-select fallback as getPostsByStatus — write the
+      // value with the right shape for the property type.
+      try {
+        await client.pages.update({
+          page_id: pageId,
+          properties: {
+            [targetField]: { status: { name: mapping.revisionRequestedValue } },
+          },
+        })
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        if (/status|property.*type|validation/i.test(msg)) {
+          await client.pages.update({
+            page_id: pageId,
+            properties: {
+              [targetField]: { select: { name: mapping.revisionRequestedValue } },
+            },
+          })
+        } else {
+          throw e
+        }
+      }
     },
 
     async addClientComment(pageId: string, text: string, contactName?: string | null): Promise<void> {
@@ -207,15 +233,33 @@ export function createNotionClient(accessToken: string) {
 
     async getPostsByStatus(databaseId: string, mapping: FieldMapping, statusValue: string): Promise<NotionPost[]> {
       // Generic by-status query. Used for the approval-pending sweep
-      // (statusValue = mapping.awaitingApprovalValue). No date filter —
-      // pending approval can sit there as long as the cycle takes.
-      const response = await client.databases.query({
-        database_id: databaseId,
-        filter: {
-          property: mapping.statusField,
-          status: { equals: statusValue },
-        },
-      })
+      // (statusValue = mapping.awaitingApprovalValue). Filters on the
+      // approval-specific property when configured (workspaces with a
+      // separate "Status produção" column), otherwise the publish status
+      // field. No date filter — pending approval can sit there as long
+      // as the cycle takes.
+      //
+      // Property can be Notion's `status` type (the state-machine one) or
+      // a plain `select`. Try status first; if Notion rejects with a
+      // validation error we retry with the select filter shape.
+      const property = mapping.approvalStatusField?.trim() || mapping.statusField
+      let response
+      try {
+        response = await client.databases.query({
+          database_id: databaseId,
+          filter: { property, status: { equals: statusValue } },
+        })
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e)
+        if (/status|property.*type|validation/i.test(msg)) {
+          response = await client.databases.query({
+            database_id: databaseId,
+            filter: { property, select: { equals: statusValue } },
+          })
+        } else {
+          throw e
+        }
+      }
       const pages = response.results.filter(
         (p): p is typeof p & { properties: Record<string, unknown> } => "properties" in p
       )

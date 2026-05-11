@@ -32,6 +32,9 @@ type FieldMapping = {
   postUrlField: string
   // Approval flow (opt-in). Empty string = not configured.
   awaitingApprovalValue: string; revisionRequestedValue: string
+  // Optional: when set, the approval values above live in this Notion
+  // property instead of `statusField`. Empty string = same field.
+  approvalStatusField: string
   clientContactField: string; contactEmailField: string; contactPhoneField: string
 }
 
@@ -44,7 +47,7 @@ const DEFAULT_MAPPING: FieldMapping = {
   feedImageUrlsField: "Imagens Feed", verticalUrlsField: "Mídia Vertical", horizontalUrlsField: "Mídia Horizontal", thumbnailUrlField: "Thumbnail",
   likesField: "", commentsField: "", reachField: "", savesField: "", impressionsField: "",
   postUrlField: "",
-  awaitingApprovalValue: "", revisionRequestedValue: "",
+  awaitingApprovalValue: "", revisionRequestedValue: "", approvalStatusField: "",
   clientContactField: "", contactEmailField: "", contactPhoneField: "",
 }
 
@@ -185,6 +188,12 @@ export default function SettingsPage() {
     : [mapping.likesField, mapping.commentsField, mapping.reachField, mapping.savesField, mapping.impressionsField].filter(Boolean)
 
   const statusOptions = props.find(p => p.name === mapping.statusField)?.options ?? []
+  // Approval flow can live in a different Notion property than the publish
+  // status (e.g. "Status produção" vs "Status agendamento"). When the
+  // override is set, options come from THAT property; otherwise we reuse
+  // the publish-status options so legacy workspaces don't have to set it.
+  const approvalStatusField = mapping.approvalStatusField?.trim() || mapping.statusField
+  const approvalStatusOptions = props.find(p => p.name === approvalStatusField)?.options ?? statusOptions
 
   function setField(key: keyof FieldMapping, value: string) {
     setMapping(prev => ({ ...prev, [key]: value }))
@@ -536,9 +545,16 @@ export default function SettingsPage() {
                 <p className="text-xs text-muted-foreground">
                   Dispara um link de aprovação por WhatsApp toda vez que um post entra no status &quot;aguardando aprovação&quot;. O cliente abre <code className="rounded bg-muted px-1 font-mono text-[11px]">/approve/&lt;token&gt;</code> e decide aprovar ou pedir alterações. Para ativar, preencha os 5 campos abaixo + o ManyChat do cliente em <a href="/clients" className="underline">/clients</a>.
                 </p>
+                <SelectField
+                  label="Campo de status de aprovação (opcional)"
+                  value={mapping.approvalStatusField}
+                  options={["", ...selectPropNames]}
+                  onChange={(v) => setField("approvalStatusField", v)}
+                  hint={`Deixe em branco para usar o mesmo campo de status de publicação (${mapping.statusField}). Marque outro Select/Status quando o fluxo de aprovação vive numa propriedade separada (ex.: "Status produção").`}
+                />
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <StatusValueSelect label="Status que dispara aprovação" value={mapping.awaitingApprovalValue} options={statusOptions} onChange={(v) => setField("awaitingApprovalValue", v)} />
-                  <StatusValueSelect label='Status quando "pedir alterações"' value={mapping.revisionRequestedValue} options={statusOptions} onChange={(v) => setField("revisionRequestedValue", v)} />
+                  <StatusValueSelect label="Status que dispara aprovação" value={mapping.awaitingApprovalValue} options={approvalStatusOptions} onChange={(v) => setField("awaitingApprovalValue", v)} />
+                  <StatusValueSelect label='Status quando "pedir alterações"' value={mapping.revisionRequestedValue} options={approvalStatusOptions} onChange={(v) => setField("revisionRequestedValue", v)} />
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Para descobrir o contato, criamos uma <strong>relação</strong> no post apontando para a sua DB de <strong>Contato</strong> (com colunas para email e WhatsApp). O app segue a relação e lê os campos lá. Os nomes das colunas variam por workspace — preencha exatamente como aparecem no seu Notion.
