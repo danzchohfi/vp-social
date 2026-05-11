@@ -64,6 +64,13 @@
       "when": 1778511101504,
       "tag": "0008_chief_leper_queen",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1778531497982,
+      "tag": "0009_crazy_micromacro",
+      "breakpoints": true
     }
   ]
 }

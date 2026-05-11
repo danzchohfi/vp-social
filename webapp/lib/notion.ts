@@ -86,6 +86,10 @@ export interface FieldMapping {
   clientContactField?: string | null
   contactEmailField?: string | null
   contactPhoneField?: string | null
+  // Optional: name of a Checkbox property on the Contato DB. When a post
+  // links multiple Contato pages, resolveContact prefers the one(s) with
+  // this box checked. Empty/missing falls back to "first contact wins".
+  contactApproverField?: string | null
 }
 
 export const DEFAULT_MAPPING: FieldMapping = {
@@ -289,24 +293,59 @@ export function createNotionClient(accessToken: string) {
       //   multipleContacts: true
       //                  — relation linked multiple Contato rows; we used
       //                    the first. Surface in UI as a warning.
-      if (!mapping.clientContactField || !mapping.contactEmailField) return null
+      // Only the relation field is required. Email is optional (legacy:
+      // it used to be required when we still sent fallback approval emails;
+      // now WhatsApp-only flow doesn't need it). Phone is configured
+      // separately and checked inside the body.
+      if (!mapping.clientContactField) return null
       try {
         const page = await client.pages.retrieve({ page_id: pageId })
         if (!("properties" in page)) return null
         const props = (page as any).properties
         const relProp = props[mapping.clientContactField]
         const relatedIds: string[] = relProp?.relation?.map((r: any) => r.id) ?? []
-        const targetId = relatedIds[0]
-        if (!targetId) return null
+        if (relatedIds.length === 0) return null
 
+        // Multi-contact case: if mapping.contactApproverField is set, fetch
+        // each linked contact in parallel and pick the first one whose
+        // checkbox is marked. When no checkbox is marked (or the field
+        // isn't configured), fall back to "first contact wins" — the
+        // legacy behavior.
+        let targetId = relatedIds[0]
         const multipleContacts = relatedIds.length > 1
-        if (multipleContacts) {
+        let contactPage: any = null
+
+        if (multipleContacts && mapping.contactApproverField) {
+          // Fetch all related contacts so we can scan their approver flag.
+          // Sequential fetch keeps it simple and bounded — typical N=2-3.
+          const fetched = await Promise.allSettled(
+            relatedIds.map((id) => client.pages.retrieve({ page_id: id })),
+          )
+          const pages = fetched
+            .filter((r): r is PromiseFulfilledResult<any> => r.status === "fulfilled")
+            .map((r) => r.value)
+            .filter((p) => "properties" in p)
+          const approver = pages.find((p) => {
+            const v = p.properties?.[mapping.contactApproverField!]
+            return v?.type === "checkbox" && v.checkbox === true
+          })
+          if (approver) {
+            targetId = approver.id
+            contactPage = approver
+          } else {
+            console.warn(
+              `[notion.resolveContact] post ${pageId} has ${relatedIds.length} linked contacts but none with "${mapping.contactApproverField}" checked; falling back to first (${targetId})`,
+            )
+          }
+        } else if (multipleContacts) {
           console.warn(
-            `[notion.resolveContact] post ${pageId} has ${relatedIds.length} linked contacts; using first (${targetId})`
+            `[notion.resolveContact] post ${pageId} has ${relatedIds.length} linked contacts; using first (${targetId}). Configure "Coluna 'Aprovador?' (na DB Contato)" pra escolher entre eles.`,
           )
         }
 
-        const contactPage = await client.pages.retrieve({ page_id: targetId })
+        if (!contactPage) {
+          contactPage = await client.pages.retrieve({ page_id: targetId })
+        }
         if (!("properties" in contactPage)) return null
         const cp = (contactPage as any).properties
 
@@ -321,10 +360,43 @@ export function createNotionClient(accessToken: string) {
           }
         }
 
-        const emailVal = readContactProp(cp[mapping.contactEmailField])
-        const phoneVal = mapping.contactPhoneField
-          ? readContactProp(cp[mapping.contactPhoneField])
+        const emailVal = mapping.contactEmailField
+          ? readContactProp(cp[mapping.contactEmailField])
           : null
+
+        // Phone resolution priority:
+        //   1. Explicit mapping (legacy `contactPhoneField`) — kept so existing
+        //      configurations don't break.
+        //   2. Auto-detect: scan for the first property of type `phone_number`
+        //      on the contact page. Lets agencies skip the setting entirely
+        //      when the Contato DB has a properly-typed phone column (e.g.
+        //      "Celular / WhatsApp"). User asked for this in 2026-05-12.
+        //   3. Fallback: any property whose name suggests "whatsapp" / "phone"
+        //      / "celular" — catches workspaces that stored phones as
+        //      rich_text instead of using the typed phone field.
+        let phoneVal: string | null = null
+        if (mapping.contactPhoneField) {
+          phoneVal = readContactProp(cp[mapping.contactPhoneField])
+        }
+        if (!phoneVal) {
+          for (const v of Object.values(cp)) {
+            if ((v as any)?.type === "phone_number" && typeof (v as any).phone_number === "string") {
+              phoneVal = (v as any).phone_number.trim() || null
+              if (phoneVal) break
+            }
+          }
+        }
+        if (!phoneVal) {
+          // Name-based heuristic only as a last resort — Notion supports
+          // the typed phone_number column natively, so any decent setup
+          // hits the previous branch.
+          const phoneNamePattern = /\b(whatsapp|whats\b|wa\b|telefone|celular|phone|mobile)\b/i
+          for (const [propName, v] of Object.entries(cp)) {
+            if (!phoneNamePattern.test(propName)) continue
+            const candidate = readContactProp(v)
+            if (candidate) { phoneVal = candidate; break }
+          }
+        }
 
         return { name, email: emailVal, phone: phoneVal, multipleContacts }
       } catch (e) {

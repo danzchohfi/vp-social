@@ -34,6 +34,7 @@ function dbToUi(row: any) {
     clientContactField: row.clientContactField ?? "",
     contactEmailField: row.contactEmailField ?? "",
     contactPhoneField: row.contactPhoneField ?? "",
+    contactApproverField: row.contactApproverField ?? "",
   }
 }
 
@@ -95,6 +96,7 @@ export async function POST(
     clientContactField: ui.clientContactField || null,
     contactEmailField: ui.contactEmailField || null,
     contactPhoneField: ui.contactPhoneField || null,
+    contactApproverField: ui.contactApproverField || null,
     updatedAt: new Date(),
   }
 
