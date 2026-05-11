@@ -1908,6 +1908,8 @@ function MemberEditRow({
   )
 }
 
+type ContaSource = { workspaceName: string | null; dbName: string | null; accountField: string }
+
 function NotionContasPanel({ clientId, clientName }: { clientId: string; clientName: string }) {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -1915,6 +1917,7 @@ function NotionContasPanel({ clientId, clientName }: { clientId: string; clientN
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [original, setOriginal] = useState<Set<string>>(new Set())
   const [customValue, setCustomValue] = useState("")
+  const [sources, setSources] = useState<ContaSource[]>([])
 
   async function load() {
     setLoading(true)
@@ -1934,6 +1937,7 @@ function NotionContasPanel({ clientId, clientName }: { clientId: string; clientN
       setAvailable(merged)
       setSelected(new Set(cur))
       setOriginal(new Set(cur))
+      setSources(Array.isArray(data.sources) ? data.sources : [])
     } finally {
       setLoading(false)
     }
@@ -1995,10 +1999,10 @@ function NotionContasPanel({ clientId, clientName }: { clientId: string; clientN
         <p className="text-sm font-semibold">Contas do Notion mapeadas</p>
       </div>
       <p className="mb-3 text-xs text-muted-foreground">
-        Posts cujo campo <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">Conta</code> no Notion estiver
-        marcado abaixo serão atribuídos a este cliente. Útil quando o nome no Notion não bate
-        exatamente com o nome cadastrado das contas Instagram. Deixe em branco para usar o
-        pareamento por nome (legado).
+        Posts cujo campo <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">Conta</code> no Notion
+        estiver entre os valores marcados abaixo serão atribuídos a <strong>{clientName}</strong>. As opções vêm
+        de TODAS as conexões Notion da agência — então mesmo que este cliente não tenha o Notion conectado,
+        você pode marcar uma conta lida do banco de outro cliente.
       </p>
 
       {loading ? (
@@ -2007,11 +2011,19 @@ function NotionContasPanel({ clientId, clientName }: { clientId: string; clientN
         </div>
       ) : (
         <>
+          {sources.length > 0 && (
+            <p className="mb-3 text-[11px] text-muted-foreground">
+              Lendo de {sources.length} {sources.length === 1 ? "conexão" : "conexões"}:{" "}
+              {sources
+                .map((s) => `${s.workspaceName ?? "workspace"}${s.dbName ? ` / ${s.dbName}` : ""} (campo "${s.accountField}")`)
+                .join(", ")}
+            </p>
+          )}
           {available.length === 0 ? (
             <p className="rounded-md border border-dashed bg-muted/20 px-3 py-3 text-xs text-muted-foreground">
-              Nenhuma opção encontrada no Notion. Conecte um workspace e selecione um banco
-              de dados em Configurações → Notion antes. Você ainda pode digitar valores
-              manualmente abaixo.
+              Nenhuma opção encontrada nas conexões Notion da agência. Conecte um workspace e selecione
+              um banco de dados em Configurações → Notion antes. Você ainda pode digitar valores manualmente
+              abaixo.
             </p>
           ) : (
             <ul className="grid gap-1.5 sm:grid-cols-2">
@@ -2038,24 +2050,31 @@ function NotionContasPanel({ clientId, clientName }: { clientId: string; clientN
             </ul>
           )}
 
-          <div className="mt-3 flex items-center gap-2">
-            <input
-              type="text"
-              placeholder="Adicionar conta manualmente"
-              value={customValue}
-              onChange={(e) => setCustomValue(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  e.preventDefault()
-                  addCustom()
-                }
-              }}
-              className="flex-1 rounded border bg-background px-2 py-1 text-sm"
-            />
-            <Button size="sm" variant="outline" onClick={addCustom} disabled={!customValue.trim()}>
-              <Plus className="h-3.5 w-3.5" />
-              Adicionar
-            </Button>
+          <div className="mt-3">
+            <div className="flex items-center gap-2">
+              <input
+                type="text"
+                placeholder="Digite o nome exato como aparece no Notion"
+                value={customValue}
+                onChange={(e) => setCustomValue(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") {
+                    e.preventDefault()
+                    addCustom()
+                  }
+                }}
+                className="flex-1 rounded border bg-background px-2 py-1 text-sm"
+              />
+              <Button size="sm" variant="outline" onClick={addCustom} disabled={!customValue.trim()}>
+                <Plus className="h-3.5 w-3.5" />
+                Adicionar
+              </Button>
+            </div>
+            <p className="mt-1.5 text-[11px] text-muted-foreground">
+              Salva só o vínculo aqui no VP Social — <strong>não cria nem altera nada no Notion</strong>.
+              Se a conta já existe no Notion, é seguro adicionar: o app usa esse valor pra reconhecer
+              os posts dela e atribuir a <strong>{clientName}</strong>. Diferenças de maiúsculas/acentos não importam.
+            </p>
           </div>
 
           <div className="mt-4 flex items-center justify-between">

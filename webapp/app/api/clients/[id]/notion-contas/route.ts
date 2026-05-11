@@ -1,20 +1,27 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
 import { client, fieldMapping, notionConnection } from "@/lib/db/schema"
-import { eq } from "drizzle-orm"
+import { eq, inArray } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING } from "@/lib/notion"
-import { userHasClientAccess } from "@/lib/active-client"
+import { listAccessibleClients, userHasClientAccess } from "@/lib/active-client"
 
 /**
- * Returns the available `conta` values from this client's connected Notion
- * database(s). Backs the multi-select on /clients/[id]/edit so the agency
- * can declare which Notion contas belong to this client (replacing the
- * implicit name-match heuristic that misses cross-tenant scenarios where
- * one Notion connection serves multiple agency clients).
+ * Returns available `conta` values from EVERY Notion DB the agency has
+ * connected (across all accessible clients), not just this client's
+ * connection. Backs the multi-select on /clients/[id]/edit.
  *
- * Aggregates across all of the client's connections (usually just one).
+ * Why agency-wide: a Notion connection might be attached to client A
+ * (Vitamina) but contain posts tagged with conta="ComparaCar". When the
+ * agency is editing client B (ComparaCar) to mark "ComparaCar" as one
+ * of its contas, the option needs to be visible there — even though B
+ * has no connection of its own. The previous per-client scan returned
+ * empty for B and forced the user into manual entry.
+ *
+ * Also returns `sources`: list of which (connection, db) each option
+ * came from. Used by the UI to render "lendo de N conexões".
+ *
  * Dedupes case-insensitively but preserves first-seen casing for display.
  */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -28,17 +35,23 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const [c] = await db.select().from(client).where(eq(client.id, id))
   if (!c) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 })
 
-  const connections = await db
-    .select()
-    .from(notionConnection)
-    .where(eq(notionConnection.clientId, id))
+  const accessible = await listAccessibleClients(session.user.id)
+  const accessibleIds = accessible.map((a) => a.id)
+  const connections = accessibleIds.length
+    ? await db.select().from(notionConnection).where(inArray(notionConnection.clientId, accessibleIds))
+    : []
 
   const ready = connections.filter((conn) => conn.databaseId)
   if (ready.length === 0) {
-    return NextResponse.json({ contas: [], current: c.notionContaValues ?? [] })
+    return NextResponse.json({
+      contas: [],
+      current: c.notionContaValues ?? [],
+      sources: [],
+    })
   }
 
   const seen = new Map<string, string>() // lowercase → first-seen casing
+  const sources: Array<{ workspaceName: string | null; dbName: string | null; accountField: string }> = []
   for (const conn of ready) {
     const [mappingRow] = await db
       .select()
@@ -52,10 +65,16 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       const key = opt.toLowerCase()
       if (!seen.has(key)) seen.set(key, opt)
     }
+    sources.push({
+      workspaceName: conn.workspaceName ?? null,
+      dbName: conn.databaseName ?? null,
+      accountField: mapping.accountField,
+    })
   }
 
   return NextResponse.json({
     contas: Array.from(seen.values()).sort((a, b) => a.localeCompare(b, "pt-BR")),
     current: c.notionContaValues ?? [],
+    sources,
   })
 }
