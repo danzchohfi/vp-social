@@ -261,8 +261,27 @@ export default function SettingsPage() {
   // also works if it aggregates an underlying Relation — resolveContact
   // follows the rollup's relation_property_name from the DB schema down
   // to the actual relation. Both types appear in the picker.
+  // UI-only contact-resolution mode toggle. Defaults to whichever
+  // matches the currently-saved field type so existing setups keep
+  // their picker scoped correctly without the user re-clicking.
+  // Not persisted — resolveContact auto-detects at runtime based on
+  // the actual property type.
+  const currentFieldType = props.find((p) => p.name === mapping.clientContactField)?.type
+  const [contactMode, setContactMode] = useState<"direct" | "via_account">(
+    currentFieldType === "rollup" ? "via_account" : "direct",
+  )
+  // Keep the mode toggle in sync if the user switches workspaces or
+  // the props finish loading. Without this the toggle defaults to
+  // 'direct' on cold load even when the saved field is a rollup.
+  useEffect(() => {
+    if (currentFieldType === "rollup") setContactMode("via_account")
+    else if (currentFieldType === "relation") setContactMode("direct")
+  }, [currentFieldType])
+
   const relationPropNames = props.length
-    ? props.filter(p => p.type === "relation" || p.type === "rollup").map(p => p.name)
+    ? props
+        .filter((p) => (contactMode === "via_account" ? p.type === "rollup" : p.type === "relation"))
+        .map((p) => p.name)
     : [mapping.clientContactField].filter(Boolean)
 
   const statusOptions = props.find(p => p.name === mapping.statusField)?.options ?? []
@@ -714,19 +733,74 @@ export default function SettingsPage() {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  Para descobrir o contato, criamos uma <strong>relação</strong> no post apontando para a sua DB de <strong>Contato</strong> (com colunas para email e WhatsApp). O app segue a relação e lê os campos lá. Os nomes das colunas variam por workspace — preencha exatamente como aparecem no seu Notion.
+                  Para descobrir o contato, criamos uma <strong>relação</strong> no post apontando para a sua DB de <strong>Contato</strong> (com coluna pra WhatsApp). O app segue a relação e lê o telefone. Os nomes das colunas variam por workspace.
                 </p>
+                {/* Setup-mode selector — filters the picker dropdown to
+                    only show properties matching the chosen scenario. */}
+                <div className="space-y-1.5">
+                  <Label className="text-sm">Como sua organização funciona no Notion?</Label>
+                  <div className="grid gap-2 sm:grid-cols-2">
+                    <label
+                      className={cn(
+                        "cursor-pointer rounded-lg border p-3 text-sm transition-colors",
+                        contactMode === "direct"
+                          ? "border-primary bg-primary/5"
+                          : "hover:bg-accent",
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="contact-mode"
+                          checked={contactMode === "direct"}
+                          onChange={() => setContactMode("direct")}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span className="font-medium">Simples</span>
+                      </div>
+                      <p className="mt-1 ml-5 text-muted-foreground">
+                        Cada post linka direto um <strong>Contato</strong> (ou a Conta que tem o telefone). Picker filtra <strong>Relation</strong>.
+                      </p>
+                    </label>
+                    <label
+                      className={cn(
+                        "cursor-pointer rounded-lg border p-3 text-sm transition-colors",
+                        contactMode === "via_account"
+                          ? "border-primary bg-primary/5"
+                          : "hover:bg-accent",
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name="contact-mode"
+                          checked={contactMode === "via_account"}
+                          onChange={() => setContactMode("via_account")}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span className="font-medium">Via Conta / Marca (2-hop)</span>
+                      </div>
+                      <p className="mt-1 ml-5 text-muted-foreground">
+                        Cada post linka uma <strong>Conta/Marca</strong>, e a Conta tem uma relation com <strong>Contatos</strong>. Picker filtra <strong>Rollup</strong>.
+                      </p>
+                    </label>
+                  </div>
+                </div>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <div className="space-y-2">
                     <SelectField
-                      label="Coluna de relação Contato (no post)"
+                      label={contactMode === "via_account" ? "Rollup que agrega Contatos da Conta" : "Coluna de relação Contato (no post)"}
                       value={mapping.clientContactField}
                       options={relationPropNames}
                       onChange={(v) => setField("clientContactField", v)}
                       hint={
                         relationPropNames.length === 0
-                          ? `Nenhuma propriedade tipo Relation ou Rollup foi detectada no DB conectado${dbName ? ` (${dbName})` : ""}. Se você acabou de criar uma no Notion, clique em "Recarregar propriedades" abaixo. Caso contrário, abra a tabela do Notion → Add property → escolha "Relation" → aponte pra sua DB de Contatos.`
-                          : `Propriedades tipo Relation ou Rollup aparecem aqui (${relationPropNames.length} encontrada${relationPropNames.length === 1 ? "" : "s"}). Rollup funciona se ele agrega uma Relation pra DB de Contatos.`
+                          ? contactMode === "via_account"
+                            ? `Nenhuma propriedade tipo Rollup no DB conectado${dbName ? ` (${dbName})` : ""}. Crie um Rollup no Notion: agrega a "Contatos" da relação com a DB de Contas/Marcas.`
+                            : `Nenhuma propriedade tipo Relation no DB conectado${dbName ? ` (${dbName})` : ""}. Crie uma Relation apontando pra sua DB de Contatos.`
+                          : contactMode === "via_account"
+                            ? `${relationPropNames.length} Rollup${relationPropNames.length === 1 ? "" : "s"} encontrado${relationPropNames.length === 1 ? "" : "s"}. Escolha o que agrega "Contatos" da Conta linkada.`
+                            : `${relationPropNames.length} Relation${relationPropNames.length === 1 ? "" : "s"} encontrada${relationPropNames.length === 1 ? "" : "s"}. Escolha a que aponta pra DB de Contatos (ou Conta, se o telefone está direto nela).`
                       }
                     />
                     {(() => {
