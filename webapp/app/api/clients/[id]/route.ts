@@ -37,6 +37,16 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
     update.approvalNotificationMode = v
   }
+  // Approval dispatch timing: 'auto' (cron fires WA per pending post) or
+  // 'manual' (cron creates links silently; agency clicks "Notificar
+  // pendentes" on /dashboard to send a digest). NULL clears = auto default.
+  if (body.approvalDispatchMode !== undefined) {
+    const v = body.approvalDispatchMode
+    if (v !== null && v !== "auto" && v !== "manual") {
+      return NextResponse.json({ error: "approvalDispatchMode inválido" }, { status: 400 })
+    }
+    update.approvalDispatchMode = v
+  }
   // Custom wa.me template for manual mode. Empty string clears (back to
   // hardcoded default). We don't validate placeholders — if the user
   // skips one their message just renders without that piece.

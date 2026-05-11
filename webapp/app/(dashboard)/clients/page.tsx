@@ -684,6 +684,8 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
   const [apiKey, setApiKey] = useState("")
   const [flowNs, setFlowNs] = useState("")
   const [mode, setMode] = useState<"auto_manychat" | "manual_whatsapp">("auto_manychat")
+  const [dispatchMode, setDispatchMode] = useState<"auto" | "manual">("auto")
+  const [origDispatchMode, setOrigDispatchMode] = useState<"auto" | "manual">("auto")
   const [waTemplate, setWaTemplate] = useState("")
   const [origWaTemplate, setOrigWaTemplate] = useState("")
   // Track originals to know if anything is dirty.
@@ -723,6 +725,9 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
         : "auto_manychat") as "auto_manychat" | "manual_whatsapp"
       setMode(nextMode)
       setOrigMode(nextMode)
+      const nextDispatch = (data.approvalDispatchMode === "manual" ? "manual" : "auto") as "auto" | "manual"
+      setDispatchMode(nextDispatch)
+      setOrigDispatchMode(nextDispatch)
       const tpl = typeof data.manualWhatsappTemplate === "string" ? data.manualWhatsappTemplate : ""
       setWaTemplate(tpl)
       setOrigWaTemplate(tpl)
@@ -755,6 +760,7 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
           manychatApiKey: apiKey.trim() || null,
           manychatApprovalFlowNs: flowNs.trim() || null,
           approvalNotificationMode: mode,
+          approvalDispatchMode: dispatchMode,
           manualWhatsappTemplate: waTemplate,
         }),
       })
@@ -766,6 +772,7 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
       setOrigApiKey(apiKey.trim())
       setOrigFlowNs(flowNs.trim())
       setOrigMode(mode)
+      setOrigDispatchMode(dispatchMode)
       setOrigWaTemplate(waTemplate)
       // Re-fetch so the status pill + hints reflect the saved state
       // without a full page reload.
@@ -781,6 +788,7 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
     apiKey.trim() !== origApiKey ||
     flowNs.trim() !== origFlowNs ||
     mode !== origMode ||
+    dispatchMode !== origDispatchMode ||
     waTemplate !== origWaTemplate
 
   async function validateToken() {
@@ -968,6 +976,62 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
                 </div>
                 <p className="mt-1 ml-5 text-muted-foreground">
                   Sem ManyChat. O app gera o link e você envia pelo seu WhatsApp clicando &quot;Enviar via WA&quot; em /scheduled.
+                </p>
+              </label>
+            </div>
+          </div>
+
+          {/* Dispatch timing — when the WhatsApp goes out. Independent
+              from the notification-mode radio above. Defaults to auto
+              for backward compat; user picks manual to stop the cron
+              spam and trigger a digest manually from /dashboard. */}
+          <div className="space-y-1.5">
+            <Label className="text-xs">Quando enviar o WhatsApp</Label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label
+                className={cn(
+                  "cursor-pointer rounded-lg border p-3 text-xs transition-colors",
+                  dispatchMode === "auto"
+                    ? "border-primary bg-primary/5"
+                    : "hover:bg-accent",
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name={`approval-dispatch-${clientId}`}
+                    value="auto"
+                    checked={dispatchMode === "auto"}
+                    onChange={() => setDispatchMode("auto")}
+                    className="h-3.5 w-3.5"
+                  />
+                  <span className="font-medium">Automático</span>
+                </div>
+                <p className="mt-1 ml-5 text-muted-foreground">
+                  Cron dispara um WhatsApp pra cada post que entrar em &quot;aguardando aprovação&quot;.
+                </p>
+              </label>
+              <label
+                className={cn(
+                  "cursor-pointer rounded-lg border p-3 text-xs transition-colors",
+                  dispatchMode === "manual"
+                    ? "border-primary bg-primary/5"
+                    : "hover:bg-accent",
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name={`approval-dispatch-${clientId}`}
+                    value="manual"
+                    checked={dispatchMode === "manual"}
+                    onChange={() => setDispatchMode("manual")}
+                    className="h-3.5 w-3.5"
+                  />
+                  <span className="font-medium">Manual (eu disparo no /dashboard)</span>
+                </div>
+                <p className="mt-1 ml-5 text-muted-foreground">
+                  Cron cria os links mas não envia. Você clica <strong>&quot;Notificar pendentes&quot;</strong> no /dashboard pra mandar um WhatsApp resumo quando achar melhor.
                 </p>
               </label>
             </div>
