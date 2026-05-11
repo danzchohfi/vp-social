@@ -187,6 +187,14 @@ export default function SettingsPage() {
     ? props.filter(p => p.type === "number").map(p => p.name)
     : [mapping.likesField, mapping.commentsField, mapping.reachField, mapping.savesField, mapping.impressionsField].filter(Boolean)
 
+  // Approval-contact column on the post DB must be a Relation property
+  // (the cron follows the relation to the linked Contato page and reads
+  // email/phone from there). Filtering to relation-only keeps the dropdown
+  // short and makes a missing property obvious.
+  const relationPropNames = props.length
+    ? props.filter(p => p.type === "relation").map(p => p.name)
+    : [mapping.clientContactField].filter(Boolean)
+
   const statusOptions = props.find(p => p.name === mapping.statusField)?.options ?? []
   // Approval flow can live in a different Notion property than the publish
   // status (e.g. "Status produção" vs "Status agendamento"). When the
@@ -560,7 +568,19 @@ export default function SettingsPage() {
                   Para descobrir o contato, criamos uma <strong>relação</strong> no post apontando para a sua DB de <strong>Contato</strong> (com colunas para email e WhatsApp). O app segue a relação e lê os campos lá. Os nomes das colunas variam por workspace — preencha exatamente como aparecem no seu Notion.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <SelectField label="Coluna de relação Contato (no post)" value={mapping.clientContactField} options={propNames} onChange={(v) => setField("clientContactField", v)} hint="Propriedade Relation no post → DB de Contato (ex.: &quot;Contato&quot;, &quot;Cliente&quot;)" />
+                  <div className="space-y-1">
+                    <SelectField
+                      label="Coluna de relação Contato (no post)"
+                      value={mapping.clientContactField}
+                      options={relationPropNames}
+                      onChange={(v) => setField("clientContactField", v)}
+                      hint={
+                        relationPropNames.length === 0
+                          ? `Nenhuma propriedade do tipo Relation no DB conectado${dbName ? ` (${dbName})` : ""}. Crie uma no Notion apontando pra sua DB de Contatos (Add property → Relation → escolha a DB) e clique em "Recarregar propriedades" abaixo.`
+                          : `Apenas propriedades do tipo Relation aparecem aqui (${relationPropNames.length} encontrada${relationPropNames.length === 1 ? "" : "s"} no DB conectado). Aponta pra sua DB de Contato — ex.: "Contato", "Cliente".`
+                      }
+                    />
+                  </div>
                   <div className="space-y-1">
                     <Label className="text-sm">Coluna de email (na DB Contato)</Label>
                     <p className="text-xs text-muted-foreground">Nome exato da propriedade Email/Texto na DB de Contato (ex.: &quot;Email&quot;, &quot;E-mail&quot;).</p>
