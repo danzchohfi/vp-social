@@ -61,6 +61,8 @@ export async function GET(
         let options: string[] = []
         let targetDbName: string | null = null
         let rollupRelationName: string | null = null
+        let rollupPropertyName: string | null = null
+        let rollupFinalDbName: string | null = null
         if (type === "status") {
           options = (p.status?.options ?? []).map((o: any) => o.name)
         } else if (type === "select") {
@@ -71,15 +73,37 @@ export async function GET(
           const targetDbId = p.relation?.database_id as string | undefined
           if (targetDbId) targetDbName = await dbTitle(targetDbId)
         } else if (type === "rollup") {
-          // The rollup's source relation lives on this same DB.
+          // 1-hop target: where the underlying relation on THIS DB points.
           rollupRelationName = (p.rollup?.relation_property_name as string | undefined) ?? null
           if (rollupRelationName) {
             const sourceRel = properties[rollupRelationName]
             const targetDbId = sourceRel?.relation?.database_id as string | undefined
             if (targetDbId) targetDbName = await dbTitle(targetDbId)
           }
+          // 2-hop case: rollup aggregates a property on the LINKED page.
+          // If that property is itself a Relation (e.g. Conta page has a
+          // "Contatos" relation), the rollup ultimately resolves to that
+          // DB. We expose its name so the diagnostic can label the chain:
+          //   "Contatos Relacionados → Contas → Contatos"
+          rollupPropertyName = (p.rollup?.rollup_property_name as string | undefined) ?? null
+          if (rollupPropertyName && rollupRelationName) {
+            try {
+              const sourceRel = properties[rollupRelationName]
+              const intermediateDbId = sourceRel?.relation?.database_id as string | undefined
+              if (intermediateDbId) {
+                const intermediate: any = await notion.databases.retrieve({ database_id: intermediateDbId })
+                const innerProp = intermediate?.properties?.[rollupPropertyName]
+                if (innerProp?.type === "relation") {
+                  const innerDbId = innerProp.relation?.database_id as string | undefined
+                  if (innerDbId) rollupFinalDbName = await dbTitle(innerDbId)
+                }
+              }
+            } catch {
+              // best-effort; fall through with rollupFinalDbName null
+            }
+          }
         }
-        return { name, type, options, targetDbName, rollupRelationName }
+        return { name, type, options, targetDbName, rollupRelationName, rollupPropertyName, rollupFinalDbName }
       })
     )
     return NextResponse.json(props)
