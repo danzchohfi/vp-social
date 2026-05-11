@@ -1,0 +1,1 @@
+ALTER TABLE "field_mapping" ADD COLUMN "approval_status_field" text;
