@@ -401,7 +401,10 @@ export async function POST(
     const who = row.contactName ?? "Cliente"
     const when = new Date().toLocaleString("pt-BR")
     if (body.decision === "approved") {
-      await notion.markReady(row.notionPageId, mapping)
+      // Decoupled approval (PR #64): when the agency configured a separate
+      // approval property + approvedValue, the publish status stays
+      // untouched. Otherwise legacy "flip to ready" behavior kicks in.
+      await notion.markApproved(row.notionPageId, mapping)
       await notion.postSystemComment(
         row.notionPageId,
         `✓ Aprovado por ${who} · ${when}`,
