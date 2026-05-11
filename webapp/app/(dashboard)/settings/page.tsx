@@ -1,12 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import Link from "next/link"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSession } from "@/lib/auth-client"
 import { toast } from "sonner"
+import { ArrowRight, ListChecks, MessageCircle, Tag, UserCheck, Users } from "lucide-react"
 import { RequiresSingleClient } from "@/components/dashboard/requires-single-client"
 
 type Workspace = {
@@ -96,6 +98,34 @@ function StatusValueSelect({ label, value, options, onChange }: { label: string;
   )
 }
 
+function ClientConfigCard({
+  clientId,
+  panel,
+  icon,
+  label,
+  description,
+}: {
+  clientId: string
+  panel: "setup" | "approval" | "contas" | "members"
+  icon: React.ReactNode
+  label: string
+  description: string
+}) {
+  return (
+    <Link
+      href={`/clients?focus=${encodeURIComponent(clientId)}&panel=${panel}`}
+      className="flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03]"
+    >
+      <div className="text-muted-foreground">{icon}</div>
+      <div className="min-w-0 flex-1">
+        <p className="text-sm font-medium">{label}</p>
+        <p className="text-[11px] text-muted-foreground truncate">{description}</p>
+      </div>
+      <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60" />
+    </Link>
+  )
+}
+
 function normalizeProps(data: any): PropInfo[] {
   if (!Array.isArray(data)) return []
   return data.map((p: any) => {
@@ -108,6 +138,9 @@ export default function SettingsPage() {
   const { data: session } = useSession()
   const [workspaces, setWorkspaces] = useState<Workspace[]>([])
   const [selectedId, setSelectedId] = useState<string>("")
+  // Active client — used by the per-client config shortcuts at the top.
+  // Fetched once on mount; refreshed when the user switches client.
+  const [activeClient, setActiveClient] = useState<{ id: string; name: string; logoUrl: string | null } | null>(null)
   const [dbUrl, setDbUrl] = useState("")
   const [dbName, setDbName] = useState<string | null>(null)
   const [props, setProps] = useState<PropInfo[]>([])
@@ -131,6 +164,12 @@ export default function SettingsPage() {
       const valid = stored && data.find(w => w.id === stored)
       setSelectedId(valid ? stored : data[0].id)
     })
+    fetch("/api/clients").then(r => r.json()).then((data) => {
+      const list: Array<{ id: string; name: string; logoUrl: string | null }> = data?.clients ?? []
+      const id = typeof data?.activeClientId === "string" ? data.activeClientId : ""
+      const found = list.find((c) => c.id === id) ?? list[0] ?? null
+      setActiveClient(found)
+    }).catch(() => {})
   }, [])
 
   const selected = workspaces.find(w => w.id === selectedId)
@@ -342,6 +381,66 @@ export default function SettingsPage() {
         <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Configurações</h1>
         <p className="text-muted-foreground mt-1">Configure seus workspaces do Notion e o mapeamento de campos.</p>
       </div>
+
+      {/* Per-client configuration shortcuts. Each card jumps to the
+          right panel in /clients with the panel already expanded — so
+          configs that used to be buried 3-4 clicks deep are reachable
+          in one. Full inline rendering is planned for a follow-up. */}
+      {activeClient && (
+        <section className="space-y-3">
+          <div>
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+              Configurações de <span className="text-foreground">{activeClient.name}</span>
+            </h2>
+            <p className="mt-1 text-xs text-muted-foreground">
+              Atalhos pras configurações que vivem em <Link href="/clients" className="underline">Gerenciar clientes</Link>. Cada um abre o painel certo já expandido.
+            </p>
+          </div>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <ClientConfigCard
+              clientId={activeClient.id}
+              panel="setup"
+              icon={<ListChecks className="h-4 w-4" />}
+              label="Status de configuração"
+              description="Checklist do que falta pra publicar + botão de pausar publicações"
+            />
+            <ClientConfigCard
+              clientId={activeClient.id}
+              panel="approval"
+              icon={<MessageCircle className="h-4 w-4" />}
+              label="Aprovação cliente (ManyChat / WhatsApp)"
+              description="API key ManyChat, Flow, template wa.me, link calendário"
+            />
+            <ClientConfigCard
+              clientId={activeClient.id}
+              panel="contas"
+              icon={<Tag className="h-4 w-4" />}
+              label="Contas do Notion mapeadas"
+              description="Quais valores do campo Conta pertencem a este cliente"
+            />
+            <ClientConfigCard
+              clientId={activeClient.id}
+              panel="members"
+              icon={<Users className="h-4 w-4" />}
+              label="Membros e convites"
+              description="Quem mais pode acessar este cliente"
+            />
+            <Link
+              href="/approvers"
+              className="flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03]"
+            >
+              <div className="text-muted-foreground"><UserCheck className="h-4 w-4" /></div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium">Aprovadores</p>
+                <p className="text-[11px] text-muted-foreground truncate">
+                  Cadastro reutilizável de aprovadores (Magic Link, chain de produção)
+                </p>
+              </div>
+              <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60" />
+            </Link>
+          </div>
+        </section>
+      )}
 
       <div className="space-y-3">
         <Label>Workspace do Notion</Label>

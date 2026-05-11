@@ -1,5 +1,6 @@
 "use client"
 import { useEffect, useState } from "react"
+import { useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -37,6 +38,7 @@ type Invite = {
 }
 
 export default function ClientsPage() {
+  const searchParams = useSearchParams()
   const [clients, setClients] = useState<Client[]>([])
   const [activeId, setActiveId] = useState<string>("")
   const [loading, setLoading] = useState(true)
@@ -66,6 +68,30 @@ export default function ClientsPage() {
   }
 
   useEffect(() => { load() }, [])
+
+  // Deep-link panel auto-expand from /settings or any external entry.
+  // Reads ?focus=<clientId>&panel=setup|approval|contas|members on
+  // mount; opens the matching panel and scrolls it into view once the
+  // client list has rendered (next paint after load() completes).
+  useEffect(() => {
+    if (loading) return
+    if (typeof window === "undefined") return
+    const focus = searchParams?.get("focus") ?? ""
+    const panel = searchParams?.get("panel") ?? ""
+    if (!focus || !panel) return
+    const exists = clients.some((c) => c.id === focus)
+    if (!exists) return
+    if (panel === "setup") setSetupOpen(focus)
+    else if (panel === "approval") setApprovalOpen(focus)
+    else if (panel === "contas") setContasOpen(focus)
+    else if (panel === "members") setMembersOpen(focus)
+    // Defer scroll to after the panel renders.
+    requestAnimationFrame(() => {
+      const el = document.getElementById(`client-${focus}`)
+      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [loading, clients])
 
   async function setActive(id: string) {
     const res = await fetch("/api/clients/active", {
@@ -201,7 +227,7 @@ export default function ClientsPage() {
             const isOwner = c.role === "owner"
             const showMembers = membersOpen === c.id
             return (
-              <Card key={c.id} className={cn(isActive && "border-primary/50 ring-1 ring-primary/20")}>
+              <Card id={`client-${c.id}`} key={c.id} className={cn("scroll-mt-20", isActive && "border-primary/50 ring-1 ring-primary/20")}>
                 <CardContent className="pt-6">
                   {isEditing ? (
                     <div className="space-y-3">
