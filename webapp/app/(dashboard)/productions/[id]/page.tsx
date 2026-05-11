@@ -206,11 +206,11 @@ export default function ProductionDetailPage() {
   if (error || !production) {
     return (
       <div className="p-8">
-        <Link href="/productions" className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+        <Link href="/productions" className="inline-flex items-center gap-1 text-sm text-muted-foreground">
           <ChevronLeft className="h-3.5 w-3.5" />
           Voltar
         </Link>
-        <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-sm text-destructive">
+        <div className="mt-4 rounded-lg border border-destructive/20 bg-destructive/10 p-4 text-base text-destructive">
           {error ?? "Produção não encontrada"}
         </div>
       </div>
@@ -224,7 +224,7 @@ export default function ProductionDetailPage() {
       <div className="mb-6">
         <Link
           href="/productions"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
           Voltar para Produções
@@ -244,11 +244,11 @@ export default function ProductionDetailPage() {
                   if (e.target.value !== production.title) return
                   patch({ title: e.target.value }).catch(() => toast.error("Falha ao salvar título"))
                 }}
-                className="min-w-0 flex-1 bg-transparent font-display text-3xl tracking-tight focus:outline-none focus:ring-2 focus:ring-ring rounded"
+                className="min-w-0 flex-1 bg-transparent text-3xl tracking-tight focus:outline-none focus:ring-2 focus:ring-ring rounded"
               />
               <StatusPill status={production.status} />
             </div>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-sm text-muted-foreground">
               {production.type === "podcast" ? "Podcast" : "Vídeo"}
               {production.specialistName ? ` · ${production.specialistName}` : ""}
             </p>
@@ -257,10 +257,10 @@ export default function ProductionDetailPage() {
           {/* Brief */}
           <section>
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              <h2 className="text-base font-semibold uppercase tracking-wider text-muted-foreground">
                 Brief
               </h2>
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-[13px] text-muted-foreground">
                 {savingBrief ? "Salvando…" : "Auto-save"}
               </span>
             </div>
@@ -274,10 +274,10 @@ export default function ProductionDetailPage() {
           {/* Script */}
           <section>
             <div className="mb-2 flex items-center justify-between">
-              <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+              <h2 className="text-base font-semibold uppercase tracking-wider text-muted-foreground">
                 Roteiro
               </h2>
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-[13px] text-muted-foreground">
                 {savingScript ? "Salvando…" : "Auto-save"}
               </span>
             </div>
@@ -369,7 +369,7 @@ export default function ProductionDetailPage() {
             />
             {transitions.length > 0 && (
               <div className="mt-4 border-t pt-3">
-                <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+                <p className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
                   Mover para
                 </p>
                 <div className="flex flex-wrap gap-1.5">
@@ -379,7 +379,7 @@ export default function ProductionDetailPage() {
                       variant="outline"
                       size="sm"
                       onClick={() => setStatus(t)}
-                      className="text-xs"
+                      className="text-sm"
                     >
                       {STATUS_LABEL_PT[t]}
                     </Button>
@@ -403,7 +403,7 @@ export default function ProductionDetailPage() {
               }}
             />
             {chainEditDisabled && (
-              <p className="mt-2 text-[11px] text-muted-foreground">
+              <p className="mt-2 text-[13px] text-muted-foreground">
                 Chain travada enquanto está em aprovação. Volte pra elaboração pra editar.
               </p>
             )}
@@ -428,7 +428,7 @@ export default function ProductionDetailPage() {
               </Button>
             )}
           {production.status === "awaiting_approval" && (
-            <p className="rounded-md border border-dashed bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
+            <p className="rounded-md border border-dashed bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/30 dark:text-amber-200">
               Aguardando decisão do aprovador. Quando ele aprovar, dispara o próximo da chain (ou marca aprovado se for o último).
             </p>
           )}

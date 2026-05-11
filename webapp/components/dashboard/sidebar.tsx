@@ -36,7 +36,7 @@ export function Sidebar() {
         <img src="/icon.png" alt="VP Social" className="h-7 w-7 shrink-0 rounded-md" />
         <span className="truncate text-lg tracking-tight">
           <span className="font-semibold">VP</span>
-          <span className="ml-1 italic font-display">Social</span>
+          <span className="ml-1 italic">Social</span>
         </span>
       </div>
 
@@ -52,7 +52,7 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                "relative flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors",
                 active
                   ? "bg-primary/10 text-primary before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
@@ -78,19 +78,19 @@ export function Sidebar() {
                 className="h-7 w-7 shrink-0 rounded-full object-cover"
               />
             ) : (
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
                 {user.name?.charAt(0).toUpperCase() ?? "?"}
               </div>
             )}
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">{user.name}</p>
-              <p className="truncate text-xs text-muted-foreground">{user.email}</p>
+              <p className="truncate text-base font-medium">{user.name}</p>
+              <p className="truncate text-sm text-muted-foreground">{user.email}</p>
             </div>
           </Link>
         )}
         <button
           onClick={handleSignOut}
-          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+          className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-base font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
         >
           <LogOut className="h-4 w-4 shrink-0" />
           <span className="truncate">Sair</span>

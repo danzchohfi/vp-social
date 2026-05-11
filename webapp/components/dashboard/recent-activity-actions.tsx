@@ -47,7 +47,7 @@ export function RecentActivityActions({
           onClick={retry}
           disabled={retrying}
           title="Reagendar e tentar de novo"
-          className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs font-medium hover:bg-accent"
+          className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-sm font-medium hover:bg-accent"
         >
           {retrying ? <Loader2 className="h-3 w-3 animate-spin" /> : <RefreshCw className="h-3 w-3" />}
           Reagendar

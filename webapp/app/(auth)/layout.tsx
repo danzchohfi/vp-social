@@ -13,7 +13,7 @@ export default function AuthLayout({ children }: { children: React.ReactNode }) 
         </div>
         <span className="text-xl tracking-tight">
           <span className="font-semibold">VP</span>
-          <span className="ml-1 italic font-display">Social</span>
+          <span className="ml-1 italic">Social</span>
         </span>
       </Link>
       {children}

@@ -45,7 +45,7 @@ export function StatusPill({ status, className }: { status: ProductionStatus; cl
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-sm font-medium",
         TONES[status] ?? "bg-muted text-muted-foreground",
         className,
       )}

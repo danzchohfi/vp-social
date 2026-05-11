@@ -19,12 +19,12 @@ export default function TestApprovalLanding() {
             <CheckCircle2 className="h-7 w-7" />
           </div>
           <div>
-            <h1 className="font-display text-xl">Funcionou!</h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <h1 className="text-xl">Funcionou!</h1>
+            <p className="mt-1 text-base text-muted-foreground">
               Esse é exatamente o link que seu cliente vai receber pelo WhatsApp quando um post entrar em &quot;aguardando aprovação&quot;.
             </p>
           </div>
-          <div className="rounded-lg border bg-muted/30 p-4 text-left text-xs">
+          <div className="rounded-lg border bg-muted/30 p-4 text-left text-sm">
             <p className="font-medium">Como funciona pro cliente</p>
             <ul className="mt-1.5 space-y-1 text-muted-foreground">
               <li>· Cliente clica no link → vê uma página com o post completo (mídia, legenda, plataformas)</li>

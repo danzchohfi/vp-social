@@ -172,7 +172,7 @@ export default function ClientsPage() {
     <div className="p-8 max-w-3xl mx-auto">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Clientes</h1>
+          <h1 className="text-3xl tracking-tight sm:text-4xl">Clientes</h1>
           <p className="text-muted-foreground">Cada cliente tem seu próprio Notion, contas sociais e histórico.</p>
         </div>
         <Button onClick={() => setShowNew(true)} disabled={showNew}>
@@ -272,17 +272,17 @@ export default function ClientsPage() {
                         <div className="flex flex-wrap items-center gap-2">
                           <p className="min-w-0 max-w-full break-words font-semibold">{c.name}</p>
                           {isActive && (
-                            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+                            <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
                               Ativo
                             </span>
                           )}
                           {!isOwner && (
-                            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                            <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-sm text-muted-foreground">
                               {c.role === "admin" ? "Admin" : "Membro"}
                             </span>
                           )}
                         </div>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-sm text-muted-foreground">
                           Criado em {new Date(c.createdAt).toLocaleDateString("pt-BR")}
                         </p>
                       </div>
@@ -483,7 +483,7 @@ function MembersPanel({ clientId, canManage }: { clientId: string; canManage: bo
   return (
     <div className="space-y-3">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-semibold">Membros ({members.length})</p>
+        <p className="text-base font-semibold">Membros ({members.length})</p>
         {canManage && (
           <Button variant="outline" size="sm" onClick={() => setShowInvite(!showInvite)}>
             <Mail className="h-3.5 w-3.5" />
@@ -495,7 +495,7 @@ function MembersPanel({ clientId, canManage }: { clientId: string; canManage: bo
       {showInvite && canManage && (
         <div className="rounded-lg border p-3 space-y-2 bg-muted/30">
           <div className="space-y-1.5">
-            <Label className="text-xs">Email do convidado</Label>
+            <Label className="text-sm">Email do convidado</Label>
             <Input
               autoFocus
               type="email"
@@ -507,22 +507,22 @@ function MembersPanel({ clientId, canManage }: { clientId: string; canManage: bo
             />
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Papel</Label>
+            <Label className="text-sm">Papel</Label>
             <select
               value={inviteRole}
               onChange={(e) => setInviteRole(e.target.value as "member" | "admin")}
-              className="w-full h-8 rounded border bg-background px-2 text-sm"
+              className="w-full h-8 rounded border bg-background px-2 text-base"
             >
               <option value="member">Membro (acesso ao cliente)</option>
               <option value="admin">Admin (mesmas permissões do owner, exceto excluir cliente)</option>
             </select>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Escopo</Label>
+            <Label className="text-sm">Escopo</Label>
             <select
               value={inviteScope}
               onChange={(e) => setInviteScope(e.target.value as "client" | "agency")}
-              className="w-full h-8 rounded border bg-background px-2 text-sm"
+              className="w-full h-8 rounded border bg-background px-2 text-base"
             >
               <option value="client">Apenas este cliente</option>
               <option value="agency">Agência — todos os clientes do owner</option>
@@ -537,7 +537,7 @@ function MembersPanel({ clientId, canManage }: { clientId: string; canManage: bo
               Cancelar
             </Button>
           </div>
-          <p className="text-xs text-muted-foreground">
+          <p className="text-sm text-muted-foreground">
             Após gerar, o link é copiado para sua área de transferência. Envie para o convidado.
           </p>
         </div>
@@ -558,22 +558,22 @@ function MembersPanel({ clientId, canManage }: { clientId: string; canManage: bo
                       {m.userImage ? (
                         <img src={m.userImage} alt="" className="h-7 w-7 shrink-0 rounded-full object-cover" />
                       ) : (
-                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">
+                        <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
                           {m.userName?.charAt(0).toUpperCase() ?? "?"}
                         </div>
                       )}
                       <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{m.userName}</p>
-                        <p className="text-xs text-muted-foreground truncate">{m.userEmail}</p>
+                        <p className="text-base font-medium truncate">{m.userName}</p>
+                        <p className="text-sm text-muted-foreground truncate">{m.userEmail}</p>
                       </div>
                     </div>
                     <div className="flex flex-wrap items-center gap-1.5 shrink-0">
-                      <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
+                      <span className="rounded-full bg-muted px-2 py-0.5 text-sm text-muted-foreground">
                         {m.role === "owner" ? "Owner" : m.role === "admin" ? "Admin" : "Membro"}
                       </span>
                       {m.role !== "owner" && (
                         <span className={cn(
-                          "rounded-full px-2 py-0.5 text-xs",
+                          "rounded-full px-2 py-0.5 text-sm",
                           m.scope === "agency" ? "bg-primary/10 text-primary" : "bg-muted text-muted-foreground"
                         )}>
                           {m.scope === "agency" ? "Agência" : "Cliente"}
@@ -608,15 +608,15 @@ function MembersPanel({ clientId, canManage }: { clientId: string; canManage: bo
 
           {invites.length > 0 && (
             <>
-              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground pt-2">Convites pendentes</p>
+              <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground pt-2">Convites pendentes</p>
               <div className="space-y-1.5">
                 {invites.map((inv) => (
                   <div key={inv.id} className="flex items-center justify-between rounded-lg border border-dashed px-3 py-2">
                     <div className="flex items-center gap-3 min-w-0">
                       <Mail className="h-4 w-4 shrink-0 text-muted-foreground" />
                       <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{inv.email}</p>
-                        <p className="text-xs text-muted-foreground">
+                        <p className="text-base font-medium truncate">{inv.email}</p>
+                        <p className="text-sm text-muted-foreground">
                           {inv.role === "admin" ? "Admin" : "Membro"}
                           {inv.scope === "agency" ? " · Agência" : ""}
                           {" · expira "}{new Date(inv.expiresAt).toLocaleDateString("pt-BR")}
@@ -848,16 +848,16 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
   return (
     <div className="space-y-4">
       <div>
-        <p className="text-sm font-semibold">Aprovação do cliente</p>
-        <p className="text-xs text-muted-foreground">
-          Toda vez que um post entrar no status &quot;aguardando aprovação&quot; (configurado em <a href="/settings" className="underline">/settings</a>), o app gera um link <code className="rounded bg-muted px-1 font-mono text-[10px]">/approve/&lt;token&gt;</code> e avisa o cliente conforme o modo escolhido abaixo.
+        <p className="text-base font-semibold">Aprovação do cliente</p>
+        <p className="text-sm text-muted-foreground">
+          Toda vez que um post entrar no status &quot;aguardando aprovação&quot; (configurado em <a href="/settings" className="underline">/settings</a>), o app gera um link <code className="rounded bg-muted px-1 font-mono text-[12px]">/approve/&lt;token&gt;</code> e avisa o cliente conforme o modo escolhido abaixo.
         </p>
       </div>
 
       {!loading && status && (
         <div
           className={cn(
-            "flex items-start gap-2 rounded-md border px-3 py-2 text-xs",
+            "flex items-start gap-2 rounded-md border px-3 py-2 text-sm",
             status === "configured" && "border-success/30 bg-success/5",
             status === "partial" && "border-warning/30 bg-warning/5",
             status === "missing" && "border-muted-foreground/20 bg-muted/30",
@@ -890,7 +890,7 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
                         c.notionReady ? "bg-success" : "bg-warning",
                       )}
                     />
-                    <span className="text-[11px] text-muted-foreground">
+                    <span className="text-[13px] text-muted-foreground">
                       <strong className="text-foreground">{c.workspaceName}</strong>
                       {c.databaseName ? ` (${c.databaseName})` : ""}
                       {c.notionReady
@@ -910,15 +910,15 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
       ) : (
         <>
           <div className="space-y-1.5">
-            <Label className="text-xs">Link permanente do calendário</Label>
-            <p className="text-xs text-muted-foreground">
+            <Label className="text-sm">Link permanente do calendário</Label>
+            <p className="text-sm text-muted-foreground">
               Mande este link uma vez para {clientName} no WhatsApp. O cliente vê pendentes de aprovação, agendados e publicados — sem precisar logar.
             </p>
             <div className="flex gap-2">
               <Input
                 readOnly
                 value={typeof window !== "undefined" && calendarPath ? `${window.location.origin}${calendarPath}` : calendarPath}
-                className="font-mono text-xs"
+                className="font-mono text-sm"
               />
               <Button variant="outline" size="sm" onClick={copyCalendarUrl} disabled={!calendarPath}>
                 <Copy className="h-3.5 w-3.5" />
@@ -930,11 +930,11 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
           {/* Notification mode selector — drives whether the cron tries
               ManyChat or just generates the link for manual wa.me share. */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Como avisar o cliente</Label>
+            <Label className="text-sm">Como avisar o cliente</Label>
             <div className="grid gap-2 sm:grid-cols-2">
               <label
                 className={cn(
-                  "cursor-pointer rounded-lg border p-3 text-xs transition-colors",
+                  "cursor-pointer rounded-lg border p-3 text-sm transition-colors",
                   mode === "auto_manychat"
                     ? "border-primary bg-primary/5"
                     : "hover:bg-accent",
@@ -957,7 +957,7 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
               </label>
               <label
                 className={cn(
-                  "cursor-pointer rounded-lg border p-3 text-xs transition-colors",
+                  "cursor-pointer rounded-lg border p-3 text-sm transition-colors",
                   mode === "manual_whatsapp"
                     ? "border-primary bg-primary/5"
                     : "hover:bg-accent",
@@ -986,11 +986,11 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
               for backward compat; user picks manual to stop the cron
               spam and trigger a digest manually from /dashboard. */}
           <div className="space-y-1.5">
-            <Label className="text-xs">Quando enviar o WhatsApp</Label>
+            <Label className="text-sm">Quando enviar o WhatsApp</Label>
             <div className="grid gap-2 sm:grid-cols-2">
               <label
                 className={cn(
-                  "cursor-pointer rounded-lg border p-3 text-xs transition-colors",
+                  "cursor-pointer rounded-lg border p-3 text-sm transition-colors",
                   dispatchMode === "auto"
                     ? "border-primary bg-primary/5"
                     : "hover:bg-accent",
@@ -1013,7 +1013,7 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
               </label>
               <label
                 className={cn(
-                  "cursor-pointer rounded-lg border p-3 text-xs transition-colors",
+                  "cursor-pointer rounded-lg border p-3 text-sm transition-colors",
                   dispatchMode === "manual"
                     ? "border-primary bg-primary/5"
                     : "hover:bg-accent",
@@ -1039,7 +1039,7 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
 
           {mode === "manual_whatsapp" && (
             <>
-              <div className="rounded-md border border-success/30 bg-success/5 p-3 text-xs">
+              <div className="rounded-md border border-success/30 bg-success/5 p-3 text-sm">
                 <p className="font-medium text-success">Modo manual ativo</p>
                 <p className="mt-1 text-foreground/80">
                   Configure só os campos do Notion em <a href="/settings" className="underline">/settings</a>. Quando um post entrar em &quot;aguardando aprovação&quot;, ele aparece em <a href="/scheduled" className="underline">/scheduled</a> com um botão <strong>Enviar via WA</strong> que abre o wa.me com a mensagem pronta.
@@ -1047,16 +1047,16 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
               </div>
 
               <div className="space-y-1.5">
-                <Label className="text-xs">Mensagem padrão do WhatsApp (opcional)</Label>
-                <p className="text-xs text-muted-foreground">
-                  Texto que aparece pré-preenchido no botão &quot;Enviar via WA&quot;. Suporta os placeholders <code className="rounded bg-muted px-1 font-mono text-[10px]">{"{{contact_name}}"}</code>, <code className="rounded bg-muted px-1 font-mono text-[10px]">{"{{post_title}}"}</code>, <code className="rounded bg-muted px-1 font-mono text-[10px]">{"{{approval_url}}"}</code>, <code className="rounded bg-muted px-1 font-mono text-[10px]">{"{{client_name}}"}</code>. Em branco = mensagem padrão simples.
+                <Label className="text-sm">Mensagem padrão do WhatsApp (opcional)</Label>
+                <p className="text-sm text-muted-foreground">
+                  Texto que aparece pré-preenchido no botão &quot;Enviar via WA&quot;. Suporta os placeholders <code className="rounded bg-muted px-1 font-mono text-[12px]">{"{{contact_name}}"}</code>, <code className="rounded bg-muted px-1 font-mono text-[12px]">{"{{post_title}}"}</code>, <code className="rounded bg-muted px-1 font-mono text-[12px]">{"{{approval_url}}"}</code>, <code className="rounded bg-muted px-1 font-mono text-[12px]">{"{{client_name}}"}</code>. Em branco = mensagem padrão simples.
                 </p>
                 <textarea
                   value={waTemplate}
                   onChange={(e) => setWaTemplate(e.target.value)}
                   placeholder={`Olá {{contact_name}}!\n\nA ${clientName} preparou um post pra você revisar:\n*{{post_title}}*\n\nClique aqui pra aprovar ou pedir alterações:\n{{approval_url}}`}
                   rows={6}
-                  className="w-full rounded border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                  className="w-full rounded border bg-background p-2 text-base focus:outline-none focus:ring-2 focus:ring-primary/30"
                 />
               </div>
 
@@ -1070,8 +1070,8 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
           {mode === "auto_manychat" && (
           <>
           <div className="space-y-1.5">
-            <Label className="text-xs">ManyChat API Key (token da página)</Label>
-            <p className="text-xs text-muted-foreground">
+            <Label className="text-sm">ManyChat API Key (token da página)</Label>
+            <p className="text-sm text-muted-foreground">
               Settings → API → Your API Key na conta ManyChat de {clientName}. ManyChat não suporta OAuth — é um token por página.
             </p>
             <div className="flex gap-2">
@@ -1089,7 +1089,7 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
             </div>
             {validateResult && (
               <div className={cn(
-                "rounded border px-2 py-1.5 text-xs",
+                "rounded border px-2 py-1.5 text-sm",
                 validateResult.ok ? "border-success/30 bg-success/10 text-success" : "border-destructive/30 bg-destructive/10 text-destructive"
               )}>
                 {validateResult.ok ? (
@@ -1105,9 +1105,9 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
           </div>
 
           <div className="space-y-1.5">
-            <Label className="text-xs">Flow de aprovação</Label>
-            <p className="text-xs text-muted-foreground">
-              No ManyChat, crie um Flow que use o template do WhatsApp aprovado pela Meta (criado na sua Meta Business Manager → WhatsApp Manager). O Flow injeta as variáveis dinâmicas — inclua <code className="rounded bg-muted px-1 font-mono text-[10px]">approval_url</code> e <code className="rounded bg-muted px-1 font-mono text-[10px]">post_title</code> como custom fields. Depois clique em <em>Carregar Flows</em> abaixo pra escolher.
+            <Label className="text-sm">Flow de aprovação</Label>
+            <p className="text-sm text-muted-foreground">
+              No ManyChat, crie um Flow que use o template do WhatsApp aprovado pela Meta (criado na sua Meta Business Manager → WhatsApp Manager). O Flow injeta as variáveis dinâmicas — inclua <code className="rounded bg-muted px-1 font-mono text-[12px]">approval_url</code> e <code className="rounded bg-muted px-1 font-mono text-[12px]">post_title</code> como custom fields. Depois clique em <em>Carregar Flows</em> abaixo pra escolher.
             </p>
             <FlowPicker
               clientId={clientId}
@@ -1133,20 +1133,20 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
           <div className="rounded-lg border bg-muted/10">
             <button
               onClick={() => setShowFlowGuide((v) => !v)}
-              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium hover:bg-muted/20"
+              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-base font-medium hover:bg-muted/20"
             >
               <span>📋 Como criar o Flow + template Meta-aprovado</span>
-              <span className="text-xs text-muted-foreground">{showFlowGuide ? "ocultar" : "ver passo a passo"}</span>
+              <span className="text-sm text-muted-foreground">{showFlowGuide ? "ocultar" : "ver passo a passo"}</span>
             </button>
             {showFlowGuide && (
-              <div className="space-y-3 border-t px-3 py-3 text-xs">
+              <div className="space-y-3 border-t px-3 py-3 text-sm">
                 <div>
                   <p className="font-semibold">1. Criar template no Meta WhatsApp Manager</p>
                   <p className="text-muted-foreground">
                     Em <a href="https://business.facebook.com/wa/manage/message-templates/" target="_blank" rel="noopener noreferrer" className="underline">business.facebook.com → Mensagens → Modelos</a>, crie um template categoria <strong>Utilidade</strong>. Cole o texto abaixo (Meta aprova em até 24h):
                   </p>
                   <div className="mt-1.5 flex items-stretch gap-1.5">
-                    <pre className="flex-1 overflow-x-auto rounded border bg-background p-2 font-mono text-[11px] whitespace-pre-wrap">{STARTER_TEMPLATE}</pre>
+                    <pre className="flex-1 overflow-x-auto rounded border bg-background p-2 font-mono text-[13px] whitespace-pre-wrap">{STARTER_TEMPLATE}</pre>
                     <Button
                       variant="outline"
                       size="sm"
@@ -1169,13 +1169,13 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
                   <p className="text-muted-foreground">
                     Settings → Audience → Custom User Fields → New. Crie 3 campos do tipo <strong>Text</strong> (case-sensitive):
                   </p>
-                  <ul className="mt-1 ml-4 list-disc space-y-0.5 font-mono text-[11px]">
+                  <ul className="mt-1 ml-4 list-disc space-y-0.5 font-mono text-[13px]">
                     <li>approval_url</li>
                     <li>post_title</li>
                     <li>post_url</li>
                   </ul>
                   <p className="mt-2 text-muted-foreground">
-                    <strong>Pro nome do destinatário</strong>, use a variável <strong>nativa</strong> do ManyChat <code className="rounded bg-muted px-1 font-mono text-[11px]">{"{{Primeiro Nome}}"}</code> (System Field → First Name) direto no template — ela já vem preenchida do perfil WhatsApp, sem precisar criar custom field.
+                    <strong>Pro nome do destinatário</strong>, use a variável <strong>nativa</strong> do ManyChat <code className="rounded bg-muted px-1 font-mono text-[13px]">{"{{Primeiro Nome}}"}</code> (System Field → First Name) direto no template — ela já vem preenchida do perfil WhatsApp, sem precisar criar custom field.
                   </p>
                 </div>
 
@@ -1202,20 +1202,20 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
 
           <div className="rounded-lg border border-dashed bg-muted/20 p-3 space-y-3">
             <div>
-              <p className="text-sm font-semibold">Testar dispatch (debug)</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-base font-semibold">Testar dispatch (debug)</p>
+              <p className="text-sm text-muted-foreground">
                 Roda o sweep manualmente pra UM post (sem esperar o cron de 5 min). Pega o pageId no Notion: clique &quot;⋯&quot; → Copiar link → cole, e a parte depois do título (32 hex) é o pageId.
               </p>
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Workspace</Label>
+              <Label className="text-sm">Workspace</Label>
               {connections.length === 0 ? (
-                <p className="text-xs text-muted-foreground">Nenhum Notion conectado para este cliente.</p>
+                <p className="text-sm text-muted-foreground">Nenhum Notion conectado para este cliente.</p>
               ) : (
                 <select
                   value={testConnectionId}
                   onChange={(e) => setTestConnectionId(e.target.value)}
-                  className="w-full h-8 rounded border bg-background px-2 text-sm"
+                  className="w-full h-8 rounded border bg-background px-2 text-base"
                 >
                   <option value="">— Escolher workspace —</option>
                   {connections.map((c) => (
@@ -1227,7 +1227,7 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
               )}
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">URL ou pageId do Notion</Label>
+              <Label className="text-sm">URL ou pageId do Notion</Label>
               <Input
                 placeholder="Cole a URL do post (⋯ → Copiar link no Notion) ou o pageId direto"
                 value={testPageId}
@@ -1237,7 +1237,7 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
                   const next = e.target.value
                   setTestPageId(next.includes("notion.so") ? extractNotionPageId(next) : next)
                 }}
-                className="font-mono text-xs"
+                className="font-mono text-sm"
               />
             </div>
             <div className="flex flex-wrap gap-2">
@@ -1254,12 +1254,12 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
             {testResult && (
               <div className="space-y-2 rounded border bg-background p-2">
                 {testResult.error && (
-                  <p className="text-xs text-destructive break-words">
+                  <p className="text-sm text-destructive break-words">
                     <strong>Erro:</strong> {String(testResult.error)}
                   </p>
                 )}
                 {testResult.contact && testResult.contact.resolved !== false && (
-                  <div className="text-xs">
+                  <div className="text-sm">
                     <p className="font-medium">Contato resolvido:</p>
                     <p className="text-muted-foreground">
                       {testResult.contact.name ?? "(sem nome)"} · {testResult.contact.email ?? "(sem email)"} · {testResult.contact.phone ?? "(sem telefone)"}
@@ -1267,7 +1267,7 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
                   </div>
                 )}
                 {testResult.approvalLink && (
-                  <div className="text-xs space-y-1">
+                  <div className="text-sm space-y-1">
                     <p className="font-medium">
                       Token {testResult.approvalLink.reused ? "(reaproveitado — já existia pendente)" : "(novo)"}:
                     </p>
@@ -1275,7 +1275,7 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
                       href={testResult.approvalLink.approvalUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="block break-all font-mono text-[11px] text-primary underline"
+                      className="block break-all font-mono text-[13px] text-primary underline"
                     >
                       {testResult.approvalLink.approvalUrl}
                     </a>
@@ -1286,22 +1286,22 @@ function ApprovalPanel({ clientId, clientName }: { clientId: string; clientName:
                     href={testResult.waClickToChat}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-md bg-success/15 px-2.5 py-1 text-xs font-medium text-success hover:bg-success/25"
+                    className="inline-flex items-center gap-1.5 rounded-md bg-success/15 px-2.5 py-1 text-sm font-medium text-success hover:bg-success/25"
                   >
                     <MessageCircle className="h-3.5 w-3.5" />
                     Abrir wa.me (mandar pelo seu WhatsApp)
                   </a>
                 )}
                 {testResult.manychat && (
-                  <div className="text-xs">
+                  <div className="text-sm">
                     <p className="font-medium">ManyChat:</p>
-                    <pre className="mt-1 overflow-x-auto rounded bg-muted/40 p-2 font-mono text-[10px]">
+                    <pre className="mt-1 overflow-x-auto rounded bg-muted/40 p-2 font-mono text-[12px]">
 {JSON.stringify(testResult.manychat.result, null, 2)}
                     </pre>
                   </div>
                 )}
                 {testResult.hint && (
-                  <p className="text-xs italic text-muted-foreground">{testResult.hint}</p>
+                  <p className="text-sm italic text-muted-foreground">{testResult.hint}</p>
                 )}
               </div>
             )}
@@ -1381,12 +1381,12 @@ function ApprovalHistory({ clientId }: { clientId: string }) {
     <div className="rounded-lg border bg-muted/10">
       <button
         onClick={toggle}
-        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-sm font-medium hover:bg-muted/20"
+        className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-base font-medium hover:bg-muted/20"
       >
         <span className="flex items-center gap-2">
           📜 Histórico de aprovações
           {data && (
-            <span className="text-[11px] font-normal text-muted-foreground">
+            <span className="text-[13px] font-normal text-muted-foreground">
               · {data.counts.pending} pendente{data.counts.pending !== 1 ? "s" : ""}
               {data.counts.stale > 0 && <span className="text-warning"> ({data.counts.stale} parado{data.counts.stale > 1 ? "s" : ""})</span>}
               {" · "}{data.counts.decided} decidido{data.counts.decided !== 1 ? "s" : ""}
@@ -1394,18 +1394,18 @@ function ApprovalHistory({ clientId }: { clientId: string }) {
             </span>
           )}
         </span>
-        <span className="text-xs text-muted-foreground">{open ? "ocultar" : "ver"}</span>
+        <span className="text-sm text-muted-foreground">{open ? "ocultar" : "ver"}</span>
       </button>
 
       {open && (
-        <div className="space-y-3 border-t px-3 py-3 text-xs">
+        <div className="space-y-3 border-t px-3 py-3 text-sm">
           {loading && (
             <div className="flex justify-center py-4">
               <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />
             </div>
           )}
           {error && (
-            <p className="text-xs text-destructive">{error}</p>
+            <p className="text-sm text-destructive">{error}</p>
           )}
           {data && !loading && (
             <>
@@ -1460,7 +1460,7 @@ function ApprovalHistorySection({
 }) {
   return (
     <div>
-      <p className="mb-1.5 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+      <p className="mb-1.5 text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">
         {title} ({rows.length})
       </p>
       <ul className="space-y-1.5">
@@ -1487,30 +1487,30 @@ function ApprovalHistorySection({
                 <span className="font-medium">{r.postTitle || "Sem título"}</span>
                 {r.contactName && <span className="text-muted-foreground">· {r.contactName}</span>}
                 {decisionLabel && (
-                  <span className={cn("rounded px-1.5 py-0.5 text-[10px] font-medium", decisionTone)}>
+                  <span className={cn("rounded px-1.5 py-0.5 text-[12px] font-medium", decisionTone)}>
                     {decisionLabel}
                   </span>
                 )}
                 {tone === "pending" && isStale && (
-                  <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[10px] font-medium text-warning">
+                  <span className="rounded bg-warning/15 px-1.5 py-0.5 text-[12px] font-medium text-warning">
                     Parado +3d
                   </span>
                 )}
                 {r.sentVia === "none" && tone === "pending" && (
-                  <span className="text-[10px] text-warning">WA não foi enviado auto</span>
+                  <span className="text-[12px] text-warning">WA não foi enviado auto</span>
                 )}
-                <span className="ml-auto font-mono text-[10px] text-muted-foreground">
+                <span className="ml-auto font-mono text-[12px] text-muted-foreground">
                   {tone === "decided" && r.decidedAt
                     ? new Date(r.decidedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
                     : new Date(r.createdAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                 </span>
               </div>
               {r.comment && (
-                <p className="mt-1 break-words text-[11px] text-muted-foreground italic">
+                <p className="mt-1 break-words text-[13px] text-muted-foreground italic">
                   &quot;{r.comment}&quot;
                 </p>
               )}
-              <div className="mt-1 flex flex-wrap gap-1.5 text-[10px]">
+              <div className="mt-1 flex flex-wrap gap-1.5 text-[12px]">
                 <a
                   href={`/approve/${r.token}`}
                   target="_blank"
@@ -1620,11 +1620,11 @@ function SetupChecklistPanel({ clientId }: { clientId: string }) {
     <div className="space-y-4">
       <div className="flex items-center gap-2">
         <ListChecks className="h-4 w-4 text-muted-foreground" />
-        <p className="text-sm font-semibold">Checklist de configuração</p>
+        <p className="text-base font-semibold">Checklist de configuração</p>
       </div>
 
       {paused && (
-        <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-xs">
+        <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
           <p className="font-medium text-warning">⏸ Publicações pausadas</p>
           <p className="mt-1 text-foreground/80">
             O cron está pulando este cliente — nenhum post vai ser publicado nem nenhuma aprovação vai disparar até retomar.
@@ -1641,8 +1641,8 @@ function SetupChecklistPanel({ clientId }: { clientId: string }) {
           {/* Progress bar */}
           <div>
             <div className="flex items-baseline justify-between mb-1.5">
-              <span className="text-xs text-muted-foreground">{percent}% configurado</span>
-              <span className="text-[11px] text-muted-foreground">
+              <span className="text-sm text-muted-foreground">{percent}% configurado</span>
+              <span className="text-[13px] text-muted-foreground">
                 {steps.filter((s) => s.status === "done").length}/{steps.length} passos
               </span>
             </div>
@@ -1670,7 +1670,7 @@ function SetupChecklistPanel({ clientId }: { clientId: string }) {
               >
                 <span
                   className={cn(
-                    "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-medium",
+                    "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[13px] font-medium",
                     s.status === "done" && "bg-success/15 text-success",
                     s.status === "partial" && "bg-warning/15 text-warning",
                     s.status === "missing" && "bg-muted text-muted-foreground",
@@ -1679,9 +1679,9 @@ function SetupChecklistPanel({ clientId }: { clientId: string }) {
                   {s.status === "done" ? "✓" : s.status === "partial" ? "·" : "○"}
                 </span>
                 <div className="min-w-0 flex-1">
-                  <p className="text-sm font-medium">{s.label}</p>
+                  <p className="text-base font-medium">{s.label}</p>
                   {s.detail && (
-                    <p className="mt-0.5 text-[11px] text-muted-foreground">{s.detail}</p>
+                    <p className="mt-0.5 text-[13px] text-muted-foreground">{s.detail}</p>
                   )}
                 </div>
                 <Button asChild size="sm" variant={s.status === "done" ? "ghost" : "outline"}>
@@ -1694,10 +1694,10 @@ function SetupChecklistPanel({ clientId }: { clientId: string }) {
           {/* Pause toggle */}
           <div className="flex items-center justify-between rounded-lg border p-3">
             <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium">
+              <p className="text-base font-medium">
                 {paused ? "Retomar publicações" : "Pausar publicações"}
               </p>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[13px] text-muted-foreground">
                 {paused
                   ? "O cron volta a publicar e disparar aprovações deste cliente."
                   : "O cron para de publicar e de disparar aprovações deste cliente até você retomar."}
@@ -1768,7 +1768,7 @@ function SelfTestPanel({ clientId }: { clientId: string }) {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-xs text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+        className="inline-flex items-center gap-1.5 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
       >
         <MessageCircle className="h-3.5 w-3.5" />
         Testar com meu próprio WhatsApp
@@ -1779,30 +1779,30 @@ function SelfTestPanel({ clientId }: { clientId: string }) {
   return (
     <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
       <div className="flex items-baseline justify-between">
-        <p className="text-sm font-semibold">Testar com seu WhatsApp</p>
+        <p className="text-base font-semibold">Testar com seu WhatsApp</p>
         <button
           type="button"
           onClick={() => { setOpen(false); setResult(null) }}
-          className="text-xs text-muted-foreground hover:text-foreground"
+          className="text-sm text-muted-foreground hover:text-foreground"
         >
           Fechar
         </button>
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         Dispara o Flow configurado pra você em vez do cliente real, com um post de teste. Confirma que ManyChat + Meta + Flow estão todos OK antes de mandar pro cliente.
       </p>
       <div className="space-y-1.5">
-        <Label className="text-xs">Seu telefone (E.164)</Label>
+        <Label className="text-sm">Seu telefone (E.164)</Label>
         <Input
           type="tel"
           placeholder="+5511999999999"
           value={phone}
           onChange={(e) => setPhone(e.target.value)}
-          className="font-mono text-xs"
+          className="font-mono text-sm"
         />
       </div>
       <div className="space-y-1.5">
-        <Label className="text-xs">Seu nome (vai aparecer como contact_name)</Label>
+        <Label className="text-sm">Seu nome (vai aparecer como contact_name)</Label>
         <Input
           type="text"
           placeholder="Vai usar o nome da sua conta se ficar em branco"
@@ -1817,7 +1817,7 @@ function SelfTestPanel({ clientId }: { clientId: string }) {
       {result && (
         <div
           className={cn(
-            "rounded border px-2 py-1.5 text-xs",
+            "rounded border px-2 py-1.5 text-sm",
             result.ok
               ? "border-success/30 bg-success/10 text-success"
               : "border-destructive/30 bg-destructive/10 text-destructive",
@@ -1883,7 +1883,7 @@ function FlowPicker({
             placeholder="content20240501123456_abc123"
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="flex-1 font-mono text-xs"
+            className="flex-1 font-mono text-sm"
           />
           <Button
             variant="outline"
@@ -1902,7 +1902,7 @@ function FlowPicker({
             placeholder="content20240501123456_abc123"
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="flex-1 font-mono text-xs"
+            className="flex-1 font-mono text-sm"
           />
           <Button variant="ghost" size="sm" onClick={() => setShowRaw(false)}>
             Voltar pra lista
@@ -1913,7 +1913,7 @@ function FlowPicker({
           <select
             value={value}
             onChange={(e) => onChange(e.target.value)}
-            className="h-9 flex-1 rounded border bg-background px-2 text-sm"
+            className="h-9 flex-1 rounded border bg-background px-2 text-base"
           >
             <option value="">— Escolher Flow —</option>
             {!selectedInList && value && (
@@ -1934,12 +1934,12 @@ function FlowPicker({
         </div>
       )}
       {error && (
-        <p className="rounded border border-destructive/30 bg-destructive/10 px-2 py-1 text-[11px] text-destructive">
+        <p className="rounded border border-destructive/30 bg-destructive/10 px-2 py-1 text-[13px] text-destructive">
           ManyChat: {error}
         </p>
       )}
       {flows && flows.length === 0 && !error && (
-        <p className="text-[11px] text-muted-foreground">
+        <p className="text-[13px] text-muted-foreground">
           Nenhum Flow encontrado nessa conta. Crie um Flow no ManyChat (com bloco &quot;Send Message Template&quot;) e clique em <em>Atualizar</em>.
         </p>
       )}
@@ -1966,22 +1966,22 @@ function MemberEditRow({
   return (
     <div className="mt-3 grid gap-2 rounded-md bg-muted/30 p-2 sm:grid-cols-2">
       <div className="space-y-1">
-        <Label className="text-xs">Papel</Label>
+        <Label className="text-sm">Papel</Label>
         <select
           value={role}
           onChange={(e) => setRole(e.target.value as "member" | "admin")}
-          className="w-full h-8 rounded border bg-background px-2 text-sm"
+          className="w-full h-8 rounded border bg-background px-2 text-base"
         >
           <option value="member">Membro</option>
           <option value="admin">Admin</option>
         </select>
       </div>
       <div className="space-y-1">
-        <Label className="text-xs">Escopo</Label>
+        <Label className="text-sm">Escopo</Label>
         <select
           value={scope}
           onChange={(e) => setScope(e.target.value as "client" | "agency")}
-          className="w-full h-8 rounded border bg-background px-2 text-sm"
+          className="w-full h-8 rounded border bg-background px-2 text-base"
         >
           <option value="client">Apenas este cliente</option>
           <option value="agency">Agência (todos os clientes do owner)</option>
@@ -2088,10 +2088,10 @@ function NotionContasPanel({ clientId, clientName }: { clientId: string; clientN
     <div>
       <div className="mb-3 flex items-center gap-2">
         <Tag className="h-4 w-4 text-muted-foreground" />
-        <p className="text-sm font-semibold">Contas do Notion mapeadas</p>
+        <p className="text-base font-semibold">Contas do Notion mapeadas</p>
       </div>
-      <p className="mb-3 text-xs text-muted-foreground">
-        Posts cujo campo <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">Conta</code> no Notion
+      <p className="mb-3 text-sm text-muted-foreground">
+        Posts cujo campo <code className="rounded bg-muted px-1 py-0.5 font-mono text-[13px]">Conta</code> no Notion
         estiver entre os valores marcados abaixo serão atribuídos a <strong>{clientName}</strong>. As opções vêm
         de TODAS as conexões Notion da agência — então mesmo que este cliente não tenha o Notion conectado,
         você pode marcar uma conta lida do banco de outro cliente.
@@ -2104,7 +2104,7 @@ function NotionContasPanel({ clientId, clientName }: { clientId: string; clientN
       ) : (
         <>
           {sources.length > 0 && (
-            <p className="mb-3 text-[11px] text-muted-foreground">
+            <p className="mb-3 text-[13px] text-muted-foreground">
               Lendo de {sources.length} {sources.length === 1 ? "conexão" : "conexões"}:{" "}
               {sources
                 .map((s) => `${s.workspaceName ?? "workspace"}${s.dbName ? ` / ${s.dbName}` : ""} (campo "${s.accountField}")`)
@@ -2112,7 +2112,7 @@ function NotionContasPanel({ clientId, clientName }: { clientId: string; clientN
             </p>
           )}
           {available.length === 0 ? (
-            <p className="rounded-md border border-dashed bg-muted/20 px-3 py-3 text-xs text-muted-foreground">
+            <p className="rounded-md border border-dashed bg-muted/20 px-3 py-3 text-sm text-muted-foreground">
               Nenhuma opção encontrada nas conexões Notion da agência. Conecte um workspace e selecione
               um banco de dados em Configurações → Notion antes. Você ainda pode digitar valores manualmente
               abaixo.
@@ -2122,7 +2122,7 @@ function NotionContasPanel({ clientId, clientName }: { clientId: string; clientN
               {available.map((conta) => (
                 <li
                   key={conta}
-                  className="flex items-center gap-2 rounded border bg-card px-2 py-1.5 text-sm"
+                  className="flex items-center gap-2 rounded border bg-card px-2 py-1.5 text-base"
                 >
                   <input
                     type="checkbox"
@@ -2155,14 +2155,14 @@ function NotionContasPanel({ clientId, clientName }: { clientId: string; clientN
                     addCustom()
                   }
                 }}
-                className="flex-1 rounded border bg-background px-2 py-1 text-sm"
+                className="flex-1 rounded border bg-background px-2 py-1 text-base"
               />
               <Button size="sm" variant="outline" onClick={addCustom} disabled={!customValue.trim()}>
                 <Plus className="h-3.5 w-3.5" />
                 Adicionar
               </Button>
             </div>
-            <p className="mt-1.5 text-[11px] text-muted-foreground">
+            <p className="mt-1.5 text-[13px] text-muted-foreground">
               Salva só o vínculo aqui no VP Social — <strong>não cria nem altera nada no Notion</strong>.
               Se a conta já existe no Notion, é seguro adicionar: o app usa esse valor pra reconhecer
               os posts dela e atribuir a <strong>{clientName}</strong>. Diferenças de maiúsculas/acentos não importam.
@@ -2170,7 +2170,7 @@ function NotionContasPanel({ clientId, clientName }: { clientId: string; clientN
           </div>
 
           <div className="mt-4 flex items-center justify-between">
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {selected.size === 0
                 ? "Nenhuma conta selecionada"
                 : `${selected.size} selecionada${selected.size === 1 ? "" : "s"}`}

@@ -275,9 +275,9 @@ export default function AccountsPage() {
       <RequiresSingleClient message="As contas conectadas pertencem a um cliente específico. Selecione um cliente no menu lateral para gerenciar contas." />
       <div className="mb-6">
         <div className="flex flex-wrap items-baseline gap-2">
-          <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Contas conectadas</h1>
+          <h1 className="text-3xl tracking-tight sm:text-4xl">Contas conectadas</h1>
           {activeClient && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-xs font-medium text-primary">
+            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-sm font-medium text-primary">
               {activeClient.logoUrl ? (
                 <img src={activeClient.logoUrl} alt="" className="h-3.5 w-3.5 rounded object-cover" />
               ) : (
@@ -287,7 +287,7 @@ export default function AccountsPage() {
             </span>
           )}
         </div>
-        <p className="text-muted-foreground text-sm">
+        <p className="text-muted-foreground text-base">
           Apenas as contas deste cliente. Para conectar outro, troque o cliente na barra lateral.
         </p>
       </div>
@@ -295,10 +295,10 @@ export default function AccountsPage() {
       {pendingAccounts.length > 0 && (
         <div className="mb-6 rounded-xl border-2 border-primary/40 bg-primary/5 p-4 sm:p-5">
           <div className="mb-3 space-y-1">
-            <p className="text-sm font-semibold text-foreground">
+            <p className="text-base font-semibold text-foreground">
               {pendingAccounts.length} {pendingAccounts.length === 1 ? "página aguardando confirmação" : "páginas aguardando confirmação"}
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               O Facebook devolveu todas as páginas que você compartilhou com a integração. Marque só as que pertencem a este cliente — as outras são removidas.
             </p>
           </div>
@@ -320,14 +320,14 @@ export default function AccountsPage() {
                     className="h-4 w-4 shrink-0"
                   />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{acc.pageName}</p>
-                    <p className="text-xs text-muted-foreground capitalize">{acc.platform}</p>
+                    <p className="truncate text-base font-medium">{acc.pageName}</p>
+                    <p className="text-sm text-muted-foreground capitalize">{acc.platform}</p>
                   </div>
                 </label>
               )
             })}
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+          <div className="mt-3 flex flex-wrap items-center gap-2 text-sm text-muted-foreground">
             <button
               type="button"
               onClick={() => setKeptPending(new Set(pendingAccounts.map((a) => a.id)))}
@@ -359,13 +359,13 @@ export default function AccountsPage() {
         return (
           <>
             {hasMultiplePerPlatform && (
-              <div className="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+              <div className="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-base text-warning">
                 <strong>Várias contas conectadas em uma mesma plataforma.</strong>{" "}
                 Cada cliente publica em <strong>uma conta por plataforma</strong>. Clique em
                 <strong> &quot;Manter só esta&quot;</strong> na conta correta para remover as demais automaticamente.
               </div>
             )}
-            <div className="mb-6 rounded-lg border bg-card px-4 py-3 text-sm text-muted-foreground">
+            <div className="mb-6 rounded-lg border bg-card px-4 py-3 text-base text-muted-foreground">
               <strong className="text-foreground">Dica:</strong> o campo <strong>Conta</strong> (editável com o lápis)
               deve bater com o valor da propriedade <strong>Conta</strong> no banco do Notion deste cliente.
             </div>
@@ -377,8 +377,8 @@ export default function AccountsPage() {
         <div className="mb-6 rounded-lg border border-primary/30 bg-primary/5 p-4">
           <div className="flex flex-wrap items-baseline justify-between gap-2">
             <div>
-              <p className="text-sm font-semibold">Sincronizar com Notion</p>
-              <p className="mt-0.5 text-xs text-muted-foreground">
+              <p className="text-base font-semibold">Sincronizar com Notion</p>
+              <p className="mt-0.5 text-sm text-muted-foreground">
                 Empurra os nomes das contas conectadas como opções do Select <strong>Conta</strong> no banco do Notion.
                 Assim você escolhe direto da lista no Notion, sem digitar.
               </p>
@@ -391,7 +391,7 @@ export default function AccountsPage() {
           {syncResults && (
             <div className="mt-3 space-y-1.5">
               {syncResults.length === 0 && (
-                <p className="text-xs text-muted-foreground">Nenhum workspace pra sincronizar.</p>
+                <p className="text-sm text-muted-foreground">Nenhum workspace pra sincronizar.</p>
               )}
               {syncResults.map((r) => {
                 const color =
@@ -402,7 +402,7 @@ export default function AccountsPage() {
                       : "border-destructive/30 bg-destructive/5 text-destructive"
                 const icon = r.status === "ok" ? "✓" : r.status === "skipped" ? "⚠" : "✗"
                 return (
-                  <div key={r.workspaceName} className={`rounded border px-3 py-2 text-xs ${color}`}>
+                  <div key={r.workspaceName} className={`rounded border px-3 py-2 text-sm ${color}`}>
                     <div className="flex items-baseline gap-2">
                       <span className="font-mono font-bold">{icon}</span>
                       <span className="font-medium text-foreground">{r.workspaceName}</span>
@@ -418,7 +418,7 @@ export default function AccountsPage() {
               })}
             </div>
           )}
-          <p className="mt-3 text-[11px] text-muted-foreground">
+          <p className="mt-3 text-[13px] text-muted-foreground">
             <strong>Requer:</strong> a propriedade <strong>Conta</strong> no Notion precisa ser do tipo <strong>Select</strong>.
             Se for Texto, Relação ou outro tipo, o sync vai pular esse workspace.
           </p>
@@ -446,7 +446,7 @@ export default function AccountsPage() {
                         <Icon className="h-4 w-4 text-white" />
                       </div>
                       <CardTitle className="text-base">{config.label}</CardTitle>
-                      <Badge variant="secondary" className="text-xs">
+                      <Badge variant="secondary" className="text-sm">
                         {platformAccounts.length} {platformAccounts.length === 1 ? "conta" : "contas"}
                       </Badge>
                     </div>
@@ -469,7 +469,7 @@ export default function AccountsPage() {
                 </CardHeader>
                 <CardContent className="pt-0">
                   {platform === "tiktok" && (
-                    <div className="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+                    <div className="mb-3 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-base text-warning">
                       <strong>TikTok em aprovação.</strong>{" "}
                       Enquanto a review do TikTok não termina, agende manualmente em{" "}
                       <a href="https://studio.tiktok.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">
@@ -479,7 +479,7 @@ export default function AccountsPage() {
                     </div>
                   )}
                   {platformAccounts.length === 0 ? (
-                    <p className="text-sm text-muted-foreground py-2">
+                    <p className="text-base text-muted-foreground py-2">
                       Nenhuma conta {config.label} conectada.
                       {isUnavailable && " Configure as credenciais no .env para habilitar."}
                     </p>
@@ -495,7 +495,7 @@ export default function AccountsPage() {
                               {editingId === account.id ? (
                                 <div className="flex items-center gap-2">
                                   <Input
-                                    className="h-7 w-44 text-sm"
+                                    className="h-7 w-44 text-base"
                                     value={editValue}
                                     onChange={(e) => setEditValue(e.target.value)}
                                     onKeyDown={(e) => {
@@ -513,8 +513,8 @@ export default function AccountsPage() {
                                 </div>
                               ) : (
                                 <div className="flex flex-wrap items-center gap-2">
-                                  <span className="font-medium text-sm truncate max-w-full">{account.conta}</span>
-                                  <Badge variant={account.active ? "success" : "secondary"} className="text-xs">
+                                  <span className="font-medium text-base truncate max-w-full">{account.conta}</span>
+                                  <Badge variant={account.active ? "success" : "secondary"} className="text-sm">
                                     {account.active ? "Ativa" : "Inativa"}
                                   </Badge>
                                   <button onClick={() => startEdit(account)} className="text-muted-foreground hover:text-foreground transition-colors">
@@ -522,7 +522,7 @@ export default function AccountsPage() {
                                   </button>
                                 </div>
                               )}
-                              <p className="text-xs text-muted-foreground truncate">
+                              <p className="text-sm text-muted-foreground truncate">
                                 {account.pageName}
                                 {" · "}
                                 <span className={cn(

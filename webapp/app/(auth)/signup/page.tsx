@@ -98,7 +98,7 @@ export default function SignupPage() {
   return (
     <Card className="w-full max-w-md shadow-lg">
       <CardHeader className="text-center">
-        <CardTitle className="font-display text-3xl font-normal tracking-tight">Criar conta grátis</CardTitle>
+        <CardTitle className="text-3xl font-normal tracking-tight">Criar conta grátis</CardTitle>
         <CardDescription>Comece a publicar do Notion em minutos</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -115,7 +115,7 @@ export default function SignupPage() {
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
           </div>
-          <div className="relative flex justify-center text-xs uppercase">
+          <div className="relative flex justify-center text-sm uppercase">
             <span className="bg-card px-2 text-muted-foreground">ou</span>
           </div>
         </div>
@@ -139,7 +139,7 @@ export default function SignupPage() {
           </Button>
         </form>
       </CardContent>
-      <CardFooter className="justify-center text-sm text-muted-foreground">
+      <CardFooter className="justify-center text-base text-muted-foreground">
         Já tem conta?{" "}
         <LoginLink />
       </CardFooter>

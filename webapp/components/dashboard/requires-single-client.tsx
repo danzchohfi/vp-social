@@ -31,11 +31,11 @@ export function RequiresSingleClient({
         <LayoutGrid className="h-4 w-4" />
       </div>
       <div className="flex-1">
-        <p className="flex items-center gap-2 text-sm font-medium">
+        <p className="flex items-center gap-2 text-base font-medium">
           <AlertTriangle className="h-4 w-4 text-warning" />
           Você está em visão agência
         </p>
-        <p className="mt-1 text-sm text-muted-foreground">{message}</p>
+        <p className="mt-1 text-base text-muted-foreground">{message}</p>
       </div>
     </div>
   )

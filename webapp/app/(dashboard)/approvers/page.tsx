@@ -176,10 +176,10 @@ export default function ApproversPage() {
     <div className="mx-auto max-w-4xl p-8">
       <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Aprovadores</h1>
+          <h1 className="text-3xl tracking-tight sm:text-4xl">Aprovadores</h1>
           <p className="text-muted-foreground">
             Pessoas que aprovam roteiros das produções. Cada um tem um portal pessoal{" "}
-            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">/a/&#123;token&#125;</code> com tudo
+            <code className="rounded bg-muted px-1 py-0.5 font-mono text-[13px]">/a/&#123;token&#125;</code> com tudo
             que está aguardando decisão.
           </p>
         </div>
@@ -229,13 +229,13 @@ export default function ApproversPage() {
               <select
                 value={newRole}
                 onChange={(e) => setNewRole(e.target.value)}
-                className="h-9 w-full rounded border bg-background px-2 text-sm"
+                className="h-9 w-full rounded border bg-background px-2 text-base"
               >
                 <option value="client">Cliente</option>
                 <option value="internal_reviewer">Revisor interno</option>
                 <option value="final_approver">Aprovador final</option>
               </select>
-              <p className="text-[11px] text-muted-foreground">
+              <p className="text-[13px] text-muted-foreground">
                 Apenas informativo — não afeta a ordem da chain. Ordem é definida na produção.
               </p>
             </div>
@@ -270,7 +270,7 @@ export default function ApproversPage() {
           <CardContent className="py-12 text-center">
             <UserCheck className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
             <p className="font-medium">Nenhum aprovador cadastrado</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-base text-muted-foreground">
               Crie aprovadores aqui ou direto na chain de uma produção.
             </p>
           </CardContent>
@@ -365,25 +365,25 @@ function ApproverRow({
       <Card>
         <CardContent className="space-y-3 pt-6">
           <div className="space-y-1.5">
-            <Label className="text-xs">Nome</Label>
+            <Label className="text-sm">Nome</Label>
             <Input value={name} onChange={(e) => setName(e.target.value)} autoFocus />
           </div>
           <div className="grid gap-3 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label className="text-xs">Telefone</Label>
+              <Label className="text-sm">Telefone</Label>
               <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
             </div>
             <div className="space-y-1.5">
-              <Label className="text-xs">Email</Label>
+              <Label className="text-sm">Email</Label>
               <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
             </div>
           </div>
           <div className="space-y-1.5">
-            <Label className="text-xs">Papel</Label>
+            <Label className="text-sm">Papel</Label>
             <select
               value={role}
               onChange={(e) => setRole(e.target.value)}
-              className="h-9 w-full rounded border bg-background px-2 text-sm"
+              className="h-9 w-full rounded border bg-background px-2 text-base"
             >
               <option value="client">Cliente</option>
               <option value="internal_reviewer">Revisor interno</option>
@@ -415,16 +415,16 @@ function ApproverRow({
           <div className="min-w-0 flex-1">
             <div className="flex flex-wrap items-center gap-2">
               <p className="min-w-0 break-words font-semibold">{approver.name}</p>
-              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+              <span className="shrink-0 rounded-full bg-muted px-2 py-0.5 text-[12px] uppercase tracking-wider text-muted-foreground">
                 {ROLE_LABEL[approver.role] ?? approver.role}
               </span>
               {approver.usageCount > 0 && (
-                <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                <span className="shrink-0 rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary">
                   {approver.usageCount} produção{approver.usageCount === 1 ? "" : "ões"}
                 </span>
               )}
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {approver.phone ?? "—"}
               {approver.email && (
                 <>
@@ -433,7 +433,7 @@ function ApproverRow({
                 </>
               )}
             </p>
-            <div className="mt-2 flex items-center gap-1.5 rounded-md border bg-muted/30 px-2 py-1.5 text-[11px]">
+            <div className="mt-2 flex items-center gap-1.5 rounded-md border bg-muted/30 px-2 py-1.5 text-[13px]">
               <Link2 className="h-3 w-3 shrink-0 text-muted-foreground" />
               <code className="min-w-0 flex-1 truncate font-mono">
                 /a/{approver.magicToken.slice(0, 12)}…{approver.magicToken.slice(-4)}

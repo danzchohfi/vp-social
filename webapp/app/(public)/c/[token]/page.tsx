@@ -170,11 +170,11 @@ export default function ClientCalendarPage() {
             </div>
           )}
           <div className="min-w-0">
-            <p className="text-[10px] uppercase tracking-wider text-muted-foreground">Agenda de conteúdo</p>
-            <p className="truncate font-display text-base">{data.client.name}</p>
+            <p className="text-[12px] uppercase tracking-wider text-muted-foreground">Agenda de conteúdo</p>
+            <p className="truncate text-base">{data.client.name}</p>
           </div>
           {data.pending.length > 0 && (
-            <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-1 text-xs font-medium text-warning">
+            <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-1 text-sm font-medium text-warning">
               {data.pending.length} aguardando você
             </span>
           )}
@@ -197,13 +197,13 @@ export default function ClientCalendarPage() {
               key={opt.v}
               onClick={() => setTab(opt.v)}
               className={cn(
-                "flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-xs font-medium transition-colors",
+                "flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
                 tab === opt.v ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
               {opt.label}
               <span className={cn(
-                "rounded-full px-1.5 text-[10px]",
+                "rounded-full px-1.5 text-[12px]",
                 tab === opt.v ? "bg-background" : "bg-muted"
               )}>
                 {opt.count}
@@ -302,7 +302,7 @@ function CalendarMonth({
   return (
     <div>
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h2 className="font-display text-lg capitalize">{monthLabel}</h2>
+        <h2 className="text-lg capitalize">{monthLabel}</h2>
         <div className="flex items-center gap-1">
           <Button variant="ghost" size="sm" onClick={() => {
             const d = new Date()
@@ -318,7 +318,7 @@ function CalendarMonth({
       </div>
 
       <div className="overflow-hidden rounded-lg border bg-card">
-        <div className="grid grid-cols-7 border-b bg-muted/40 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+        <div className="grid grid-cols-7 border-b bg-muted/40 text-[12px] font-medium uppercase tracking-wider text-muted-foreground">
           {WEEKDAYS_PT.map((w) => (
             <div key={w} className="px-1 py-1.5 text-center">{w}</div>
           ))}
@@ -341,7 +341,7 @@ function CalendarMonth({
                 )}
               >
                 <div className={cn(
-                  "mb-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-medium",
+                  "mb-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-[13px] font-medium",
                   isToday && "bg-primary text-primary-foreground",
                 )}>
                   {day.getDate()}
@@ -351,7 +351,7 @@ function CalendarMonth({
                     <div
                       key={i}
                       className={cn(
-                        "truncate rounded px-1 py-0.5 text-[10px] leading-tight",
+                        "truncate rounded px-1 py-0.5 text-[12px] leading-tight",
                         it.kind === "pending" ? "bg-warning/15 text-warning" :
                           it.kind === "past" ? cn(platformClass(it.platform), "opacity-70") :
                           platformClass(it.platform)
@@ -372,7 +372,7 @@ function CalendarMonth({
         </div>
       </div>
 
-      <div className="mt-2 flex flex-wrap gap-3 text-[10px] text-muted-foreground">
+      <div className="mt-2 flex flex-wrap gap-3 text-[12px] text-muted-foreground">
         <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-warning" />Aguardando você</span>
         <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-pink-400" />Agendado</span>
         <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-pink-400 opacity-50" />Publicado</span>
@@ -390,7 +390,7 @@ function PendingList({ pending, onOpen }: { pending: PendingPost[]; onOpen: (p: 
         <CardContent className="py-10 text-center">
           <CheckCircle2 className="mx-auto mb-3 h-10 w-10 text-success/60" />
           <p className="font-medium">Tudo aprovado!</p>
-          <p className="mt-1 text-sm text-muted-foreground">Não há posts aguardando sua aprovação no momento.</p>
+          <p className="mt-1 text-base text-muted-foreground">Não há posts aguardando sua aprovação no momento.</p>
         </CardContent>
       </Card>
     )
@@ -410,18 +410,18 @@ function PendingList({ pending, onOpen }: { pending: PendingPost[]; onOpen: (p: 
                 {p.publishTargets.slice(0, 3).map((t) => (
                   <Badge key={t.raw} className={cn("text-[9px]", platformClass(t.platform))}>{t.raw}</Badge>
                 ))}
-                {p.publishTargets.length > 3 && <span className="text-[10px] text-muted-foreground">+{p.publishTargets.length - 3}</span>}
+                {p.publishTargets.length > 3 && <span className="text-[12px] text-muted-foreground">+{p.publishTargets.length - 3}</span>}
               </div>
               <p className="font-medium truncate">{p.title || "Sem título"}</p>
-              <p className="text-xs text-muted-foreground truncate">@{p.conta}</p>
+              <p className="text-sm text-muted-foreground truncate">@{p.conta}</p>
               {p.scheduledDate && (
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 text-sm text-muted-foreground">
                   <Clock className="inline h-3 w-3 mr-0.5" />
                   {new Date(p.scheduledDate).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                 </p>
               )}
             </div>
-            <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-warning text-warning-foreground px-2 py-1 text-[10px] font-medium">
+            <span className="shrink-0 inline-flex items-center gap-1 rounded-full bg-warning text-warning-foreground px-2 py-1 text-[12px] font-medium">
               Aprovar →
             </span>
           </div>
@@ -460,9 +460,9 @@ function ScheduledList({ scheduled }: { scheduled: ScheduledPost[] }) {
                 ))}
               </div>
               <p className="font-medium truncate">{p.title || "Sem título"}</p>
-              <p className="text-xs text-muted-foreground truncate">@{p.conta}</p>
+              <p className="text-sm text-muted-foreground truncate">@{p.conta}</p>
               {p.scheduledDate && (
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="mt-1 text-sm text-muted-foreground">
                   <Clock className="inline h-3 w-3 mr-0.5" />
                   {new Date(p.scheduledDate).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
                 </p>
@@ -501,7 +501,7 @@ function PublishedList({ past }: { past: PastPost[] }) {
                       href={pl.postUrl}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-medium hover:underline", platformClass(platform))}
+                      className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-medium hover:underline", platformClass(platform))}
                     >
                       {pl.raw}
                       <ExternalLink className="h-2.5 w-2.5" />
@@ -512,8 +512,8 @@ function PublishedList({ past }: { past: PastPost[] }) {
                 })}
               </div>
               <p className="font-medium truncate">{p.title || "Sem título"}</p>
-              <p className="text-xs text-muted-foreground truncate">@{p.conta}</p>
-              <p className="mt-1 text-xs text-muted-foreground">
+              <p className="text-sm text-muted-foreground truncate">@{p.conta}</p>
+              <p className="mt-1 text-sm text-muted-foreground">
                 <Clock className="inline h-3 w-3 mr-0.5" />
                 {new Date(p.date).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
               </p>
@@ -576,7 +576,7 @@ function ApprovalDialog({
           <div className="py-6 text-center">
             <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-warning" />
             <p className="font-medium">Link de aprovação ainda não disponível</p>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-base text-muted-foreground">
               A agência ainda não enviou esse post pra aprovação. Tente novamente em alguns minutos.
             </p>
           </div>
@@ -620,9 +620,9 @@ function ApprovalDialog({
       <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-t-xl border bg-background p-4 sm:rounded-xl sm:p-6" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Aprovação</p>
-            <h3 className="font-display text-xl truncate">{post.title || "Sem título"}</h3>
-            <p className="text-xs text-muted-foreground">@{post.conta}</p>
+            <p className="text-sm uppercase tracking-wider text-muted-foreground">Aprovação</p>
+            <h3 className="text-xl truncate">{post.title || "Sem título"}</h3>
+            <p className="text-sm text-muted-foreground">@{post.conta}</p>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Fechar">
             <X className="h-4 w-4" />
@@ -639,8 +639,8 @@ function ApprovalDialog({
         {/* Caption */}
         {post.fullCaption && (
           <div className="mb-4 rounded-lg border bg-muted/30 p-3">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Legenda</p>
-            <p className="whitespace-pre-wrap text-sm">{post.fullCaption}</p>
+            <p className="text-sm uppercase tracking-wider text-muted-foreground mb-1">Legenda</p>
+            <p className="whitespace-pre-wrap text-base">{post.fullCaption}</p>
           </div>
         )}
 
@@ -670,14 +670,14 @@ function ApprovalDialog({
         ) : (
           <div className="space-y-3">
             <div className="rounded-lg border p-3 bg-card">
-              <label className="text-sm font-medium block mb-2">O que precisa ajustar?</label>
+              <label className="text-base font-medium block mb-2">O que precisa ajustar?</label>
               <textarea
                 autoFocus
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="Ex: trocar a thumb, ajustar a legenda..."
                 rows={4}
-                className="w-full rounded-md border bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="w-full rounded-md border bg-background p-3 text-base focus:outline-none focus:ring-2 focus:ring-primary/30"
                 disabled={submitting !== null}
               />
             </div>
@@ -735,7 +735,7 @@ function DialogPlatformPreview({ target, post }: { target: TargetCheck; post: Sl
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
       <div className="border-b px-3 py-2">
-        <Badge className={cn("text-[10px]", platformClass(target.platform))}>{target.raw}</Badge>
+        <Badge className={cn("text-[12px]", platformClass(target.platform))}>{target.raw}</Badge>
       </div>
       <div className={cn("relative bg-muted", aspect)}>
         {mediaKind === "image" && mediaUrl && (
@@ -754,7 +754,7 @@ function DialogPlatformPreview({ target, post }: { target: TargetCheck; post: Sl
         {!mediaUrl && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
             <AlertTriangle className="h-6 w-6 mb-1" />
-            <span className="text-xs">Sem mídia</span>
+            <span className="text-sm">Sem mídia</span>
           </div>
         )}
       </div>
@@ -767,7 +767,7 @@ function ProductionsList({ productions }: { productions: ProductionItem[] }) {
     return (
       <Card>
         <CardContent className="py-10 text-center">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             Nenhuma produção em andamento. Quando a agência criar um vídeo ou podcast, aparece aqui.
           </p>
         </CardContent>
@@ -790,7 +790,7 @@ function ProductionsList({ productions }: { productions: ProductionItem[] }) {
         if (items.length === 0) return null
         return (
           <div key={group.key}>
-            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wider text-muted-foreground">
+            <p className="mb-2 text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">
               {group.label} ({items.length})
             </p>
             <div className="space-y-2">
@@ -801,14 +801,14 @@ function ProductionsList({ productions }: { productions: ProductionItem[] }) {
                       <Play className="h-4 w-4" />
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{p.title}</p>
-                      <p className="truncate text-[11px] text-muted-foreground">
+                      <p className="truncate text-base font-medium">{p.title}</p>
+                      <p className="truncate text-[13px] text-muted-foreground">
                         {p.statusLabel}
                         {p.specialistName ? ` · ${p.specialistName}` : ""}
                         {p.recordingDate ? ` · grava ${shortDate(p.recordingDate)}` : ""}
                       </p>
                       {p.topic && (
-                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{p.topic}</p>
+                        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{p.topic}</p>
                       )}
                     </div>
                     <div className="flex shrink-0 flex-col items-end gap-1.5">

@@ -83,7 +83,7 @@ export default function LoginPage() {
   return (
     <Card className="w-full max-w-md shadow-lg">
       <CardHeader className="text-center">
-        <CardTitle className="font-display text-3xl font-normal tracking-tight">Bem-vindo de volta</CardTitle>
+        <CardTitle className="text-3xl font-normal tracking-tight">Bem-vindo de volta</CardTitle>
         <CardDescription>Entre na sua conta para continuar</CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
@@ -100,7 +100,7 @@ export default function LoginPage() {
           <div className="absolute inset-0 flex items-center">
             <span className="w-full border-t" />
           </div>
-          <div className="relative flex justify-center text-xs uppercase">
+          <div className="relative flex justify-center text-sm uppercase">
             <span className="bg-card px-2 text-muted-foreground">ou</span>
           </div>
         </div>
@@ -113,7 +113,7 @@ export default function LoginPage() {
           <div className="space-y-1.5">
             <div className="flex items-center justify-between">
               <Label htmlFor="password">Senha</Label>
-              <Link href="/forgot-password" className="text-xs text-muted-foreground hover:text-primary hover:underline">
+              <Link href="/forgot-password" className="text-sm text-muted-foreground hover:text-primary hover:underline">
                 Esqueci a senha
               </Link>
             </div>
@@ -125,7 +125,7 @@ export default function LoginPage() {
           </Button>
         </form>
       </CardContent>
-      <CardFooter className="justify-center text-sm text-muted-foreground">
+      <CardFooter className="justify-center text-base text-muted-foreground">
         Não tem conta?{" "}
         <SignupLink />
       </CardFooter>

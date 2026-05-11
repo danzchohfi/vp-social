@@ -22,10 +22,10 @@ export default function LandingPage() {
             />
             <span className="text-lg tracking-tight">
               <span className="font-semibold">VP</span>
-              <span className="ml-1 italic font-display">Social</span>
+              <span className="ml-1 italic">Social</span>
             </span>
           </div>
-          <nav className="hidden items-center gap-8 text-sm text-muted-foreground md:flex">
+          <nav className="hidden items-center gap-8 text-base text-muted-foreground md:flex">
             <Link href="#features" className="hover:text-foreground transition-colors">Funcionalidades</Link>
             <Link href="#how" className="hover:text-foreground transition-colors">Como funciona</Link>
             <Link href="#pricing" className="hover:text-foreground transition-colors">Preços</Link>
@@ -64,7 +64,7 @@ export default function LandingPage() {
               <Sparkles className="h-3 w-3" />
               Feito para agências e criadores
             </Badge>
-            <h1 className="mb-6 font-display text-5xl font-normal leading-[1.05] tracking-tight md:text-7xl">
+            <h1 className="mb-6 text-5xl font-normal leading-[1.05] tracking-tight md:text-7xl">
               Publique nas redes
               <br />
               <span className="italic text-primary">direto do Notion</span>
@@ -83,14 +83,14 @@ export default function LandingPage() {
                 <Link href="#how">Ver como funciona</Link>
               </Button>
             </div>
-            <p className="mt-4 text-sm text-muted-foreground">Grátis para começar · Sem cartão de crédito</p>
+            <p className="mt-4 text-base text-muted-foreground">Grátis para começar · Sem cartão de crédito</p>
           </div>
         </section>
 
         {/* Social proof */}
         <section className="border-y border-border/50 bg-muted/30 px-6 py-12">
           <div className="mx-auto max-w-4xl text-center">
-            <p className="mb-8 text-sm font-medium text-muted-foreground uppercase tracking-widest">
+            <p className="mb-8 text-base font-medium text-muted-foreground uppercase tracking-widest">
               Funciona com suas ferramentas favoritas
             </p>
             <div className="flex flex-wrap items-center justify-center gap-12 text-muted-foreground">
@@ -115,7 +115,7 @@ export default function LandingPage() {
                     <f.icon className="h-5 w-5" />
                   </div>
                   <h3 className="mb-2 font-semibold">{f.title}</h3>
-                  <p className="text-sm text-muted-foreground">{f.description}</p>
+                  <p className="text-base text-muted-foreground">{f.description}</p>
                 </div>
               ))}
             </div>
@@ -162,7 +162,7 @@ export default function LandingPage() {
                   <p className="mb-6 text-muted-foreground">{plan.description}</p>
                   <ul className="mb-8 space-y-3">
                     {plan.features.map((f) => (
-                      <li key={f} className="flex items-center gap-2 text-sm">
+                      <li key={f} className="flex items-center gap-2 text-base">
                         <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
                         {f}
                       </li>
@@ -194,12 +194,12 @@ export default function LandingPage() {
       </main>
 
       <footer className="border-t px-6 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-sm text-muted-foreground sm:flex-row">
+        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-base text-muted-foreground sm:flex-row">
           <div className="flex items-center gap-2">
             <img src="/icon.png" alt="VP Social" className="h-6 w-6 rounded" />
             <span>
               <span className="font-semibold">VP</span>
-              <span className="ml-1 italic font-display">Social</span>
+              <span className="ml-1 italic">Social</span>
             </span>
           </div>
           <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">

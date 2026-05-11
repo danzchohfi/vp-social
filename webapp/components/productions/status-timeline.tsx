@@ -52,7 +52,7 @@ export function StatusTimeline({
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Status
         </h3>
         <StatusPill status={status} />
@@ -64,8 +64,8 @@ export function StatusTimeline({
             <span className="absolute -left-[21px] top-1 flex h-3 w-3 items-center justify-center rounded-full border bg-card">
               <p.icon className="h-2 w-2 text-muted-foreground" />
             </span>
-            <p className="text-xs font-medium">{p.label}</p>
-            <p className="text-[11px] text-muted-foreground">{formatDate(p.date)}</p>
+            <p className="text-sm font-medium">{p.label}</p>
+            <p className="text-[13px] text-muted-foreground">{formatDate(p.date)}</p>
           </li>
         ))}
         {lastUpdate && (
@@ -73,8 +73,8 @@ export function StatusTimeline({
             <span className="absolute -left-[21px] top-1 flex h-3 w-3 items-center justify-center rounded-full border bg-card">
               <Clock className="h-2 w-2 text-muted-foreground" />
             </span>
-            <p className="text-xs font-medium">Última atualização</p>
-            <p className="text-[11px] text-muted-foreground">{formatDate(lastUpdate)}</p>
+            <p className="text-sm font-medium">Última atualização</p>
+            <p className="text-[13px] text-muted-foreground">{formatDate(lastUpdate)}</p>
           </li>
         )}
       </ol>

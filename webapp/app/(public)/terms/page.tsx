@@ -19,17 +19,17 @@ export default function TermsPage() {
         <div>
           <p className="text-lg font-semibold tracking-tight">
             <span>VP</span>
-            <span className="ml-1 italic font-display">Social</span>
+            <span className="ml-1 italic">Social</span>
           </p>
-          <p className="text-xs text-muted-foreground">posts.vitaminapublicitaria.com.br</p>
+          <p className="text-sm text-muted-foreground">posts.vitaminapublicitaria.com.br</p>
         </div>
       </div>
 
-      <Link href="/" className="mb-8 inline-block text-sm text-muted-foreground hover:text-foreground">← Voltar</Link>
+      <Link href="/" className="mb-8 inline-block text-base text-muted-foreground hover:text-foreground">← Voltar</Link>
       <h1 className="mb-2 text-3xl font-semibold tracking-tight">Termos de Serviço</h1>
-      <p className="mb-8 text-sm text-muted-foreground">Última atualização: 2 de maio de 2026</p>
+      <p className="mb-8 text-base text-muted-foreground">Última atualização: 2 de maio de 2026</p>
 
-      <div className="prose prose-neutral dark:prose-invert max-w-none space-y-6 text-sm leading-relaxed">
+      <div className="prose prose-neutral dark:prose-invert max-w-none space-y-6 text-base leading-relaxed">
         <section>
           <h2 className="text-lg font-semibold">1. Aceitação dos termos</h2>
           <p>Ao utilizar o VP Social (<strong>posts.vitaminapublicitaria.com.br</strong>), você concorda com estes Termos de Serviço. Se não concordar, não utilize o serviço.</p>

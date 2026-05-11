@@ -23,7 +23,7 @@ function PlatformBadge({ raw }: { raw: string | null }) {
   const platform = target?.platform ?? raw.toLowerCase().split(/[\s-]+/)[0]
   const colorClass = PLATFORM_COLORS[platform] ?? "bg-muted text-muted-foreground"
   return (
-    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium", colorClass)}>
+    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-sm font-medium", colorClass)}>
       {raw}
     </span>
   )
@@ -47,23 +47,23 @@ export default async function HistoryPage() {
   return (
     <div className="p-8">
       <div className="mb-8">
-        <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Histórico</h1>
+        <h1 className="text-3xl tracking-tight sm:text-4xl">Histórico</h1>
         <p className="text-muted-foreground">Registro completo de todas as publicações</p>
       </div>
 
       {/* Summary */}
       <div className="mb-8 flex flex-wrap gap-3">
-        <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-2 text-sm">
+        <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-2 text-base">
           <CheckCircle2 className="h-4 w-4 text-success" />
           <span className="font-semibold text-success">{published}</span>
           <span className="text-muted-foreground">publicados</span>
         </div>
-        <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-2 text-sm">
+        <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-2 text-base">
           <XCircle className="h-4 w-4 text-destructive" />
           <span className="font-semibold text-destructive">{failed}</span>
           <span className="text-muted-foreground">com erro</span>
         </div>
-        <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-2 text-sm">
+        <div className="flex items-center gap-2 rounded-lg border bg-card px-4 py-2 text-base">
           <Clock className="h-4 w-4 text-muted-foreground" />
           <span className="font-semibold">{skipped}</span>
           <span className="text-muted-foreground">ignorados</span>
@@ -80,7 +80,7 @@ export default async function HistoryPage() {
             <div className="flex flex-col items-center justify-center py-16 text-center">
               <History className="mb-3 h-10 w-10 text-muted-foreground/40" />
               <p className="font-medium">Nenhuma publicação ainda</p>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-base text-muted-foreground">
                 O histórico aparecerá aqui assim que o sistema publicar o primeiro post.
               </p>
             </div>
@@ -94,10 +94,10 @@ export default async function HistoryPage() {
                       {log.status === "failed" && <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-destructive" />}
                       {log.status === "skipped" && <Clock className="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />}
                       <div className="min-w-0">
-                        <p className="text-sm font-medium truncate">{log.postTitle || "Post sem título"}</p>
+                        <p className="text-base font-medium truncate">{log.postTitle || "Post sem título"}</p>
                         <div className="mt-1 flex flex-wrap items-center gap-1.5">
                           <PlatformBadge raw={log.platform} />
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-sm text-muted-foreground">
                             {log.conta} · {new Date(log.publishedAt).toLocaleString("pt-BR", {
                               day: "2-digit", month: "2-digit", year: "numeric",
                               hour: "2-digit", minute: "2-digit",
@@ -128,7 +128,7 @@ export default async function HistoryPage() {
                     </Badge>
                   </div>
                   {log.error && (
-                    <p className="mt-2 rounded bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
+                    <p className="mt-2 rounded bg-destructive/10 px-3 py-1.5 text-sm text-destructive">
                       {log.error}
                     </p>
                   )}

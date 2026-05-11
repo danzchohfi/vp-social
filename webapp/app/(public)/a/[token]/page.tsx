@@ -160,8 +160,8 @@ export default function ApproverPortalPage() {
         <Card className="w-full max-w-md">
           <CardContent className="py-10 text-center">
             <AlertTriangle className="mx-auto mb-3 h-8 w-8 text-amber-500" />
-            <h1 className="mb-2 font-display text-lg">Link inválido ou revogado</h1>
-            <p className="text-sm text-muted-foreground">
+            <h1 className="mb-2 text-lg">Link inválido ou revogado</h1>
+            <p className="text-base text-muted-foreground">
               Esse portal foi desativado. Peça à agência um novo link.
             </p>
           </CardContent>
@@ -181,13 +181,13 @@ export default function ApproverPortalPage() {
             <Sparkles className="h-5 w-5" />
           </div>
           <div className="min-w-0 flex-1">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Portal do aprovador</p>
-            <h1 className="truncate font-display text-lg">Olá, {approver.name}</h1>
+            <p className="text-sm uppercase tracking-wider text-muted-foreground">Portal do aprovador</p>
+            <h1 className="truncate text-lg">Olá, {approver.name}</h1>
           </div>
         </header>
 
         {/* Tabs */}
-        <div className="mb-4 flex gap-1 rounded-lg bg-card p-1 text-sm">
+        <div className="mb-4 flex gap-1 rounded-lg bg-card p-1 text-base">
           <button
             type="button"
             onClick={() => setTab("pending")}
@@ -221,7 +221,7 @@ export default function ApproverPortalPage() {
               <Card>
                 <CardContent className="py-10 text-center">
                   <CheckCircle2 className="mx-auto mb-3 h-8 w-8 text-success" />
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-base text-muted-foreground">
                     Nada esperando você agora. Voltamos a avisar quando algo precisar de aprovação.
                   </p>
                 </CardContent>
@@ -232,19 +232,19 @@ export default function ApproverPortalPage() {
                   <CardHeader className="pb-3">
                     <div className="flex items-start justify-between gap-2">
                       <div className="min-w-0 flex-1">
-                        <p className="truncate font-display text-base">{p.productionTitle}</p>
+                        <p className="truncate text-base">{p.productionTitle}</p>
                         {p.clientName && (
-                          <p className="truncate text-xs text-muted-foreground">{p.clientName}</p>
+                          <p className="truncate text-sm text-muted-foreground">{p.clientName}</p>
                         )}
                       </div>
-                      <Badge variant="outline" className="shrink-0 text-[10px]">
+                      <Badge variant="outline" className="shrink-0 text-[12px]">
                         Aprovação {p.stepOrder}/{p.totalSteps} · revisão {p.round}
                       </Badge>
                     </div>
                   </CardHeader>
                   <CardContent className="space-y-3 pb-4">
                     {p.previousApprovers.length > 0 && (
-                      <div className="flex flex-wrap items-center gap-1.5 text-[11px] text-muted-foreground">
+                      <div className="flex flex-wrap items-center gap-1.5 text-[13px] text-muted-foreground">
                         <span className="uppercase tracking-wider">Já aprovaram:</span>
                         {p.previousApprovers.map((prev, i) => (
                           <span
@@ -258,7 +258,7 @@ export default function ApproverPortalPage() {
                       </div>
                     )}
 
-                    <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
+                    <div className="flex items-center gap-2 text-[13px] text-muted-foreground">
                       <Clock className="h-3 w-3" />
                       {p.sentAt ? `Enviado ${timeAgo(p.sentAt)}` : "Aguardando envio"}
                       <span>·</span>
@@ -272,7 +272,7 @@ export default function ApproverPortalPage() {
                           onChange={(e) => setRevisionComment(e.target.value)}
                           placeholder="O que precisa mudar?"
                           rows={3}
-                          className="w-full resize-none rounded border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                          className="w-full resize-none rounded border bg-background p-2 text-base focus:outline-none focus:ring-2 focus:ring-primary/30"
                         />
                         <div className="flex justify-end gap-1.5">
                           <Button
@@ -347,7 +347,7 @@ export default function ApproverPortalPage() {
             {history.length === 0 ? (
               <Card>
                 <CardContent className="py-10 text-center">
-                  <p className="text-sm text-muted-foreground">Nenhuma decisão nos últimos 30 dias.</p>
+                  <p className="text-base text-muted-foreground">Nenhuma decisão nos últimos 30 dias.</p>
                 </CardContent>
               </Card>
             ) : (
@@ -369,15 +369,15 @@ export default function ApproverPortalPage() {
                       )}
                     </div>
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium">{h.productionTitle}</p>
-                      <p className="truncate text-[11px] text-muted-foreground">
+                      <p className="truncate text-base font-medium">{h.productionTitle}</p>
+                      <p className="truncate text-[13px] text-muted-foreground">
                         {h.clientName ? `${h.clientName} · ` : ""}
                         {h.decision === "approved" ? "Aprovado" : "Pediu alterações"}
                         {h.decidedAt ? ` · ${timeAgo(h.decidedAt)}` : ""}
                         {` · revisão ${h.round}`}
                       </p>
                       {h.comment && (
-                        <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{h.comment}</p>
+                        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{h.comment}</p>
                       )}
                     </div>
                   </CardContent>

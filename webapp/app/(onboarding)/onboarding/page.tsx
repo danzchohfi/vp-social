@@ -318,7 +318,7 @@ export default function OnboardingPage() {
             >
               <div
                 className={cn(
-                  "flex h-8 w-8 items-center justify-center rounded-full text-sm font-medium transition-colors hover:ring-2 hover:ring-primary/30",
+                  "flex h-8 w-8 items-center justify-center rounded-full text-base font-medium transition-colors hover:ring-2 hover:ring-primary/30",
                   step > s.num
                     ? "bg-primary text-primary-foreground"
                     : step === s.num
@@ -328,7 +328,7 @@ export default function OnboardingPage() {
               >
                 {step > s.num ? <CheckCircle2 className="h-4 w-4" /> : s.num}
               </div>
-              <span className={cn("text-[10px] sm:text-xs", step === s.num ? "font-medium text-foreground" : "text-muted-foreground")}>{s.label}</span>
+              <span className={cn("text-[12px] sm:text-sm", step === s.num ? "font-medium text-foreground" : "text-muted-foreground")}>{s.label}</span>
             </button>
             {i < STEPS.length - 1 && <div className={cn("mx-1 sm:mx-2 mb-5 h-0.5 w-6 sm:w-10 transition-colors", step > s.num ? "bg-primary" : "bg-muted")} />}
           </div>
@@ -350,7 +350,7 @@ export default function OnboardingPage() {
               {savingClient ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
               Continuar
             </Button>
-            <p className="text-center text-xs text-muted-foreground">Você pode adicionar mais clientes depois em &quot;Clientes&quot;.</p>
+            <p className="text-center text-sm text-muted-foreground">Você pode adicionar mais clientes depois em &quot;Clientes&quot;.</p>
           </div>
         </StepCard>
       )}
@@ -361,7 +361,7 @@ export default function OnboardingPage() {
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}
             Conectar Notion
           </Button>
-          <p className="text-center text-xs text-muted-foreground">Você será redirecionado para o Notion para autorizar o acesso. Se tiver o app Notion instalado no Mac, use Firefox ou uma janela anônima para evitar que o app intercepte o login.</p>
+          <p className="text-center text-sm text-muted-foreground">Você será redirecionado para o Notion para autorizar o acesso. Se tiver o app Notion instalado no Mac, use Firefox ou uma janela anônima para evitar que o app intercepte o login.</p>
         </StepCard>
       )}
 
@@ -383,10 +383,10 @@ export default function OnboardingPage() {
               {databases.length === 0 && (
                 <div className="space-y-3 rounded-lg border border-warning/40 bg-warning/5 p-4">
                   <div className="space-y-1">
-                    <p className="text-sm font-medium">Nenhuma página acessível para este cliente.</p>
-                    <p className="text-xs text-muted-foreground">Cada cliente que você cria tem sua própria autorização do Notion. Páginas compartilhadas com outros clientes não vêm junto automaticamente. Você tem 2 caminhos:</p>
+                    <p className="text-base font-medium">Nenhuma página acessível para este cliente.</p>
+                    <p className="text-sm text-muted-foreground">Cada cliente que você cria tem sua própria autorização do Notion. Páginas compartilhadas com outros clientes não vêm junto automaticamente. Você tem 2 caminhos:</p>
                   </div>
-                  <div className="space-y-2 rounded border bg-background/50 p-3 text-xs">
+                  <div className="space-y-2 rounded border bg-background/50 p-3 text-sm">
                     <p className="font-semibold">Opção 1 — No Notion, adicione esta integração ao banco</p>
                     <ol className="list-decimal space-y-0.5 pl-4 text-muted-foreground">
                       <li>Abra o banco/página no Notion</li>
@@ -395,7 +395,7 @@ export default function OnboardingPage() {
                       <li>Volte aqui e cole a URL do banco abaixo</li>
                     </ol>
                   </div>
-                  <div className="space-y-2 rounded border bg-background/50 p-3 text-xs">
+                  <div className="space-y-2 rounded border bg-background/50 p-3 text-sm">
                     <p className="font-semibold">Opção 2 — Reabrir autorização e marcar a página</p>
                     <p className="text-muted-foreground">Na tela do Notion, marque o checkbox da página que quer usar antes de confirmar.</p>
                     <Button onClick={connectNotion} disabled={loading} variant="outline" size="sm" className="w-full">
@@ -408,7 +408,7 @@ export default function OnboardingPage() {
               <div className="space-y-1.5">
                 <Label>{databases.length > 0 ? "Ou cole o link do banco diretamente" : "Cole a URL do banco aqui"}</Label>
                 <Input placeholder="https://notion.so/workspace/Titulo-xxxxxxxx" value={manualUrl} onChange={(e) => { setManualUrl(e.target.value); setSelectedDbId("") }} />
-                <p className="text-xs text-muted-foreground">No banco do Notion, clique em ⋯ → <strong>Copiar link</strong> e cole aqui. Vamos validar o acesso antes de salvar.</p>
+                <p className="text-sm text-muted-foreground">No banco do Notion, clique em ⋯ → <strong>Copiar link</strong> e cole aqui. Vamos validar o acesso antes de salvar.</p>
               </div>
               <Button onClick={saveDatabase} disabled={!effectiveDbId || dbSaving} className="w-full" size="lg">
                 {dbSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
@@ -428,14 +428,14 @@ export default function OnboardingPage() {
                 <label key={acc.id} className={cn("flex cursor-pointer items-center gap-3 rounded-lg border bg-card p-3 transition-colors", checked ? "border-primary bg-primary/5" : "hover:bg-accent")}>
                   <input type="checkbox" checked={checked} onChange={() => togglePending(acc.id)} className="h-4 w-4 shrink-0" />
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium">{acc.pageName}</p>
-                    <p className="text-xs text-muted-foreground capitalize">{acc.platform}</p>
+                    <p className="truncate text-base font-medium">{acc.pageName}</p>
+                    <p className="text-sm text-muted-foreground capitalize">{acc.platform}</p>
                   </div>
                 </label>
               )
             })}
           </div>
-          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <button type="button" onClick={() => setKeptAccountIds(new Set(pendingAccounts.map((a) => a.id)))} className="underline hover:text-foreground">Marcar todas</button>
             <span>·</span>
             <button type="button" onClick={() => setKeptAccountIds(new Set())} className="underline hover:text-foreground">Limpar</button>
@@ -451,11 +451,11 @@ export default function OnboardingPage() {
       {step === 3 && !(pendingAccounts && pendingAccounts.length > 0) && (
         <StepCard icon={<Instagram className="h-6 w-6 text-primary" />} title="Conectar contas sociais" description="Conecte suas contas via Facebook (Instagram + Facebook Pages). Outras plataformas podem ser conectadas depois nas Contas.">
           {wasCloned && (
-            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">
+            <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-foreground">
               <strong>Workspace já estava conectado em outro cliente.</strong> Reaproveitamos o banco e o mapeamento — você só precisa conectar as contas sociais deste cliente agora.
             </div>
           )}
-          <div className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground space-y-1">
+          <div className="rounded-lg bg-muted/50 p-4 text-base text-muted-foreground space-y-1">
             <p className="font-medium text-foreground">O que você precisa:</p>
             <ul className="list-disc pl-4 space-y-0.5">
               <li>Conta do Instagram Business ou Criador</li>
@@ -467,14 +467,14 @@ export default function OnboardingPage() {
             {loading ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ExternalLink className="mr-2 h-4 w-4" />}
             Conectar via Facebook
           </Button>
-          <button type="button" onClick={() => setStep(4)} className="block w-full text-center text-xs text-muted-foreground underline hover:text-foreground">Pular por agora</button>
+          <button type="button" onClick={() => setStep(4)} className="block w-full text-center text-sm text-muted-foreground underline hover:text-foreground">Pular por agora</button>
         </StepCard>
       )}
 
       {step === 4 && !connection && (
         <StepCard icon={<Settings className="h-6 w-6 text-primary" />} title="Mapeamento de campos" description="Carregando dados do banco do Notion…">
           <div className="flex justify-center py-6"><Loader2 className="h-6 w-6 animate-spin text-muted-foreground" /></div>
-          <p className="text-center text-xs text-muted-foreground">Se isso demorar mais de alguns segundos, talvez seja porque você não conectou um banco do Notion antes.</p>
+          <p className="text-center text-sm text-muted-foreground">Se isso demorar mais de alguns segundos, talvez seja porque você não conectou um banco do Notion antes.</p>
           <Button variant="outline" onClick={() => router.push("/dashboard")} className="w-full">Ir para o Dashboard</Button>
         </StepCard>
       )}
@@ -607,17 +607,17 @@ function MappingForm({
   return (
     <div className="space-y-5">
       {wasCloned && (
-        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-xs text-foreground">
+        <div className="rounded-lg border border-primary/30 bg-primary/5 p-3 text-sm text-foreground">
           <strong>Mapeamento copiado de outro cliente.</strong> Como o banco é o mesmo, geralmente as colunas batem — confira abaixo e ajuste se precisar.
         </div>
       )}
 
       {propsError && (
-        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-xs text-foreground space-y-2">
+        <div className="rounded-lg border border-destructive/40 bg-destructive/10 p-3 text-sm text-foreground space-y-2">
           <div>
             <strong>Não consegui carregar as propriedades do Notion:</strong> {propsError}
           </div>
-          <button type="button" onClick={() => setReloadKey((k) => k + 1)} className="text-xs underline hover:text-foreground/80">
+          <button type="button" onClick={() => setReloadKey((k) => k + 1)} className="text-sm underline hover:text-foreground/80">
             Tentar novamente
           </button>
         </div>
@@ -657,7 +657,7 @@ function MappingForm({
         <SelectField label="Links publicados" value={mapping.postUrlField} options={namesByTypes(["rich_text"], mapping.postUrlField)} onChange={(v) => setField("postUrlField", v)} hint="Texto — recebe um link clicável por plataforma após publicar" />
       </Section>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="text-sm text-muted-foreground">
         Analytics (curtidas, alcance etc.) ficam opcionais e podem ser configurados depois nas <strong>Configurações</strong>.
       </p>
 
@@ -666,7 +666,7 @@ function MappingForm({
           {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <ArrowRight className="mr-2 h-4 w-4" />}
           Salvar e continuar
         </Button>
-        <button type="button" onClick={onSkip} className="block w-full text-center text-xs text-muted-foreground underline hover:text-foreground">Pular por agora (uso valores padrão)</button>
+        <button type="button" onClick={onSkip} className="block w-full text-center text-sm text-muted-foreground underline hover:text-foreground">Pular por agora (uso valores padrão)</button>
       </div>
     </div>
   )
@@ -675,7 +675,7 @@ function MappingForm({
 function Section({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="space-y-2">
-      <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
+      <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">{label}</p>
       <div className="grid gap-3 sm:grid-cols-2">{children}</div>
     </div>
   )
@@ -685,8 +685,8 @@ function SelectField({ label, value, options, onChange, hint }: { label: string;
   const hasValue = value && options.includes(value)
   return (
     <div className="space-y-1">
-      <Label className="text-sm">{label}</Label>
-      {hint && <p className="text-[11px] text-muted-foreground">{hint}</p>}
+      <Label className="text-base">{label}</Label>
+      {hint && <p className="text-[13px] text-muted-foreground">{hint}</p>}
       <Select value={hasValue ? value : NONE_VALUE} onValueChange={(v) => onChange(v === NONE_VALUE ? "" : v)}>
         <SelectTrigger className="w-full"><SelectValue placeholder="Selecionar campo..." /></SelectTrigger>
         <SelectContent>
@@ -702,7 +702,7 @@ function StatusValueSelect({ label, value, options, onChange }: { label: string;
   if (!options.length) {
     return (
       <div className="space-y-1">
-        <Label className="text-sm">{label}</Label>
+        <Label className="text-base">{label}</Label>
         <Select disabled value={NONE_VALUE}>
           <SelectTrigger className="w-full"><SelectValue placeholder="Selecione o campo de status acima primeiro" /></SelectTrigger>
           <SelectContent><SelectItem value={NONE_VALUE}>—</SelectItem></SelectContent>
@@ -713,7 +713,7 @@ function StatusValueSelect({ label, value, options, onChange }: { label: string;
   const hasValue = value && options.includes(value)
   return (
     <div className="space-y-1">
-      <Label className="text-sm">{label}</Label>
+      <Label className="text-base">{label}</Label>
       <Select value={hasValue ? value : NONE_VALUE} onValueChange={(v) => onChange(v === NONE_VALUE ? "" : v)}>
         <SelectTrigger className="w-full"><SelectValue placeholder="Selecionar valor..." /></SelectTrigger>
         <SelectContent>
@@ -731,7 +731,7 @@ function StepCard({ icon, title, description, children }: { icon: React.ReactNod
       <CardHeader className="pb-4">
         <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-xl bg-primary/10">{icon}</div>
         <CardTitle className="text-xl">{title}</CardTitle>
-        <CardDescription className="text-sm leading-relaxed">{description}</CardDescription>
+        <CardDescription className="text-base leading-relaxed">{description}</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">{children}</CardContent>
     </Card>
@@ -742,7 +742,7 @@ function SuccessItem({ label }: { label: string }) {
   return (
     <div className="flex items-center gap-3 rounded-lg bg-green-50 border border-green-100 px-4 py-3 dark:bg-green-950/20 dark:border-green-900/30">
       <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600 dark:text-green-400" />
-      <span className="text-sm font-medium text-green-800 dark:text-green-300">{label}</span>
+      <span className="text-base font-medium text-green-800 dark:text-green-300">{label}</span>
     </div>
   )
 }
@@ -752,8 +752,8 @@ function PendingItem({ label, hint, onBack }: { label: string; hint: string; onB
     <div className="flex flex-wrap items-center gap-3 rounded-lg border border-warning/40 bg-warning/5 px-4 py-3">
       <div className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full border-2 border-warning/60" />
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium text-foreground">{label}</p>
-        <p className="text-xs text-muted-foreground">{hint}</p>
+        <p className="text-base font-medium text-foreground">{label}</p>
+        <p className="text-sm text-muted-foreground">{hint}</p>
       </div>
       <Button size="sm" variant="outline" onClick={onBack}>
         Configurar
@@ -852,7 +852,7 @@ function FinalStep({
         )}
       </div>
       {allDone && (
-        <div className="rounded-lg bg-primary/5 border border-primary/20 p-4 text-sm text-muted-foreground space-y-1">
+        <div className="rounded-lg bg-primary/5 border border-primary/20 p-4 text-base text-muted-foreground space-y-1">
           <p className="font-medium text-foreground">Próximos passos:</p>
           <ul className="list-disc pl-4 space-y-0.5">
             <li>Verifique que os nomes das contas no Notion correspondem aos cadastrados</li>

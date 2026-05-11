@@ -408,7 +408,7 @@ export default async function DashboardPage() {
     <div className="p-8">
       <div className="mb-8 flex items-center justify-between">
         <div>
-          <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Dashboard</h1>
+          <h1 className="text-3xl tracking-tight sm:text-4xl">Dashboard</h1>
           <p className="text-muted-foreground flex items-center gap-2">
             {isAgency ? (
               <>
@@ -429,28 +429,28 @@ export default async function DashboardPage() {
         <div className="mb-8 rounded-xl border border-warning/40 bg-warning/5 p-5">
           <div className="mb-3 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning" />
-            <p className="text-sm font-semibold">Precisa de atenção</p>
+            <p className="text-base font-semibold">Precisa de atenção</p>
           </div>
           <div className="space-y-3">
             {recentFailures.length > 0 && (
               <div>
-                <p className="text-xs font-medium text-muted-foreground">
+                <p className="text-sm font-medium text-muted-foreground">
                   {recentFailures.length} {recentFailures.length === 1 ? "publicação falhou" : "publicações falharam"} nos últimos 7 dias
                 </p>
                 <ul className="mt-1.5 space-y-1">
                   {recentFailures.map((f) => {
                     const owning = f.clientId ? clientById.get(f.clientId) : null
                     return (
-                      <li key={f.id} className="flex items-start gap-2 text-sm">
+                      <li key={f.id} className="flex items-start gap-2 text-base">
                         <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
                         <div className="min-w-0 flex-1">
                           <span className="truncate">{f.title || "Post sem título"}</span>
                           {scope.mode === "all" && owning && (
-                            <span className="ml-1.5 text-xs text-muted-foreground">· {owning.name}</span>
+                            <span className="ml-1.5 text-sm text-muted-foreground">· {owning.name}</span>
                           )}
-                          <span className="ml-1.5 text-xs text-muted-foreground">· {f.platform}</span>
+                          <span className="ml-1.5 text-sm text-muted-foreground">· {f.platform}</span>
                           {f.error && (
-                            <p className="mt-0.5 text-xs text-destructive/80 truncate font-mono">{f.error}</p>
+                            <p className="mt-0.5 text-sm text-destructive/80 truncate font-mono">{f.error}</p>
                           )}
                         </div>
                         <Link
@@ -464,14 +464,14 @@ export default async function DashboardPage() {
                     )
                   })}
                 </ul>
-                <Link href="/scheduled?filter=errors" className="mt-2 inline-block text-xs text-warning underline hover:no-underline">
+                <Link href="/scheduled?filter=errors" className="mt-2 inline-block text-sm text-warning underline hover:no-underline">
                   Ver todos os erros →
                 </Link>
               </div>
             )}
             {inactiveClients.length > 0 && (
               <div>
-                <p className="text-xs font-medium text-muted-foreground">
+                <p className="text-sm font-medium text-muted-foreground">
                   {inactiveClients.length} {inactiveClients.length === 1 ? "cliente sem publicar há 14+ dias" : "clientes sem publicar há 14+ dias"}
                 </p>
                 <ul className="mt-1.5 space-y-1">
@@ -479,16 +479,16 @@ export default async function DashboardPage() {
                     const last = lastByClient.get(c.id)
                     const isActiveAlready = scope.mode === "single" && scope.client.id === c.id
                     return (
-                      <li key={c.id} className="flex items-center gap-2 text-sm">
+                      <li key={c.id} className="flex items-center gap-2 text-base">
                         <MoonStar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
                         <span>{c.name}</span>
-                        <span className="text-xs text-muted-foreground">
+                        <span className="text-sm text-muted-foreground">
                           {last ? `· última em ${last.toLocaleDateString("pt-BR")}` : "· nenhuma publicação"}
                         </span>
                         {!isActiveAlready && (
                           <SwitchClientButton
                             clientId={c.id}
-                            className="ml-auto inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning hover:bg-warning/20"
+                            className="ml-auto inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[13px] font-medium text-warning hover:bg-warning/20"
                           >
                             <span className="inline-flex items-center gap-1">
                               Abrir cliente
@@ -504,27 +504,27 @@ export default async function DashboardPage() {
             )}
             {unmappedContas.length > 0 && (
               <div>
-                <p className="text-xs font-medium text-muted-foreground">
-                  {unmappedContas.reduce((s, u) => s + u.count, 0)} post{unmappedContas.reduce((s, u) => s + u.count, 0) === 1 ? "" : "s"} com <code className="rounded bg-muted px-1 font-mono text-[10px]">conta</code> não mapeada — não vão publicar até resolver
+                <p className="text-sm font-medium text-muted-foreground">
+                  {unmappedContas.reduce((s, u) => s + u.count, 0)} post{unmappedContas.reduce((s, u) => s + u.count, 0) === 1 ? "" : "s"} com <code className="rounded bg-muted px-1 font-mono text-[12px]">conta</code> não mapeada — não vão publicar até resolver
                 </p>
                 <ul className="mt-1.5 space-y-1">
                   {unmappedContas.map((u) => (
-                    <li key={u.conta} className="flex flex-wrap items-start gap-2 text-sm">
+                    <li key={u.conta} className="flex flex-wrap items-start gap-2 text-base">
                       <Tag className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
                       <div className="min-w-0 flex-1">
                         <span className="font-medium">{u.conta || "(sem conta)"}</span>
-                        <span className="ml-1.5 text-xs text-muted-foreground">
+                        <span className="ml-1.5 text-sm text-muted-foreground">
                           · {u.count} post{u.count === 1 ? "" : "s"}
                         </span>
                         {u.samples.length > 0 && (
-                          <p className="mt-0.5 text-[11px] text-muted-foreground truncate">
+                          <p className="mt-0.5 text-[13px] text-muted-foreground truncate">
                             ex: {u.samples.join(", ")}
                           </p>
                         )}
                       </div>
                       <Link
                         href={`/clients`}
-                        className="ml-auto inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning hover:bg-warning/20"
+                        className="ml-auto inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[13px] font-medium text-warning hover:bg-warning/20"
                       >
                         Mapear
                         <ArrowRight className="h-3 w-3" />
@@ -532,7 +532,7 @@ export default async function DashboardPage() {
                     </li>
                   ))}
                 </ul>
-                <p className="mt-2 text-[11px] text-muted-foreground">
+                <p className="mt-2 text-[13px] text-muted-foreground">
                   Para resolver: abra <Link href="/clients" className="underline">/clients</Link> → edite o cliente correto → painel <strong>Contas do Notion mapeadas</strong> → adicione o valor exato como aparece no Notion.
                 </p>
               </div>
@@ -546,11 +546,11 @@ export default async function DashboardPage() {
           <div className="mb-3 flex items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <MessageCircle className="h-4 w-4 text-amber-500" />
-              <p className="text-sm font-semibold">Aprovações</p>
+              <p className="text-base font-semibold">Aprovações</p>
             </div>
             <Link
               href="/scheduled?filter=approval"
-              className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+              className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
             >
               Ver tudo no calendário
               <ArrowRight className="h-3 w-3" />
@@ -561,33 +561,33 @@ export default async function DashboardPage() {
               this people see "5 pendentes" and assume everything is fine. */}
           <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-lg bg-muted/40 p-2.5">
-              <p className="font-display text-2xl leading-none">{approvalsPending.length}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">Pendentes</p>
+              <p className="text-2xl leading-none">{approvalsPending.length}</p>
+              <p className="mt-1 text-[12px] uppercase tracking-wider text-muted-foreground">Pendentes</p>
             </div>
             <div className={cn(
               "rounded-lg p-2.5",
               approvalsStale.length > 0 ? "bg-warning/10" : "bg-muted/40"
             )}>
               <p className={cn(
-                "font-display text-2xl leading-none",
+                "text-2xl leading-none",
                 approvalsStale.length > 0 ? "text-warning" : "",
               )}>
                 {approvalsStale.length}
               </p>
-              <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">Parados +3d</p>
+              <p className="mt-1 text-[12px] uppercase tracking-wider text-muted-foreground">Parados +3d</p>
             </div>
             <div className="rounded-lg bg-muted/40 p-2.5">
-              <p className="font-display text-2xl leading-none text-success">{approvalsApproved7d.length}</p>
-              <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">Aprovados 7d</p>
+              <p className="text-2xl leading-none text-success">{approvalsApproved7d.length}</p>
+              <p className="mt-1 text-[12px] uppercase tracking-wider text-muted-foreground">Aprovados 7d</p>
             </div>
             <div className="rounded-lg bg-muted/40 p-2.5">
               <p className={cn(
-                "font-display text-2xl leading-none",
+                "text-2xl leading-none",
                 approvalsExpired.length > 0 ? "text-destructive" : "",
               )}>
                 {approvalsExpired.length}
               </p>
-              <p className="mt-1 text-[10px] uppercase tracking-wider text-muted-foreground">Expirados</p>
+              <p className="mt-1 text-[12px] uppercase tracking-wider text-muted-foreground">Expirados</p>
             </div>
           </div>
 
@@ -595,7 +595,7 @@ export default async function DashboardPage() {
               already knows whose approvals these are. */}
           {pendingByClient.size > 0 && (
             <div className="mb-3">
-              <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <p className="mb-1.5 text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
                 {isAgency ? "Por cliente" : "Pendentes"}
               </p>
               <div className="flex flex-wrap gap-1.5">
@@ -608,7 +608,7 @@ export default async function DashboardPage() {
                       <span
                         key={cid}
                         className={cn(
-                          "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs",
+                          "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-sm",
                           stale > 0 ? "border-warning/50 bg-warning/10 text-warning" : "border-muted bg-muted/30",
                         )}
                       >
@@ -618,7 +618,7 @@ export default async function DashboardPage() {
                           <Building2 className="h-3 w-3 opacity-60" />
                         )}
                         <span className="font-medium">{c?.name ?? "(removido)"}</span>
-                        <span className="font-mono text-[10px] opacity-80">
+                        <span className="font-mono text-[12px] opacity-80">
                           {n}{stale > 0 ? ` (${stale} parado)` : ""}
                         </span>
                         {cid && <NotifyPendingButton clientId={cid} pendingCount={n} />}
@@ -633,7 +633,7 @@ export default async function DashboardPage() {
               to /scheduled?filter=approval. */}
           {approvalsStale.length > 0 && (
             <div>
-              <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-warning">
+              <p className="mb-1.5 text-[13px] font-medium uppercase tracking-wider text-warning">
                 Precisa cobrar ({approvalsStale.length})
               </p>
               <ul className="space-y-1">
@@ -643,17 +643,17 @@ export default async function DashboardPage() {
                     ? Math.floor((nowMs - new Date(r.sentAt).getTime()) / (24 * 60 * 60 * 1000))
                     : Math.floor((nowMs - new Date(r.createdAt).getTime()) / (24 * 60 * 60 * 1000))
                   return (
-                    <li key={r.token} className="flex items-start gap-2 text-sm">
+                    <li key={r.token} className="flex items-start gap-2 text-base">
                       <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
                       <div className="min-w-0 flex-1">
                         <span className="truncate">{r.postTitle || "Post sem título"}</span>
                         {scope.mode === "all" && owning && (
-                          <span className="ml-1.5 text-xs text-muted-foreground">· {owning.name}</span>
+                          <span className="ml-1.5 text-sm text-muted-foreground">· {owning.name}</span>
                         )}
                         {r.contactName && (
-                          <span className="ml-1.5 text-xs text-muted-foreground">· {r.contactName}</span>
+                          <span className="ml-1.5 text-sm text-muted-foreground">· {r.contactName}</span>
                         )}
-                        <span className="ml-1.5 text-xs text-warning">· há {sentAgo}d</span>
+                        <span className="ml-1.5 text-sm text-warning">· há {sentAgo}d</span>
                       </div>
                       <div className="flex shrink-0 items-center gap-1">
                         {r.contactPhone && (
@@ -662,7 +662,7 @@ export default async function DashboardPage() {
                             target="_blank"
                             rel="noopener noreferrer"
                             title="Abrir WhatsApp"
-                            className="inline-flex h-6 items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-1.5 text-[10px] font-medium text-warning hover:bg-warning/20"
+                            className="inline-flex h-6 items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-1.5 text-[12px] font-medium text-warning hover:bg-warning/20"
                           >
                             <MessageCircle className="h-3 w-3" />
                             WA
@@ -683,7 +683,7 @@ export default async function DashboardPage() {
               {approvalsStale.length > 5 && (
                 <Link
                   href="/scheduled?filter=approval"
-                  className="mt-2 inline-block text-xs text-warning underline hover:no-underline"
+                  className="mt-2 inline-block text-sm text-warning underline hover:no-underline"
                 >
                   + {approvalsStale.length - 5} outros parados →
                 </Link>
@@ -695,10 +695,10 @@ export default async function DashboardPage() {
               if there's nothing in the last 7 days, to keep the widget small. */}
           {approvalsDecided7d.length > 0 && (
             <div className={cn(approvalsStale.length > 0 ? "mt-3 border-t pt-3" : "")}>
-              <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
+              <p className="mb-1.5 text-[13px] font-medium uppercase tracking-wider text-muted-foreground">
                 Decisões recentes (7d)
               </p>
-              <ul className="space-y-1 text-sm">
+              <ul className="space-y-1 text-base">
                 {approvalsDecided7d.slice(0, 5).map((r) => {
                   const owning = r.clientId ? clientById.get(r.clientId) : null
                   const Icon = r.decision === "approved" ? ThumbsUp : XCircle
@@ -710,13 +710,13 @@ export default async function DashboardPage() {
                       <div className="min-w-0 flex-1">
                         <span className="truncate">{r.postTitle || "Post sem título"}</span>
                         {scope.mode === "all" && owning && (
-                          <span className="ml-1.5 text-xs text-muted-foreground">· {owning.name}</span>
+                          <span className="ml-1.5 text-sm text-muted-foreground">· {owning.name}</span>
                         )}
-                        <span className="ml-1.5 text-xs text-muted-foreground">
+                        <span className="ml-1.5 text-sm text-muted-foreground">
                           · {r.decision === "approved" ? "aprovou" : r.decision === "rejected" ? "rejeitou" : "pediu alterações"}
                         </span>
                       </div>
-                      <span className="shrink-0 text-xs text-muted-foreground">{decidedDate}</span>
+                      <span className="shrink-0 text-sm text-muted-foreground">{decidedDate}</span>
                     </li>
                   )
                 })}
@@ -729,10 +729,10 @@ export default async function DashboardPage() {
       {scope.mode === "all" && (
         <div className="mb-8">
           <div className="mb-3 flex items-baseline justify-between">
-            <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
               Clientes ({scope.clients.length})
             </p>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               Toque pra trocar para um cliente específico
             </p>
           </div>
@@ -757,24 +757,24 @@ export default async function DashboardPage() {
                     <ArrowRight className="h-3.5 w-3.5 shrink-0 text-muted-foreground/60" />
                   </div>
                   {!hasNotionConfigured ? (
-                    <p className="text-xs text-muted-foreground">Notion não configurado</p>
+                    <p className="text-sm text-muted-foreground">Notion não configurado</p>
                   ) : (
                     <>
                       <div className="grid grid-cols-2 gap-2 text-center">
                         <div className="rounded-lg bg-muted/40 p-2">
-                          <p className="font-display text-lg leading-none">{monthCount}</p>
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">
+                          <p className="text-lg leading-none">{monthCount}</p>
+                          <p className="text-[12px] uppercase tracking-wider text-muted-foreground mt-1">
                             Publ. mês
                           </p>
                         </div>
                         <div className="rounded-lg bg-muted/40 p-2">
-                          <p className="font-display text-lg leading-none">{upcomingForThisClient}</p>
-                          <p className="text-[10px] uppercase tracking-wider text-muted-foreground mt-1">
+                          <p className="text-lg leading-none">{upcomingForThisClient}</p>
+                          <p className="text-[12px] uppercase tracking-wider text-muted-foreground mt-1">
                             Agendados
                           </p>
                         </div>
                       </div>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-sm text-muted-foreground">
                         {last
                           ? <>Última: {last.toLocaleDateString("pt-BR")}{inactive && <span className="text-warning"> · inativo</span>}</>
                           : "Sem publicações ainda"}
@@ -837,9 +837,9 @@ export default async function DashboardPage() {
               <div className="flex-1">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <h3 className="font-semibold">Configure este cliente</h3>
-                  <span className="text-xs text-muted-foreground">{completed}/{items.length} concluídos</span>
+                  <span className="text-sm text-muted-foreground">{completed}/{items.length} concluídos</span>
                 </div>
-                <p className="mt-1 text-sm text-muted-foreground">
+                <p className="mt-1 text-base text-muted-foreground">
                   Para começar a publicar em <strong>{scope.client.name}</strong>, complete os 4 passos abaixo.
                 </p>
                 <ol className="mt-4 space-y-2">
@@ -857,7 +857,7 @@ export default async function DashboardPage() {
                               : "border-muted bg-muted/20 opacity-60"
                         }`}
                       >
-                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-medium">
+                        <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-sm font-medium">
                           {item.done ? (
                             <CheckCircle2 className="h-5 w-5 text-success" />
                           ) : (
@@ -867,11 +867,11 @@ export default async function DashboardPage() {
                           )}
                         </div>
                         <div className="min-w-0 flex-1">
-                          <p className={`text-sm font-medium ${item.done ? "text-success line-through opacity-75" : ""}`}>
+                          <p className={`text-base font-medium ${item.done ? "text-success line-through opacity-75" : ""}`}>
                             {item.label}
                           </p>
                           {!item.done && (
-                            <p className="text-xs text-muted-foreground">
+                            <p className="text-sm text-muted-foreground">
                               {item.blocked && item.blockedReason
                                 ? <>Aguardando: <span className="font-medium">{item.blockedReason}</span></>
                                 : item.description}
@@ -903,10 +903,10 @@ export default async function DashboardPage() {
                 Agendados
                 <ArrowRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-60" />
               </CardDescription>
-              <CardTitle className="font-display text-4xl font-normal text-primary">{upcomingCount}</CardTitle>
+              <CardTitle className="text-4xl font-normal text-primary">{upcomingCount}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-xs text-muted-foreground">prontos para publicar</p>
+              <p className="text-sm text-muted-foreground">prontos para publicar</p>
             </CardContent>
           </Card>
         </Link>
@@ -917,10 +917,10 @@ export default async function DashboardPage() {
                 Publicados
                 <ArrowRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-60" />
               </CardDescription>
-              <CardTitle className="font-display text-4xl font-normal text-success">{totalPublished}</CardTitle>
+              <CardTitle className="text-4xl font-normal text-success">{totalPublished}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-xs text-muted-foreground">{statSubtitle}</p>
+              <p className="text-sm text-muted-foreground">{statSubtitle}</p>
             </CardContent>
           </Card>
         </Link>
@@ -931,10 +931,10 @@ export default async function DashboardPage() {
                 Com erro
                 <ArrowRight className="h-3 w-3 opacity-0 transition-opacity group-hover:opacity-60" />
               </CardDescription>
-              <CardTitle className="font-display text-4xl font-normal text-destructive">{totalFailed}</CardTitle>
+              <CardTitle className="text-4xl font-normal text-destructive">{totalFailed}</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="text-xs text-muted-foreground">{statSubtitle}</p>
+              <p className="text-sm text-muted-foreground">{statSubtitle}</p>
             </CardContent>
           </Card>
         </Link>
@@ -944,12 +944,12 @@ export default async function DashboardPage() {
         <div className="mb-8 rounded-xl border border-success/30 bg-gradient-to-br from-success/[0.06] to-transparent p-5">
           <div className="mb-2 flex items-center gap-2">
             <ThumbsUp className="h-4 w-4 text-success" />
-            <p className="text-sm font-semibold">Destaque dos últimos 30 dias</p>
+            <p className="text-base font-semibold">Destaque dos últimos 30 dias</p>
           </div>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0 flex-1">
               <p className="font-medium break-words">{topPost.title || "Post sem título"}</p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 @{topPost.conta}
                 {topPost.platform && <> · {topPost.platform}</>}
                 {isAgency && topPost.clientId && clientById.get(topPost.clientId) && (
@@ -958,7 +958,7 @@ export default async function DashboardPage() {
                 {" · "}
                 {new Date(topPost.publishedAt).toLocaleDateString("pt-BR")}
               </p>
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-sm">
+              <div className="mt-2 flex flex-wrap items-center gap-3 text-base">
                 {(topPost.likes ?? 0) > 0 && (
                   <span className="inline-flex items-center gap-1">
                     <Heart className="h-3.5 w-3.5 text-success" />
@@ -1010,8 +1010,8 @@ export default async function DashboardPage() {
             {nextFive.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-8 text-center">
                 <CalendarClock className="mb-3 h-8 w-8 text-muted-foreground/40" />
-                <p className="text-sm font-medium">Nenhum post na fila</p>
-                <p className="mt-1 text-xs text-muted-foreground">
+                <p className="text-base font-medium">Nenhum post na fila</p>
+                <p className="mt-1 text-sm text-muted-foreground">
                   Marque posts como &quot;Agendamento&quot; no Notion para vê-los aqui.
                 </p>
                 {!isAgency && notion[0]?.databaseId && (
@@ -1019,7 +1019,7 @@ export default async function DashboardPage() {
                     href={`https://www.notion.so/${notion[0].databaseId.replace(/-/g, "")}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-xs font-medium hover:bg-accent"
+                    className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent"
                   >
                     <BookOpen className="h-3.5 w-3.5" />
                     Abrir Notion
@@ -1046,13 +1046,13 @@ export default async function DashboardPage() {
                               target="_blank"
                               rel="noopener noreferrer"
                               title="Abrir no Notion"
-                              className="group inline-flex items-center gap-1.5 min-w-0 text-sm font-medium hover:underline"
+                              className="group inline-flex items-center gap-1.5 min-w-0 text-base font-medium hover:underline"
                             >
                               <span className="break-words">{p.title || "Sem título"}</span>
                               <ExternalLink className="h-3 w-3 shrink-0 opacity-40 transition-opacity group-hover:opacity-100" />
                             </a>
                             {isAgency && owning && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary">
                                 {owning.logoUrl ? (
                                   <img src={owning.logoUrl} alt="" className="h-3 w-3 rounded-full object-cover" />
                                 ) : (
@@ -1062,14 +1062,14 @@ export default async function DashboardPage() {
                               </span>
                             )}
                           </div>
-                          <p className="mt-0.5 text-xs text-muted-foreground">
+                          <p className="mt-0.5 text-sm text-muted-foreground">
                             {p.conta} {p.publishTargets.length > 0 && (
                               <>· {p.publishTargets.map((t) => t.raw).join(", ")}</>
                             )}
                           </p>
                         </div>
                         <div className="text-right shrink-0">
-                          <p className="text-xs text-muted-foreground inline-flex items-center gap-1">
+                          <p className="text-sm text-muted-foreground inline-flex items-center gap-1">
                             <CalendarClock className="h-3 w-3" />
                             {p.scheduledDate
                               ? new Date(p.scheduledDate).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })
@@ -1080,7 +1080,7 @@ export default async function DashboardPage() {
                       {issues.length > 0 && (
                         <ul className="mt-2 space-y-1.5">
                           {issues.map((issue) => (
-                            <li key={issue.message} className="flex flex-wrap items-start gap-x-2 gap-y-1 text-xs text-warning">
+                            <li key={issue.message} className="flex flex-wrap items-start gap-x-2 gap-y-1 text-sm text-warning">
                               <span className="flex items-start gap-1.5">
                                 <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
                                 <span>{issue.message}</span>
@@ -1090,7 +1090,7 @@ export default async function DashboardPage() {
                                   href={issue.actionHref}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="ml-auto inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning hover:bg-warning/20"
+                                  className="ml-auto inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[13px] font-medium text-warning hover:bg-warning/20"
                                 >
                                   {issue.actionLabel}
                                   <ExternalLink className="h-3 w-3" />
@@ -1098,7 +1098,7 @@ export default async function DashboardPage() {
                               ) : (
                                 <Link
                                   href={issue.actionHref}
-                                  className="ml-auto inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning hover:bg-warning/20"
+                                  className="ml-auto inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[13px] font-medium text-warning hover:bg-warning/20"
                                 >
                                   {issue.actionLabel}
                                 </Link>
@@ -1110,7 +1110,7 @@ export default async function DashboardPage() {
                       <div className="mt-2 flex flex-wrap items-center gap-1.5">
                         <Link
                           href={`/scheduled?postId=${encodeURIComponent(p.pageId)}`}
-                          className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-xs font-medium hover:bg-accent"
+                          className="inline-flex items-center gap-1 rounded-md border border-input bg-background px-2 py-1 text-sm font-medium hover:bg-accent"
                         >
                           <CalendarClock className="h-3 w-3" />
                           Calendário
@@ -1144,7 +1144,7 @@ export default async function DashboardPage() {
         </CardHeader>
         <CardContent>
           {activeByPlatform.length === 0 ? (
-            <p className="py-3 text-sm text-muted-foreground">
+            <p className="py-3 text-base text-muted-foreground">
               {isAgency
                 ? "Nenhuma conta conectada em nenhum cliente ainda."
                 : "Nenhuma conta conectada a este cliente ainda."}
@@ -1167,11 +1167,11 @@ export default async function DashboardPage() {
                       ) : (
                         <div className="h-4 w-4 rounded-sm bg-foreground/70" />
                       )}
-                      <span className="text-sm font-medium">{p.label}</span>
+                      <span className="text-base font-medium">{p.label}</span>
                     </div>
-                    <span className={isActive ? "text-sm font-semibold text-success" : "text-sm text-muted-foreground"}>
+                    <span className={isActive ? "text-base font-semibold text-success" : "text-base text-muted-foreground"}>
                       {p.active} ativa{p.active === 1 ? "" : "s"}
-                      {p.total !== p.active && <span className="ml-1 text-xs text-muted-foreground">/ {p.total}</span>}
+                      {p.total !== p.active && <span className="ml-1 text-sm text-muted-foreground">/ {p.total}</span>}
                     </span>
                   </div>
                 )
@@ -1198,7 +1198,7 @@ export default async function DashboardPage() {
             <div className="flex flex-col items-center justify-center py-12 text-center">
               <Clock className="mb-3 h-10 w-10 text-muted-foreground/40" />
               <p className="font-medium">Nenhuma publicação ainda</p>
-              <p className="mt-1 text-sm text-muted-foreground">
+              <p className="mt-1 text-base text-muted-foreground">
                 Configure as contas e marque posts como &quot;Agendamento&quot; no Notion.
               </p>
             </div>
@@ -1220,13 +1220,13 @@ export default async function DashboardPage() {
                               target="_blank"
                               rel="noopener noreferrer"
                               title="Abrir no Notion"
-                              className="group inline-flex items-center gap-1.5 min-w-0 text-sm font-medium hover:underline"
+                              className="group inline-flex items-center gap-1.5 min-w-0 text-base font-medium hover:underline"
                             >
                               <span className="truncate">{log.postTitle || "Post sem título"}</span>
                               <ExternalLink className="h-3 w-3 shrink-0 opacity-40 transition-opacity group-hover:opacity-100" />
                             </a>
                             {isAgency && owning && (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+                              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary">
                                 {owning.logoUrl ? (
                                   <img src={owning.logoUrl} alt="" className="h-3 w-3 rounded-full object-cover" />
                                 ) : (
@@ -1236,7 +1236,7 @@ export default async function DashboardPage() {
                               </span>
                             )}
                           </div>
-                          <p className="text-xs text-muted-foreground inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
+                          <p className="text-sm text-muted-foreground inline-flex flex-wrap items-center gap-x-1.5 gap-y-0.5">
                             <span>{log.conta} · {new Date(log.publishedAt).toLocaleString("pt-BR")}</span>
                             {log.status === "published" && log.metricsLastSyncedAt && (
                               <>
@@ -1270,7 +1270,7 @@ export default async function DashboardPage() {
                       </div>
                     </div>
                     {log.status === "failed" && log.error && (
-                      <p className="mt-2 rounded bg-destructive/10 px-3 py-1.5 text-xs text-destructive">
+                      <p className="mt-2 rounded bg-destructive/10 px-3 py-1.5 text-sm text-destructive">
                         {log.error}
                       </p>
                     )}
