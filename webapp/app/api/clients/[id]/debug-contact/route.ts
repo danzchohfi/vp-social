@@ -196,22 +196,76 @@ export async function GET(
         log("rollup_1hop_error", { error: String(e) })
       }
     } else if (relatedIds.length === 0 && rollupIsRelationShape) {
-      // Two distinct cases when a relation-shape rollup is empty:
-      //  (a) array has 0 items → no Conta linked to the Post
-      //  (b) array has ≥1 items but each item.relation is empty →
-      //      either the linked Conta(s) have no Contatos linked, OR
-      //      the Notion integration doesn't have access to the
-      //      Contatos DB (Notion silently hides relation IDs from
-      //      integrations that lack permission).
+      // Empty relation-shape rollup. Three possible causes:
+      //   (a) array has 0 items     → no Conta linked to the Post
+      //   (b) array has ≥1 items but relation is [] →
+      //       integration lacks access to the Contatos DB OR
+      //       the linked Conta(s) genuinely have no Contatos.
       //
-      // We can't tell (b1) from (b2) without trying to fetch the
-      // target DB schema. Surface BOTH as likely causes with the
-      // permission case first (it's the most common surprise).
+      // For (b), do an ACTIVE permission probe: walk the schema to
+      // find the Contatos DB id, then try to retrieve that DB. If
+      // it 403s/404s, that's definitive proof of (b1). If it
+      // succeeds, the IDs really are absent — (b2).
       const arrayLen = (rd?.array as any[] | undefined)?.length ?? 0
-      const reason = arrayLen === 0
-        ? "O post não tem nenhuma Conta linkada — o rollup é varrido com 0 itens. Verifique a propriedade de relação Conta no post."
-        : `O rollup encontrou ${arrayLen} Conta linkada mas nenhum Contato dentro dela. Causa mais comum: a integração Notion não tem acesso à DB Contatos — o Notion esconde IDs de relations quando a integração não pode ler o destino. Conserto: no Notion, abre a DB Contatos → menu "..." no topo → "Connections" → adiciona sua integração. Se a permissão estiver ok, então é mesmo a Conta linkada que está sem Contatos — abra essa Conta e linke pelo menos 1 contato na propriedade Contatos.`
-      log("rollup_empty_contacts", { arrayLen, reason })
+      let permissionVerdict: "no_conta_linked" | "no_access_to_contatos" | "access_ok_no_data" | "unknown" = "unknown"
+      let probedDbName: string | null = null
+      let probeError: string | null = null
+
+      if (arrayLen === 0) {
+        permissionVerdict = "no_conta_linked"
+      } else {
+        // Walk schema: Posts DB → rollup config → Contas DB id →
+        // Contas DB schema → rollup_property_name → Contatos DB id.
+        try {
+          const postsDbInfo: any = await client.databases.retrieve({ database_id: conn.databaseId })
+          const rollupSchema = postsDbInfo?.properties?.[fieldName]?.rollup
+          const sourceRelName: string | undefined = rollupSchema?.relation_property_name
+          const rollupPropName: string | undefined = rollupSchema?.rollup_property_name
+          const contasDbId: string | undefined =
+            sourceRelName ? postsDbInfo?.properties?.[sourceRelName]?.relation?.database_id : undefined
+          log("permission_probe_chain", { sourceRelName, rollupPropName, contasDbId })
+
+          if (contasDbId && rollupPropName) {
+            const contasDbInfo: any = await client.databases.retrieve({ database_id: contasDbId })
+            const innerProp = contasDbInfo?.properties?.[rollupPropName]
+            const contatosDbId: string | undefined =
+              innerProp?.type === "relation" ? innerProp.relation?.database_id : undefined
+            log("permission_probe_inner", { rollupPropType: innerProp?.type, contatosDbId })
+
+            if (contatosDbId) {
+              try {
+                const contatosDb: any = await client.databases.retrieve({ database_id: contatosDbId })
+                probedDbName = (contatosDb?.title ?? [])
+                  .map((t: any) => t.plain_text ?? "")
+                  .join("")
+                  .trim() || null
+                // Integration CAN reach the Contatos DB → empty
+                // rollup is genuinely a data issue.
+                permissionVerdict = "access_ok_no_data"
+                log("permission_probe_result", { canAccessContatosDb: true, probedDbName })
+              } catch (e) {
+                probeError = e instanceof Error ? e.message : String(e)
+                permissionVerdict = "no_access_to_contatos"
+                log("permission_probe_result", { canAccessContatosDb: false, probeError })
+              }
+            }
+          }
+        } catch (e) {
+          probeError = e instanceof Error ? e.message : String(e)
+          log("permission_probe_error", { error: probeError })
+        }
+      }
+
+      const reason =
+        permissionVerdict === "no_conta_linked"
+          ? "O post não tem nenhuma Conta linkada — o rollup é varrido com 0 itens. Verifique a propriedade de relação Conta no post."
+          : permissionVerdict === "no_access_to_contatos"
+            ? `Confirmado: a integração Notion NÃO TEM acesso à DB Contatos${probedDbName ? ` ("${probedDbName}")` : ""}. ${probeError ? `(${probeError}) ` : ""}Conserto: no Notion, abre a DB Contatos → menu "..." no topo → "Connections" → adiciona sua integração. Depois recarregue e teste de novo.`
+            : permissionVerdict === "access_ok_no_data"
+              ? `A integração TEM acesso à DB Contatos${probedDbName ? ` ("${probedDbName}")` : ""}, então o problema não é permissão. A Conta linkada nesse post realmente está sem Contatos relacionados — abra a página da Conta no Notion e linke pelo menos 1 contato na propriedade Contatos.`
+              : `${arrayLen} Conta linkada mas Contatos vazios. Não consegui verificar permissão automaticamente — confira se a integração Notion está conectada à DB Contatos no Notion (menu "..." → Connections).`
+
+      log("rollup_empty_contacts", { arrayLen, permissionVerdict, reason })
     }
   } else {
     log("unsupported_type", { type: mappedProp?.type ?? null })
