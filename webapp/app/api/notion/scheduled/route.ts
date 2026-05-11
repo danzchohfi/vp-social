@@ -308,20 +308,27 @@ export async function GET() {
   }
 
   // ─── Past (publishLog) ────────────────────────────────────────────────
-  // Tenancy is enforced by clientId only. Filtering on session.user.id
-  // would silently hide past logs in agency-scope clients (where the
-  // publishLog rows carry the owner's userId, not the calling member's),
-  // making the Past tab look empty for members.
+  // publish_log.clientId is the CONNECTION's clientId at publish time, not
+  // the post's conta-owner. When a single Notion connection serves multiple
+  // agency clients (one DB hosts posts for several brands), all rows land
+  // under the connection's owner regardless of which brand actually owned
+  // each post. We re-apply the same conta-ownership routing as the upcoming
+  // side: a past row only belongs to the current view if its conta resolves
+  // to an in-scope client (name match or notionContaValues), or if no
+  // owner is found AND the conta matches an in-scope IG account.
   const cutoff = new Date(Date.now() - PAST_WINDOW_DAYS * 24 * 60 * 60 * 1000)
+  const accessibleIdSet = new Set(allAccessible.map((c) => c.id))
+  // Fetch from any accessible client's connection, then filter post-hoc by
+  // conta-ownership. This is wider than the previous strict clientId filter,
+  // but the conta filter narrows it back to the right scope and (critically)
+  // doesn't drop posts that were misattributed at publish time.
   const logs = await db
     .select()
     .from(publishLog)
     .where(
       and(
         gte(publishLog.publishedAt, cutoff),
-        isAgency
-          ? inArray(publishLog.clientId, clientIds)
-          : eq(publishLog.clientId, clientIds[0])
+        inArray(publishLog.clientId, Array.from(accessibleIdSet)),
       )
     )
 
@@ -376,6 +383,20 @@ export async function GET() {
   }
 
   const past = Array.from(grouped.values())
+    .filter((entry) => {
+      // Apply the same conta-ownership routing as the upcoming side. A
+      // past row whose conta resolves to a sibling client (or to a
+      // client outside the current view) is excluded — this is the
+      // mirror of belongsToClient on the upcoming branch.
+      const contaKey = (entry.conta ?? "").toLowerCase()
+      const explicitOwnerId = findExplicitOwner(contaKey)
+      if (explicitOwnerId) return clientIdSet.has(explicitOwnerId)
+      if (!contaKey) {
+        // No conta on the log row → fall back to publish-time clientId.
+        return entry.clientId ? clientIdSet.has(entry.clientId) : false
+      }
+      return clientContas.has(contaKey)
+    })
     .map((entry) => {
       const platforms = Array.from(entry._platformsByRaw.values()).map((p: any) => ({
         raw: p.raw,
