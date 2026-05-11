@@ -251,12 +251,13 @@ export default function SettingsPage() {
     ? props.filter(p => p.type === "number").map(p => p.name)
     : [mapping.likesField, mapping.commentsField, mapping.reachField, mapping.savesField, mapping.impressionsField].filter(Boolean)
 
-  // Approval-contact column on the post DB must be a Relation property
-  // (the cron follows the relation to the linked Contato page and reads
-  // email/phone from there). Filtering to relation-only keeps the dropdown
-  // short and makes a missing property obvious.
+  // Approval-contact column on the post DB. A Relation property is the
+  // ideal case (cron walks the relation → Contato page → phone). A Rollup
+  // also works if it aggregates an underlying Relation — resolveContact
+  // follows the rollup's relation_property_name from the DB schema down
+  // to the actual relation. Both types appear in the picker.
   const relationPropNames = props.length
-    ? props.filter(p => p.type === "relation").map(p => p.name)
+    ? props.filter(p => p.type === "relation" || p.type === "rollup").map(p => p.name)
     : [mapping.clientContactField].filter(Boolean)
 
   const statusOptions = props.find(p => p.name === mapping.statusField)?.options ?? []
@@ -700,8 +701,8 @@ export default function SettingsPage() {
                       onChange={(v) => setField("clientContactField", v)}
                       hint={
                         relationPropNames.length === 0
-                          ? `Nenhuma propriedade do tipo Relation foi detectada no DB conectado${dbName ? ` (${dbName})` : ""}. Se você acabou de criar uma no Notion, clique em "Recarregar propriedades" abaixo. Caso contrário, abra a tabela do Notion → Add property → escolha "Relation" → aponte pra sua DB de Contatos.`
-                          : `Apenas propriedades do tipo Relation aparecem aqui (${relationPropNames.length} encontrada${relationPropNames.length === 1 ? "" : "s"} no DB conectado). Aponta pra sua DB de Contato — ex.: "Contato", "Contatos Relacionados".`
+                          ? `Nenhuma propriedade tipo Relation ou Rollup foi detectada no DB conectado${dbName ? ` (${dbName})` : ""}. Se você acabou de criar uma no Notion, clique em "Recarregar propriedades" abaixo. Caso contrário, abra a tabela do Notion → Add property → escolha "Relation" → aponte pra sua DB de Contatos.`
+                          : `Propriedades tipo Relation ou Rollup aparecem aqui (${relationPropNames.length} encontrada${relationPropNames.length === 1 ? "" : "s"}). Rollup funciona se ele agrega uma Relation pra DB de Contatos.`
                       }
                     />
                     <div className="flex flex-wrap items-center gap-2">
@@ -735,7 +736,7 @@ export default function SettingsPage() {
                                   key={p.name}
                                   className={cn(
                                     "flex items-center gap-2",
-                                    p.type === "relation" && "text-success font-semibold",
+                                    (p.type === "relation" || p.type === "rollup") && "text-success font-semibold",
                                   )}
                                 >
                                   <span className="inline-block w-24 shrink-0 text-muted-foreground">{p.type}</span>

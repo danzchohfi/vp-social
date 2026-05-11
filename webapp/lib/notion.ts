@@ -302,8 +302,35 @@ export function createNotionClient(accessToken: string) {
         const page = await client.pages.retrieve({ page_id: pageId })
         if (!("properties" in page)) return null
         const props = (page as any).properties
-        const relProp = props[mapping.clientContactField]
-        const relatedIds: string[] = relProp?.relation?.map((r: any) => r.id) ?? []
+        const fieldName = mapping.clientContactField
+        const mappedProp = props[fieldName]
+        // Resolve related-contact IDs from either a Relation or a Rollup
+        // that aggregates a Relation. Notion's rollup payload on a page
+        // doesn't expose the relation values directly — for that we need
+        // the underlying relation_property_name from the DB schema, then
+        // re-read the page property under that name. We do this lazily
+        // so non-rollup paths skip the extra fetch.
+        let relatedIds: string[] = []
+        if (mappedProp?.type === "relation") {
+          relatedIds = mappedProp.relation?.map((r: any) => r.id) ?? []
+        } else if (mappedProp?.type === "rollup") {
+          const parentDbId = (page as any).parent?.database_id
+          if (parentDbId) {
+            try {
+              const dbInfo: any = await client.databases.retrieve({ database_id: parentDbId })
+              const schemaProp = dbInfo?.properties?.[fieldName]
+              const sourceRelName: string | undefined = schemaProp?.rollup?.relation_property_name
+              if (sourceRelName) {
+                const sourceProp = props[sourceRelName]
+                if (sourceProp?.type === "relation") {
+                  relatedIds = sourceProp.relation?.map((r: any) => r.id) ?? []
+                }
+              }
+            } catch (e) {
+              console.warn(`[notion.resolveContact] rollup ${fieldName} schema lookup failed: ${e}`)
+            }
+          }
+        }
         if (relatedIds.length === 0) return null
 
         // Multi-contact case: if mapping.contactApproverField is set, fetch
