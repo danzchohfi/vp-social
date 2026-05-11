@@ -95,8 +95,12 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       key: "notion",
       label: "Notion conectado",
       status: "done",
-      action: { label: "Gerenciar", href: "/settings" },
-      detail: `${ready.length} banco(s) conectado(s)`,
+      // Sends the user back through Notion's OAuth so they can pick
+      // additional pages/DBs (e.g. add the Contatos DB to an existing
+      // integration). Clicking the previous href="/settings" was a
+      // no-op since the user was already on /settings.
+      action: { label: "Adicionar mais bancos", href: "/api/notion/auth-url?redirect=1" },
+      detail: `${ready.length} banco(s) conectado(s) · clique pra adicionar mais (ex.: DB Contatos)`,
     }
   })()
 

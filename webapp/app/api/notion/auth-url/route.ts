@@ -21,5 +21,14 @@ export async function GET(req: Request) {
     `&owner=user` +
     `&state=${encodeURIComponent(state)}`
 
+  // ?redirect=1: instead of returning JSON, send a 302 straight to
+  // Notion's OAuth screen. Used by setup-checklist "Gerenciar" so a
+  // plain <a href> click takes the user into Notion's page-picker
+  // where they can add the integration to more DBs (e.g. Contatos)
+  // without us needing client-side fetch + window.location wiring.
+  if (new URL(req.url).searchParams.get("redirect") === "1") {
+    return NextResponse.redirect(url)
+  }
+
   return NextResponse.json({ url })
 }
