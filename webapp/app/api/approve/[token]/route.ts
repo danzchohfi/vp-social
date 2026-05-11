@@ -398,10 +398,20 @@ export async function POST(
   const notion = createNotionClient(conn.accessToken)
 
   try {
+    const who = row.contactName ?? "Cliente"
+    const when = new Date().toLocaleString("pt-BR")
     if (body.decision === "approved") {
       await notion.markReady(row.notionPageId, mapping)
+      await notion.postSystemComment(
+        row.notionPageId,
+        `✓ Aprovado por ${who} · ${when}`,
+      )
     } else {
       await notion.markRevision(row.notionPageId, mapping)
+      await notion.postSystemComment(
+        row.notionPageId,
+        `🔁 Pedido alterações por ${who} · ${when}`,
+      )
       if (comment) {
         await notion.addClientComment(row.notionPageId, comment, row.contactName ?? null)
       }

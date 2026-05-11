@@ -235,6 +235,22 @@ export function createNotionClient(accessToken: string) {
       } as any)
     },
 
+    async postSystemComment(pageId: string, text: string): Promise<void> {
+      // System-generated audit comment — no contact prefix. Used for
+      // "Aprovação solicitada", "Aprovado por X", etc. so the post's
+      // Notion sidebar carries a timeline of every approval event.
+      // Soft-fails: if the integration lacks comment access on the page,
+      // we log and move on rather than break the publish loop.
+      try {
+        await client.comments.create({
+          parent: { page_id: pageId },
+          rich_text: [{ type: "text", text: { content: text } }],
+        } as any)
+      } catch (e) {
+        console.warn(`[notion.postSystemComment] page ${pageId}: ${e instanceof Error ? e.message : e}`)
+      }
+    },
+
     async getPostsByStatus(databaseId: string, mapping: FieldMapping, statusValue: string): Promise<NotionPost[]> {
       // Generic by-status query. Used for the approval-pending sweep
       // (statusValue = mapping.awaitingApprovalValue). Filters on the
