@@ -31,8 +31,15 @@ type PropInfo = {
   // (e.g. accidentally aggregating data from the Contas/Marcas
   // relation instead of the Contatos relation).
   targetDbName?: string | null
-  // For rollup: the underlying relation property name.
+  // For rollup: the underlying relation property name on THIS DB.
   rollupRelationName?: string | null
+  // For rollup: the property on the LINKED page being aggregated (e.g.
+  // a rollup of "Contato → DB Contas, aggregating the 'Contatos'
+  // relation property" → rollupPropertyName = "Contatos"). When this
+  // property is itself a relation, the chain is 2-hop and the actual
+  // contacts live in rollupFinalDbName.
+  rollupPropertyName?: string | null
+  rollupFinalDbName?: string | null
 }
 type CloneSource = { id: string; workspaceName: string; databaseName: string | null; clientId: string | null; clientName: string | null }
 
@@ -149,6 +156,8 @@ function normalizeProps(data: any): PropInfo[] {
       options: Array.isArray(p.options) ? p.options : [],
       targetDbName: typeof p.targetDbName === "string" ? p.targetDbName : null,
       rollupRelationName: typeof p.rollupRelationName === "string" ? p.rollupRelationName : null,
+      rollupPropertyName: typeof p.rollupPropertyName === "string" ? p.rollupPropertyName : null,
+      rollupFinalDbName: typeof p.rollupFinalDbName === "string" ? p.rollupFinalDbName : null,
     }
   })
 }
@@ -727,7 +736,17 @@ export default function SettingsPage() {
                       const selected = props.find((p) => p.name === mapping.clientContactField)
                       if (!selected) return null
                       if (selected.type === "rollup") {
-                        const okHint = selected.targetDbName && /contat/i.test(selected.targetDbName)
+                        // Two cases:
+                        //  1-hop: rollup of a relation on THIS DB. The
+                        //         relation's target DB is targetDbName.
+                        //  2-hop: rollup of a relation on the LINKED page
+                        //         (e.g. Post → Conta → Contatos). The
+                        //         FINAL DB is rollupFinalDbName.
+                        const finalDb = selected.rollupFinalDbName || selected.targetDbName
+                        const okHint = finalDb && /contat/i.test(finalDb)
+                        const chain = selected.rollupFinalDbName
+                          ? `Post → "${selected.rollupRelationName ?? "?"}" → DB "${selected.targetDbName ?? "?"}" → "${selected.rollupPropertyName ?? "?"}" → DB "${selected.rollupFinalDbName}"`
+                          : `Post → "${selected.rollupRelationName ?? "?"}" → DB "${selected.targetDbName ?? "?"}"`
                         return (
                           <div
                             className={cn(
@@ -738,12 +757,15 @@ export default function SettingsPage() {
                             )}
                           >
                             <p className="font-medium">
-                              {okHint ? "✓" : "⚠"} Rollup{selected.rollupRelationName ? ` "${selected.rollupRelationName}"` : ""} aponta pra DB
-                              {selected.targetDbName ? ` "${selected.targetDbName}"` : " desconhecida"}
+                              {okHint ? "✓" : "⚠"} Rollup resolve até DB
+                              {finalDb ? ` "${finalDb}"` : " desconhecida"}
+                            </p>
+                            <p className="mt-1 font-mono text-[13px] opacity-80 break-all">
+                              Cadeia: {chain}
                             </p>
                             {!okHint && (
                               <p className="mt-1 text-foreground/80">
-                                O nome do banco não parece "Contatos". Confira no Notion: o rollup agrega a relation correta? Se ele estiver agregando dados da relation com a DB de Contas/Marcas, o telefone que o app vai ler é o da página da Conta, não do Contato.
+                                O nome final do banco não parece &quot;Contatos&quot;. O telefone que o app vai ler é da página alcançada nesse último DB — confere se é mesmo onde estão os contatos.
                               </p>
                             )}
                           </div>

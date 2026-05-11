@@ -314,9 +314,32 @@ export function createNotionClient(accessToken: string) {
         if (mappedProp?.type === "relation") {
           relatedIds = mappedProp.relation?.map((r: any) => r.id) ?? []
         } else if (mappedProp?.type === "rollup") {
-          const parentDbId = (page as any).parent?.database_id
-          if (parentDbId) {
-            try {
+          // 2-hop case (Post → Conta → Contatos): when the rollup
+          // aggregates a relation property from a linked page, Notion
+          // returns the related page IDs directly in `rollup.array`.
+          // Each item is itself a relation value — we collect IDs from
+          // all of them (works for one linked Conta or several).
+          const rollupData = mappedProp.rollup
+          if (rollupData?.type === "array" && Array.isArray(rollupData.array)) {
+            for (const item of rollupData.array) {
+              if (item?.type === "relation" && Array.isArray(item.relation)) {
+                for (const r of item.relation) {
+                  if (r?.id) relatedIds.push(r.id)
+                }
+              }
+            }
+            // Dedup just in case the same Contato is reachable via
+            // multiple Contas in the rollup source.
+            if (relatedIds.length > 1) {
+              relatedIds = Array.from(new Set(relatedIds))
+            }
+          }
+          // 1-hop fallback: rollup that just exposes a relation on the
+          // SAME page (rare in practice but kept so older configs still
+          // work). Walks DB schema to find the source relation name.
+          if (relatedIds.length === 0) try {
+            const parentDbId = (page as any).parent?.database_id
+            if (parentDbId) {
               const dbInfo: any = await client.databases.retrieve({ database_id: parentDbId })
               const schemaProp = dbInfo?.properties?.[fieldName]
               const sourceRelName: string | undefined = schemaProp?.rollup?.relation_property_name
@@ -326,9 +349,9 @@ export function createNotionClient(accessToken: string) {
                   relatedIds = sourceProp.relation?.map((r: any) => r.id) ?? []
                 }
               }
-            } catch (e) {
-              console.warn(`[notion.resolveContact] rollup ${fieldName} schema lookup failed: ${e}`)
             }
+          } catch (e) {
+            console.warn(`[notion.resolveContact] rollup ${fieldName} fallback schema lookup failed: ${e}`)
           }
         }
         if (relatedIds.length === 0) return null
