@@ -221,12 +221,13 @@ export const publishForConnection = task({
           }
           if (duration > 60) {
             logger.info(`[${target.raw}/${post.conta}] Story de ${Math.round(duration)}s — fatiando em chunks de 60s.`)
+            let splitResult: Awaited<ReturnType<typeof splitStoryVideo>> | null = null
             try {
-              const chunks = await splitStoryVideo(storyVideoUrl)
+              splitResult = await splitStoryVideo(storyVideoUrl)
               const igPub = createInstagramPublisher(account.instagramBusinessAccountId, account.pageAccessToken)
-              for (let i = 0; i < chunks.length; i++) {
+              for (let i = 0; i < splitResult.chunks.length; i++) {
                 if (i > 0) await sleep(STORY_CHUNK_PAUSE_MS)
-                const c = chunks[i]
+                const c = splitResult.chunks[i]
                 const chunkRaw = `${target.raw} ${c.index}/${c.total}`
                 // Each chunk gets its own claim so a retry after a worker crash
                 // doesn't re-publish chunks that already landed on IG.
@@ -238,7 +239,10 @@ export const publishForConnection = task({
                   continue
                 }
                 try {
-                  const igId = await igPub.publishStoryVideo(c.url)
+                  // Upload bytes direto pro IG via resumable upload — sem
+                  // intermediário (Vercel Blob etc.) que precise ser público.
+                  const chunkBytes = await splitResult.readChunk(c)
+                  const igId = await igPub.publishStoryVideoFromBuffer(chunkBytes)
                   const igPermalink = await fetchInstagramPermalink(igId, account.pageAccessToken)
                   await completePublishSlot(db, chunkClaim.rowId, chunkRaw, "published", igId, igPermalink, null)
                   if (igPermalink) publishedLinks.push({ platform: chunkRaw, url: igPermalink })
@@ -263,6 +267,10 @@ export const publishForConnection = task({
               results.failed++
               anyFailed = true
               continue
+            } finally {
+              // tmpdir cleanup: harmless if split itself failed before the dir
+              // existed (cleanup is a no-op in that case).
+              if (splitResult) await splitResult.cleanup()
             }
           }
         }
