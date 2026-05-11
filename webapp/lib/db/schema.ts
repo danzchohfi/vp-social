@@ -72,6 +72,13 @@ export const client = pgTable("client", {
   // Surfaces in /clients ApprovalPanel as a radio + drives which fields
   // are required for the "Configurada" status pill.
   approvalNotificationMode: text("approval_notification_mode"),
+  // When 'auto' (default), the cron sweep dispatches a WhatsApp per
+  // pending post automatically. When 'manual', the cron still creates
+  // approvalLink rows but skips dispatch — agency clicks "Notificar
+  // pendentes" on /dashboard to send a single digest WhatsApp per
+  // client whenever they decide it makes sense. NULL = 'auto' for
+  // backward compat.
+  approvalDispatchMode: text("approval_dispatch_mode"),
   // Customizable wa.me message template for the manual approval flow.
   // Placeholders: {{contact_name}}, {{post_title}}, {{approval_url}},
   // {{client_name}}. Used by the "Enviar via WA" button in /scheduled.

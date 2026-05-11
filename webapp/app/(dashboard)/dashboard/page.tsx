@@ -13,6 +13,7 @@ import { PublishButton } from "@/components/dashboard/publish-button"
 import { SwitchClientButton } from "@/components/dashboard/switch-client-button"
 import { AgencyClientCard } from "@/components/dashboard/agency-client-card"
 import { RecentActivityActions } from "@/components/dashboard/recent-activity-actions"
+import { NotifyPendingButton } from "@/components/dashboard/notify-pending-button"
 import { DashboardPublishNow } from "@/components/dashboard/dashboard-publish-now"
 import { getActiveClientScope, listAccessibleClients } from "@/lib/active-client"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "@/lib/notion"
@@ -592,10 +593,10 @@ export default async function DashboardPage() {
 
           {/* Per-client breakdown — only in agency mode. Single-client view
               already knows whose approvals these are. */}
-          {isAgency && pendingByClient.size > 0 && (
+          {pendingByClient.size > 0 && (
             <div className="mb-3">
               <p className="mb-1.5 text-[11px] font-medium uppercase tracking-wider text-muted-foreground">
-                Por cliente
+                {isAgency ? "Por cliente" : "Pendentes"}
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {Array.from(pendingByClient.entries())
@@ -620,6 +621,7 @@ export default async function DashboardPage() {
                         <span className="font-mono text-[10px] opacity-80">
                           {n}{stale > 0 ? ` (${stale} parado)` : ""}
                         </span>
+                        {cid && <NotifyPendingButton clientId={cid} pendingCount={n} />}
                       </span>
                     )
                   })}

@@ -69,6 +69,10 @@ export const publishForConnection = task({
     let manychatApiKey: string | null = null
     let manychatFlowNs: string | null = null
     let approvalMode: "auto_manychat" | "manual_whatsapp" = "auto_manychat"
+    // 'auto' = cron dispatches WhatsApp on every new pending post.
+    // 'manual' = cron creates the approvalLink but doesn't dispatch; agency
+    // clicks "Notificar pendentes" on /dashboard to fire a digest.
+    let approvalDispatchMode: "auto" | "manual" = "auto"
     if (connection.clientId) {
       const [c] = await db
         .select({
@@ -76,6 +80,7 @@ export const publishForConnection = task({
           manychatApiKey: schema.client.manychatApiKey,
           manychatApprovalFlowNs: schema.client.manychatApprovalFlowNs,
           approvalNotificationMode: schema.client.approvalNotificationMode,
+          approvalDispatchMode: schema.client.approvalDispatchMode,
           publishingPaused: schema.client.publishingPaused,
         })
         .from(schema.client)
@@ -95,6 +100,9 @@ export const publishForConnection = task({
       // configured before the column existed.
       if (c?.approvalNotificationMode === "manual_whatsapp") {
         approvalMode = "manual_whatsapp"
+      }
+      if (c?.approvalDispatchMode === "manual") {
+        approvalDispatchMode = "manual"
       }
     }
 
@@ -121,6 +129,7 @@ export const publishForConnection = task({
           clientName,
           mapping,
           approvalMode,
+          approvalDispatchMode,
           manychatApiKey,
           manychatFlowNs,
         })
@@ -385,12 +394,15 @@ type SweepArgs = {
   // /scheduled. 'auto_manychat' = try ManyChat, fall back to sentVia='none'
   // if creds missing or API rejects.
   approvalMode: "auto_manychat" | "manual_whatsapp"
+  // When 'manual', cron creates the approvalLink but does NOT dispatch.
+  // Agency triggers via /api/clients/[id]/notify-pending later.
+  approvalDispatchMode: "auto" | "manual"
   manychatApiKey: string | null
   manychatFlowNs: string | null
 }
 
 async function runApprovalSweep(a: SweepArgs): Promise<void> {
-  const { db, notion, connectionId, clientId, clientName, mapping, approvalMode, manychatApiKey, manychatFlowNs } = a
+  const { db, notion, connectionId, clientId, clientName, mapping, approvalMode, approvalDispatchMode, manychatApiKey, manychatFlowNs } = a
   if (!mapping.awaitingApprovalValue) return
   const connection = await db
     .select()
@@ -508,7 +520,12 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       if (!v.valid) phoneIssue = v.reason
     }
 
-    if (approvalMode === "manual_whatsapp") {
+    if (approvalDispatchMode === "manual") {
+      // Cron just creates the link; agency triggers dispatch later via
+      // /api/clients/[id]/notify-pending. Leaves sentVia='none' (default)
+      // so the manual-notify endpoint knows this is not-yet-sent.
+      logger.info(`[approval] dispatch manual: link criado para "${post.title}", aguardando agência clicar "Notificar pendentes"`)
+    } else if (approvalMode === "manual_whatsapp") {
       sentVia = "manual"
       logger.info(`[approval] modo manual: link gerado para "${post.title}" — agência envia via wa.me em /scheduled`)
     } else if (phoneIssue) {
