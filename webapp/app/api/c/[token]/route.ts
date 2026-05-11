@@ -3,14 +3,16 @@ import {
   approvalLink,
   client as clientTable,
   fieldMapping,
+  instagramAccount,
   notionConnection,
   production,
   publishLog,
 } from "@/lib/db/schema"
-import { and, desc, eq, gte, isNull } from "drizzle-orm"
+import { and, desc, eq, gte, inArray, isNull } from "drizzle-orm"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "@/lib/notion"
 import { STATUS_LABEL_PT, type ProductionStatus } from "@/lib/productions"
+import { listAccessibleClients } from "@/lib/active-client"
 
 // Public client-calendar API. NO AUTH — the URL token IS the auth. Used
 // by /c/{token} (the page) to render:
@@ -48,6 +50,40 @@ export async function GET(
 
   const ready = connections.filter((c) => c.databaseId)
 
+  // Conta-ownership routing — public surface mirror of /api/notion/scheduled.
+  // A single Notion DB can host posts for several brands; without this we'd
+  // leak sibling-client posts into this client's public calendar. We resolve
+  // owner using ALL agency-accessible clients (sibling brand might claim
+  // a conta even if it doesn't have its own Notion connection).
+  const accessibleSiblings = await listAccessibleClients(client.userId)
+  const accessibleIds = accessibleSiblings.map((s) => s.id)
+  function findExplicitOwner(contaKey: string): string | null {
+    if (!contaKey) return null
+    const byName = accessibleSiblings.find((c) => c.name.trim().toLowerCase() === contaKey)
+    if (byName) return byName.id
+    for (const s of accessibleSiblings) {
+      const claims = s.notionContaValues ?? []
+      if (claims.some((v) => v.trim().toLowerCase() === contaKey)) return s.id
+    }
+    return null
+  }
+  // Active IG accounts owned by THIS client — used by the legacy fallback
+  // when no explicit owner is found for a conta.
+  const ownAccounts = await db
+    .select()
+    .from(instagramAccount)
+    .where(eq(instagramAccount.clientId, client.id))
+  const ownContas = new Set(
+    ownAccounts.filter((a) => a.active).map((a) => a.conta.toLowerCase()),
+  )
+  function postBelongsHere(conta: string | null | undefined): boolean {
+    const k = (conta ?? "").trim().toLowerCase()
+    if (!k) return false
+    const ownerId = findExplicitOwner(k)
+    if (ownerId) return ownerId === client.id
+    return ownContas.has(k)
+  }
+
   // Aggregate posts per connection. Pending = awaitingApprovalValue,
   // scheduled = statusReadyValue. We fan out and collect, since each
   // workspace might use a different status mapping.
@@ -82,6 +118,7 @@ export async function GET(
         const tokenByPage = new Map(tokenMap.map((r) => [r.notionPageId, r.token]))
 
         for (const p of posts) {
+          if (!postBelongsHere(p.conta)) continue
           pendingPosts.push({
             ...p,
             connectionId: conn.id,
@@ -97,6 +134,7 @@ export async function GET(
     try {
       const posts = await notion.getScheduledPosts(conn.databaseId!, mapping)
       for (const p of posts) {
+        if (!postBelongsHere(p.conta)) continue
         scheduledPosts.push({ ...p, connectionId: conn.id })
       }
     } catch (e) {
@@ -104,18 +142,23 @@ export async function GET(
     }
   }
 
-  // Past — query publishLog directly. Group by notionPageId so we don't
-  // show the same post once per platform. Pick the earliest publishedAt
-  // as the group date, collect platforms.
+  // Past — query publishLog. publish_log.clientId carries the CONNECTION's
+  // clientId at publish time, which can differ from the post's conta-owner
+  // when one Notion DB hosts multiple brands. Widen the query to all sibling
+  // clients and filter by conta ownership before grouping (mirror of the
+  // /api/notion/scheduled past branch).
   const cutoff = new Date(Date.now() - PAST_WINDOW_DAYS * 24 * 60 * 60 * 1000)
-  const pastLogs = await db
-    .select()
-    .from(publishLog)
-    .where(and(
-      eq(publishLog.clientId, client.id),
-      gte(publishLog.publishedAt, cutoff),
-    ))
-    .orderBy(desc(publishLog.publishedAt))
+  const pastLogsRaw = accessibleIds.length
+    ? await db
+        .select()
+        .from(publishLog)
+        .where(and(
+          inArray(publishLog.clientId, accessibleIds),
+          gte(publishLog.publishedAt, cutoff),
+        ))
+        .orderBy(desc(publishLog.publishedAt))
+    : []
+  const pastLogs = pastLogsRaw.filter((log) => postBelongsHere(log.conta))
 
   type PastEntry = {
     pageId: string
