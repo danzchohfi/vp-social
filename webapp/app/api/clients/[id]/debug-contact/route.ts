@@ -228,9 +228,40 @@ export async function GET(
           if (contasDbId && rollupPropName) {
             const contasDbInfo: any = await client.databases.retrieve({ database_id: contasDbId })
             const innerProp = contasDbInfo?.properties?.[rollupPropName]
-            const contatosDbId: string | undefined =
-              innerProp?.type === "relation" ? innerProp.relation?.database_id : undefined
-            log("permission_probe_inner", { rollupPropType: innerProp?.type, contatosDbId })
+            const propsAvailable = Object.keys(contasDbInfo?.properties ?? {})
+            // Try multiple resolution paths for contatosDbId:
+            //  - innerProp typed 'relation' → its database_id
+            //  - innerProp typed 'rollup' (rare 3-hop) → underlying relation's db
+            // Plus fall back to walking ALL relation props on Contas to
+            // surface any DB the integration CAN see — useful when the
+            // rollup_property_name in the Posts schema doesn't match
+            // any actual property on Contas (e.g. the property was
+            // renamed in Notion after the rollup was set up).
+            let contatosDbId: string | undefined =
+              innerProp?.type === "relation" ? innerProp.relation?.database_id :
+              innerProp?.type === "rollup"
+                ? (() => {
+                    const innerRelName = innerProp.rollup?.relation_property_name
+                    return innerRelName
+                      ? contasDbInfo?.properties?.[innerRelName]?.relation?.database_id
+                      : undefined
+                  })()
+                : undefined
+            const allRelationsOnContas = propsAvailable
+              .map((n) => ({
+                name: n,
+                type: contasDbInfo.properties[n]?.type,
+                targetDbId: contasDbInfo.properties[n]?.relation?.database_id ?? null,
+              }))
+              .filter((p) => p.type === "relation")
+            log("permission_probe_inner", {
+              rollupPropName,
+              rollupPropPresent: !!innerProp,
+              rollupPropType: innerProp?.type ?? null,
+              contatosDbId,
+              propsAvailableOnContas: propsAvailable,
+              allRelationsOnContas,
+            })
 
             if (contatosDbId) {
               try {
