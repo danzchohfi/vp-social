@@ -248,6 +248,14 @@ export const fieldMapping = pgTable("field_mapping", {
   // marked. Lets the agency declare "this is the approver" in Notion
   // when a post links several contacts.
   contactApproverField: text("contact_approver_field"),
+  // When true AND clientContactField is a rollup (Post → Conta → Contatos):
+  // if the rollup yields zero Contatos (the linked Conta has none linked
+  // yet), fall back to using the Conta page itself as the contact —
+  // reads phone from a phone-typed field on the Conta page directly.
+  // Useful for hybrid setups where some Contas have a Contatos relation
+  // and others store the phone on the Conta page itself.
+  // Default false = safer (no surprise dispatch to the Conta page).
+  rollupFallbackToAccount: boolean("rollup_fallback_to_account").notNull().default(false),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })

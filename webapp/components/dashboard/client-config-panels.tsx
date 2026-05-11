@@ -1384,12 +1384,37 @@ export function SetupChecklistPanel({ clientId }: { clientId: string }) {
 function ContactDebugButton({ clientId }: { clientId: string }) {
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<any>(null)
+  // Posts in awaiting-approval status — populated on mount so the user
+  // can pick which one to diagnose. Auto-picking the first one was
+  // grabbing wrong posts.
+  const [posts, setPosts] = useState<Array<{ id: string; title: string }>>([])
+  const [selectedPostId, setSelectedPostId] = useState<string>("")
+  const [loadingPosts, setLoadingPosts] = useState(false)
+
+  async function loadPosts() {
+    setLoadingPosts(true)
+    try {
+      const res = await fetch(`/api/clients/${clientId}/debug-contact?list=1`)
+      const data = await res.json()
+      const list: Array<{ id: string; title: string }> = data?.posts ?? []
+      setPosts(list)
+      if (list.length > 0 && !selectedPostId) setSelectedPostId(list[0].id)
+    } finally {
+      setLoadingPosts(false)
+    }
+  }
+
+  useEffect(() => {
+    loadPosts()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [clientId])
 
   async function run() {
     setLoading(true)
     setResult(null)
     try {
-      const res = await fetch(`/api/clients/${clientId}/debug-contact`)
+      const qs = selectedPostId ? `?pageId=${encodeURIComponent(selectedPostId)}` : ""
+      const res = await fetch(`/api/clients/${clientId}/debug-contact${qs}`)
       const data = await res.json()
       setResult(data)
     } catch (e) {
@@ -1405,14 +1430,46 @@ function ContactDebugButton({ clientId }: { clientId: string }) {
         <div>
           <p className="text-base font-semibold">Diagnosticar resolução de contato</p>
           <p className="text-sm text-muted-foreground">
-            Roda a mesma resolução que o cron usa contra o primeiro post em status &quot;aguardando aprovação&quot;. Mostra cada passo: qual coluna foi lida, o que o rollup retornou, qual contato foi escolhido e qual telefone seria usado.
+            Roda a mesma resolução que o cron usa. Escolha o post que quer diagnosticar (lista todos em status &quot;aguardando aprovação&quot;).
           </p>
         </div>
-        <Button size="sm" variant="outline" onClick={run} disabled={loading}>
+        <Button size="sm" variant="outline" onClick={run} disabled={loading || !selectedPostId}>
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
           Diagnosticar
         </Button>
       </div>
+
+      {/* Post picker: user must pick which awaiting-approval post to
+          diagnose. Auto-pick was grabbing wrong posts. */}
+      <div className="space-y-1">
+        <Label className="text-sm">Post pra diagnosticar</Label>
+        {loadingPosts ? (
+          <p className="text-sm text-muted-foreground">Carregando posts em status de aprovação…</p>
+        ) : posts.length === 0 ? (
+          <p className="text-sm text-muted-foreground">
+            Nenhum post em status de aprovação. Marca um no Notion como &quot;aguardando aprovação&quot; e recarrega.
+          </p>
+        ) : (
+          <select
+            value={selectedPostId}
+            onChange={(e) => setSelectedPostId(e.target.value)}
+            className="w-full rounded-md border bg-card px-2 py-1.5 text-sm"
+          >
+            {posts.map((p) => (
+              <option key={p.id} value={p.id}>{p.title}</option>
+            ))}
+          </select>
+        )}
+        {posts.length > 0 && (
+          <div className="flex items-center justify-between text-[13px] text-muted-foreground">
+            <span>{posts.length} post{posts.length === 1 ? "" : "s"} em aprovação</span>
+            <button onClick={loadPosts} disabled={loadingPosts} className="hover:underline">
+              Recarregar lista
+            </button>
+          </div>
+        )}
+      </div>
+
       {result && (
         <div className="space-y-2 rounded-md border bg-card p-3 text-sm">
           {result.error && (

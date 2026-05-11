@@ -63,7 +63,7 @@ type FieldMapping = {
   // Optional: when set, the approval values above live in this Notion
   // property instead of `statusField`. Empty string = same field.
   approvalStatusField: string
-  clientContactField: string; contactEmailField: string; contactPhoneField: string; contactApproverField: string
+  clientContactField: string; contactEmailField: string; contactPhoneField: string; contactApproverField: string; rollupFallbackToAccount: boolean
 }
 
 const DEFAULT_MAPPING: FieldMapping = {
@@ -76,7 +76,7 @@ const DEFAULT_MAPPING: FieldMapping = {
   likesField: "", commentsField: "", reachField: "", savesField: "", impressionsField: "",
   postUrlField: "",
   awaitingApprovalValue: "", revisionRequestedValue: "", approvedValue: "", approvalStatusField: "",
-  clientContactField: "", contactEmailField: "", contactPhoneField: "", contactApproverField: "",
+  clientContactField: "", contactEmailField: "", contactPhoneField: "", contactApproverField: "", rollupFallbackToAccount: false,
 }
 
 const NONE_VALUE = "__none__"
@@ -292,7 +292,7 @@ export default function SettingsPage() {
   const approvalStatusField = mapping.approvalStatusField?.trim() || mapping.statusField
   const approvalStatusOptions = props.find(p => p.name === approvalStatusField)?.options ?? statusOptions
 
-  function setField(key: keyof FieldMapping, value: string) {
+  function setField<K extends keyof FieldMapping>(key: K, value: FieldMapping[K]) {
     setMapping(prev => ({ ...prev, [key]: value }))
   }
 
@@ -942,6 +942,23 @@ export default function SettingsPage() {
                     />
                   </div>
                 </div>
+                {contactMode === "via_account" && (
+                  <label className="flex items-start gap-2 rounded-md border bg-muted/20 p-3 text-sm">
+                    <input
+                      type="checkbox"
+                      className="mt-0.5 h-4 w-4"
+                      checked={mapping.rollupFallbackToAccount}
+                      onChange={(e) => setField("rollupFallbackToAccount", e.target.checked)}
+                    />
+                    <div>
+                      <p className="font-medium">Usar a Conta como contato quando o rollup vier vazio</p>
+                      <p className="mt-0.5 text-muted-foreground">
+                        Se um post linkar uma Conta que ainda não tem Contatos relacionados, o app lê o telefone direto da própria página da Conta. Útil pra setups híbridos (algumas Contas têm Contatos, outras guardam o WhatsApp na própria Conta).
+                        Deixe desligado se preferir que o app simplesmente não dispare quando a Conta tem 0 Contatos.
+                      </p>
+                    </div>
+                  </label>
+                )}
               </div>
 
               <div className="space-y-4">

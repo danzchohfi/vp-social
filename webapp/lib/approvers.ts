@@ -118,6 +118,41 @@ export async function lookupApproverByToken(
   return row ?? null
 }
 
+/** Normalize a phone string to digits-only for cross-source matching.
+ *  Notion contact phones and approver.phone come from independent
+ *  sources; we compare on digits so "+5511987654321" matches
+ *  "55 11 98765 4321" matches "(11) 98765-4321". */
+export function normalizePhone(phone: string | null | undefined): string {
+  if (!phone) return ""
+  return phone.replace(/\D/g, "")
+}
+
+/**
+ * Look up an approver by phone within an agency owner's scope. Used by
+ * the post-approval cron to link `approvalLink.approverId` automatically:
+ * when the Notion-resolved contact has a phone that matches an existing
+ * approver row, that approver's magic-link portal will also surface this
+ * post. No match → approverId stays null and the post-only WhatsApp flow
+ * runs as before.
+ */
+export async function findApproverByPhone(
+  db: Db,
+  userId: string,
+  phone: string | null | undefined,
+): Promise<typeof schema.approver.$inferSelect | null> {
+  const digits = normalizePhone(phone)
+  if (digits.length < 8) return null  // implausibly short, skip
+  const rows = await db
+    .select()
+    .from(schema.approver)
+    .where(eq(schema.approver.userId, userId))
+  // Match on normalized digits — approver.phone may also include +/spaces.
+  for (const r of rows as Array<typeof schema.approver.$inferSelect>) {
+    if (normalizePhone(r.phone) === digits) return r
+  }
+  return null
+}
+
 // ─── Pending items for the magic portal ────────────────────
 
 export type PendingItem = {

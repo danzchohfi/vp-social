@@ -33,6 +33,10 @@ export async function GET(
 
   const url = new URL(req.url)
   const explicitPageId = url.searchParams.get("pageId")
+  // ?list=1 returns just { posts: [{id, title}] } so the UI can render
+  // a picker before running the full diagnostic on a specific post.
+  // User asked for this after the auto-pick grabbed the wrong post.
+  const listOnly = url.searchParams.get("list") === "1"
 
   const [conn] = await db
     .select()
@@ -54,6 +58,54 @@ export async function GET(
   const trace: any[] = []
   const log = (step: string, data: any) => trace.push({ step, ...data })
 
+  // Helper: extract a readable title from a Notion page (any property
+  // whose type === "title"). Falls back to the page ID slice if none.
+  function pageTitle(page: any): string {
+    const propsArr = Object.values(page?.properties ?? {})
+    for (const v of propsArr) {
+      if ((v as any)?.type === "title") {
+        const t = ((v as any).title ?? []).map((r: any) => r.plain_text ?? "").join("").trim()
+        if (t) return t
+      }
+    }
+    return (page?.id ?? "").slice(0, 8) + "…"
+  }
+
+  // Scan up to 50 awaiting-approval posts. Used either to populate the
+  // picker (listOnly) or as a fallback when no explicit pageId is given.
+  async function scanAwaiting(): Promise<Array<{ id: string; title: string }>> {
+    const awaitingVal = m.awaitingApprovalValue
+    const dbId = conn.databaseId
+    if (!awaitingVal || !dbId) return []
+    const approvalFieldName: string = (m.approvalStatusField?.trim() || m.statusField || "")
+    if (!approvalFieldName) return []
+    try {
+      let res: any
+      try {
+        res = await client.databases.query({
+          database_id: dbId,
+          filter: { property: approvalFieldName, status: { equals: awaitingVal } },
+          page_size: 50,
+        })
+      } catch {
+        res = await client.databases.query({
+          database_id: dbId,
+          filter: { property: approvalFieldName, select: { equals: awaitingVal } },
+          page_size: 50,
+        })
+      }
+      const results = (res?.results ?? []) as any[]
+      return results.map((p) => ({ id: p.id, title: pageTitle(p) }))
+    } catch {
+      return []
+    }
+  }
+
+  if (listOnly) {
+    const posts = await scanAwaiting()
+    return NextResponse.json({ posts })
+  }
+
   // Resolve a target post.
   let postId = explicitPageId ?? null
   if (!postId) {
@@ -62,27 +114,9 @@ export async function GET(
     }
     const approvalFieldName = (m.approvalStatusField?.trim() || m.statusField)
     log("scan_for_awaiting_post", { property: approvalFieldName, value: m.awaitingApprovalValue })
-    try {
-      let res: any
-      try {
-        res = await client.databases.query({
-          database_id: conn.databaseId,
-          filter: { property: approvalFieldName, status: { equals: m.awaitingApprovalValue } },
-          page_size: 1,
-        })
-      } catch (e) {
-        // Try select shape if status fails.
-        res = await client.databases.query({
-          database_id: conn.databaseId,
-          filter: { property: approvalFieldName, select: { equals: m.awaitingApprovalValue } },
-          page_size: 1,
-        })
-      }
-      postId = res?.results?.[0]?.id ?? null
-      log("scan_result", { foundPostId: postId, count: res?.results?.length ?? 0 })
-    } catch (e) {
-      log("scan_error", { error: String(e) })
-    }
+    const posts = await scanAwaiting()
+    log("scan_result", { foundPostId: posts[0]?.id ?? null, count: posts.length, allPosts: posts })
+    postId = posts[0]?.id ?? null
   }
   if (!postId) {
     return NextResponse.json({ error: "Nenhum post encontrado em status de aprovação. Passa um ?pageId=<id> ou marca um post no Notion.", trace }, { status: 404 })
@@ -162,9 +196,22 @@ export async function GET(
         log("rollup_1hop_error", { error: String(e) })
       }
     } else if (relatedIds.length === 0 && rollupIsRelationShape) {
-      log("rollup_empty_contacts", {
-        reason: "Rollup está configurado como relation (2-hop) mas a(s) página(s) intermediária(s) Conta não têm nenhum contato linkado. Adicione contatos na DB Conta antes de testar.",
-      })
+      // Two distinct cases when a relation-shape rollup is empty:
+      //  (a) array has 0 items → no Conta linked to the Post
+      //  (b) array has ≥1 items but each item.relation is empty →
+      //      either the linked Conta(s) have no Contatos linked, OR
+      //      the Notion integration doesn't have access to the
+      //      Contatos DB (Notion silently hides relation IDs from
+      //      integrations that lack permission).
+      //
+      // We can't tell (b1) from (b2) without trying to fetch the
+      // target DB schema. Surface BOTH as likely causes with the
+      // permission case first (it's the most common surprise).
+      const arrayLen = (rd?.array as any[] | undefined)?.length ?? 0
+      const reason = arrayLen === 0
+        ? "O post não tem nenhuma Conta linkada — o rollup é varrido com 0 itens. Verifique a propriedade de relação Conta no post."
+        : `O rollup encontrou ${arrayLen} Conta linkada mas nenhum Contato dentro dela. Causa mais comum: a integração Notion não tem acesso à DB Contatos — o Notion esconde IDs de relations quando a integração não pode ler o destino. Conserto: no Notion, abre a DB Contatos → menu "..." no topo → "Connections" → adiciona sua integração. Se a permissão estiver ok, então é mesmo a Conta linkada que está sem Contatos — abra essa Conta e linke pelo menos 1 contato na propriedade Contatos.`
+      log("rollup_empty_contacts", { arrayLen, reason })
     }
   } else {
     log("unsupported_type", { type: mappedProp?.type ?? null })
