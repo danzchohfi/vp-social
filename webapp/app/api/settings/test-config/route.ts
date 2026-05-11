@@ -185,7 +185,13 @@ export async function GET() {
     // before posts hit the cron. Catches the most common setup errors:
     // typo in awaitingApprovalValue, wrong column type for clientContactField.
     if (mapping.awaitingApprovalValue) {
-      const statusProp = dbProps[mapping.statusField]
+      // Approval status lives in approvalStatusField when set (workspaces
+      // that keep production status separate from publish status — added
+      // in #41). Falls back to statusField for legacy single-property
+      // setups. The validation must read from whichever property the
+      // cron will actually query.
+      const approvalFieldName = mapping.approvalStatusField?.trim() || mapping.statusField
+      const statusProp = dbProps[approvalFieldName]
       const statusOptions: string[] =
         statusProp?.type === "status"
           ? (statusProp.status?.options ?? []).map((o: any) => o.name)
@@ -201,7 +207,7 @@ export async function GET() {
           id: `approval-status:${conn.id}`,
           label: `Aprovação · status disparador`,
           status: "error",
-          message: `Status "${mapping.awaitingApprovalValue}" não existe nas opções do campo "${mapping.statusField}"`,
+          message: `Status "${mapping.awaitingApprovalValue}" não existe nas opções do campo "${approvalFieldName}"`,
           details: statusOptions.length ? `Opções: ${statusOptions.join(", ")}` : "Campo de status não retornou opções",
         })
       } else {
@@ -209,7 +215,7 @@ export async function GET() {
           id: `approval-status:${conn.id}`,
           label: `Aprovação · status disparador`,
           status: "ok",
-          message: `"${mapping.awaitingApprovalValue}" encontrado nas opções de status`,
+          message: `"${mapping.awaitingApprovalValue}" encontrado nas opções de "${approvalFieldName}"`,
         })
       }
 
@@ -218,12 +224,14 @@ export async function GET() {
           id: `approval-revision:${conn.id}`,
           label: `Aprovação · status "Pedir alterações"`,
           status: "error",
-          message: `Status "${mapping.revisionRequestedValue}" não existe nas opções do campo "${mapping.statusField}"`,
+          message: `Status "${mapping.revisionRequestedValue}" não existe nas opções do campo "${approvalFieldName}"`,
         })
       }
 
-      // clientContactField must be a Relation property — that's what
-      // resolveContact() walks. Anything else and the cron silently skips.
+      // clientContactField can be either a Relation (cron walks it
+      // directly) or a Rollup that aggregates an underlying Relation
+      // (cron resolves the rollup → source relation via DB schema —
+      // see #54). Anything else and the cron silently skips.
       if (mapping.clientContactField) {
         const contactProp = dbProps[mapping.clientContactField]
         if (!contactProp) {
@@ -233,19 +241,39 @@ export async function GET() {
             status: "error",
             message: `Coluna "${mapping.clientContactField}" não existe no banco`,
           })
-        } else if (contactProp.type !== "relation") {
-          checks.push({
-            id: `approval-contact:${conn.id}`,
-            label: `Aprovação · coluna de Contato`,
-            status: "error",
-            message: `Coluna "${mapping.clientContactField}" é tipo "${contactProp.type}" — precisa ser Relation pra apontar pra DB de Contato`,
-          })
-        } else {
+        } else if (contactProp.type === "relation") {
           checks.push({
             id: `approval-contact:${conn.id}`,
             label: `Aprovação · coluna de Contato`,
             status: "ok",
             message: `Relation OK (aponta pra DB com ${contactProp.relation?.database_id ? "id " + String(contactProp.relation.database_id).slice(0, 8) + "…" : "destino"})`,
+          })
+        } else if (contactProp.type === "rollup") {
+          // Verify the rollup's underlying property is itself a relation,
+          // else the resolveContact path returns null at runtime.
+          const sourceRelName: string | undefined = contactProp.rollup?.relation_property_name
+          const sourceProp = sourceRelName ? dbProps[sourceRelName] : null
+          if (sourceProp?.type === "relation") {
+            checks.push({
+              id: `approval-contact:${conn.id}`,
+              label: `Aprovação · coluna de Contato`,
+              status: "ok",
+              message: `Rollup OK (agrega a Relation "${sourceRelName}" → DB de Contato)`,
+            })
+          } else {
+            checks.push({
+              id: `approval-contact:${conn.id}`,
+              label: `Aprovação · coluna de Contato`,
+              status: "error",
+              message: `Rollup "${mapping.clientContactField}" não agrega uma Relation${sourceRelName ? ` (agrega "${sourceRelName}", tipo "${sourceProp?.type ?? "?"}")` : ""}. Use uma propriedade Relation direto, ou um Rollup configurado em cima de uma Relation.`,
+            })
+          }
+        } else {
+          checks.push({
+            id: `approval-contact:${conn.id}`,
+            label: `Aprovação · coluna de Contato`,
+            status: "error",
+            message: `Coluna "${mapping.clientContactField}" é tipo "${contactProp.type}" — precisa ser Relation ou Rollup pra apontar pra DB de Contato`,
           })
         }
       } else {
