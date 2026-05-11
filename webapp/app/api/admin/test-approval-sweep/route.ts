@@ -222,8 +222,9 @@ export async function POST(req: Request) {
     customFields: {
       approval_url: approvalUrl,
       post_title: post.title || "",
-      contact_name: contact.name || "",
       post_url: post.notionUrl || "",
+      // Use {{Primeiro Nome}} (native first_name) in the template
+      // instead of a custom contact_name field.
     },
   })
 

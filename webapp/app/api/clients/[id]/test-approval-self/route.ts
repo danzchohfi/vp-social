@@ -65,10 +65,11 @@ export async function POST(
     customFields: {
       // Distinguishable test marker so the agency can see "[TESTE]" in the
       // WhatsApp template if they branch on this. Falls back gracefully
-      // if the ManyChat flow ignores the field.
+      // if the ManyChat flow ignores the field. For the recipient name,
+      // template should use {{Primeiro Nome}} (native first_name) instead
+      // of a custom contact_name field.
       approval_url: `${APP_URL}/test-approval`,
       post_title: `[TESTE] Configuração de aprovação — ${row.name}`,
-      contact_name: name,
       post_url: "",
       is_test: "true",
     },
