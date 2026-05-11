@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { Building2, Check, Loader2, Plus, Trash2, Pencil, X, Users, Mail, Copy, MessageCircle, Tag, RefreshCw, ListChecks, Pause, Play, BarChart3 } from "lucide-react"
+import { Building2, Check, Loader2, Plus, Trash2, Pencil, X, Users, Mail, Copy, MessageCircle, Tag, RefreshCw, ListChecks, Pause, Play, BarChart3, Settings } from "lucide-react"
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -51,10 +51,11 @@ export default function ClientsPage() {
   const [editName, setEditName] = useState("")
   const [editLogo, setEditLogo] = useState("")
   const [savingEdit, setSavingEdit] = useState(false)
-  const [membersOpen, setMembersOpen] = useState<string | null>(null)
-  const [approvalOpen, setApprovalOpen] = useState<string | null>(null)
-  const [contasOpen, setContasOpen] = useState<string | null>(null)
-  const [setupOpen, setSetupOpen] = useState<string | null>(null)
+  // Config panels (Setup, Approval, Notion Contas, Members) moved to
+  // /settings in #65 — /clients is now just a roster. Toggle state
+  // removed. Deep-link from /settings still flows here for backward
+  // compat with anywhere a link to /clients?panel=X was bookmarked
+  // (no-op render now).
 
   async function load() {
     setLoading(true)
@@ -70,27 +71,17 @@ export default function ClientsPage() {
 
   useEffect(() => { load() }, [])
 
-  // Deep-link panel auto-expand from /settings or any external entry.
-  // Reads ?focus=<clientId>&panel=setup|approval|contas|members on
-  // mount; opens the matching panel and scrolls it into view once the
-  // client list has rendered (next paint after load() completes).
+  // Legacy deep-link (?focus=...&panel=...) from before the panels
+  // moved to /settings. Redirect there instead of trying to render
+  // anything inline here. Preserves shareable URLs.
   useEffect(() => {
     if (loading) return
     if (typeof window === "undefined") return
     const focus = searchParams?.get("focus") ?? ""
     const panel = searchParams?.get("panel") ?? ""
-    if (!focus || !panel) return
-    const exists = clients.some((c) => c.id === focus)
-    if (!exists) return
-    if (panel === "setup") setSetupOpen(focus)
-    else if (panel === "approval") setApprovalOpen(focus)
-    else if (panel === "contas") setContasOpen(focus)
-    else if (panel === "members") setMembersOpen(focus)
-    // Defer scroll to after the panel renders.
-    requestAnimationFrame(() => {
-      const el = document.getElementById(`client-${focus}`)
-      if (el) el.scrollIntoView({ behavior: "smooth", block: "start" })
-    })
+    if (focus && panel) {
+      window.location.href = "/settings"
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [loading, clients])
 
@@ -219,7 +210,6 @@ export default function ClientsPage() {
             const isActive = c.id === activeId
             const isEditing = editingId === c.id
             const isOwner = c.role === "owner"
-            const showMembers = membersOpen === c.id
             return (
               <Card id={`client-${c.id}`} key={c.id} className={cn("scroll-mt-20", isActive && "border-primary/50 ring-1 ring-primary/20")}>
                 <CardContent className="pt-6">
@@ -279,14 +269,11 @@ export default function ClientsPage() {
                             Tornar ativo
                           </Button>
                         )}
-                        {isOwner && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setSetupOpen(setupOpen === c.id ? null : c.id)}
-                            title="Status de configuração (checklist)"
-                          >
-                            <ListChecks className="h-4 w-4" />
+                        {isActive && (
+                          <Button variant="ghost" size="icon" asChild title="Configurar este cliente (/settings)">
+                            <Link href="/settings">
+                              <Settings className="h-4 w-4" />
+                            </Link>
                           </Button>
                         )}
                         <Button variant="ghost" size="icon" asChild title="Relatório mensal">
@@ -294,37 +281,9 @@ export default function ClientsPage() {
                             <BarChart3 className="h-4 w-4" />
                           </Link>
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => setMembersOpen(showMembers ? null : c.id)}
-                          title="Membros"
-                        >
-                          <Users className="h-4 w-4" />
-                        </Button>
-                        {isOwner && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setApprovalOpen(approvalOpen === c.id ? null : c.id)}
-                            title="Aprovação cliente (link calendário + ManyChat)"
-                          >
-                            <MessageCircle className="h-4 w-4" />
-                          </Button>
-                        )}
-                        {isOwner && (
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            onClick={() => setContasOpen(contasOpen === c.id ? null : c.id)}
-                            title="Contas do Notion (mapear quais contas pertencem a este cliente)"
-                          >
-                            <Tag className="h-4 w-4" />
-                          </Button>
-                        )}
                         {isOwner && (
                           <>
-                            <Button variant="ghost" size="icon" onClick={() => startEdit(c)} title="Editar">
+                            <Button variant="ghost" size="icon" onClick={() => startEdit(c)} title="Editar nome / logo">
                               <Pencil className="h-4 w-4" />
                             </Button>
                             <Button
@@ -340,30 +299,6 @@ export default function ClientsPage() {
                           </>
                         )}
                       </div>
-                    </div>
-                  )}
-
-                  {showMembers && !isEditing && (
-                    <div className="mt-4 pt-4 border-t">
-                      <MembersPanel clientId={c.id} canManage={isOwner} />
-                    </div>
-                  )}
-
-                  {approvalOpen === c.id && !isEditing && isOwner && (
-                    <div className="mt-4 pt-4 border-t">
-                      <ApprovalPanel clientId={c.id} clientName={c.name} />
-                    </div>
-                  )}
-
-                  {contasOpen === c.id && !isEditing && isOwner && (
-                    <div className="mt-4 pt-4 border-t">
-                      <NotionContasPanel clientId={c.id} clientName={c.name} />
-                    </div>
-                  )}
-
-                  {setupOpen === c.id && !isEditing && isOwner && (
-                    <div className="mt-4 pt-4 border-t">
-                      <SetupChecklistPanel clientId={c.id} />
                     </div>
                   )}
                 </CardContent>
