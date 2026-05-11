@@ -579,6 +579,22 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
         sentAt: (sentVia === "none" || sentVia === "invalid_phone") ? null : new Date(),
       })
       .where(eq(schema.approvalLink.token, token))
+
+    // Audit trail in Notion: every approval request leaves a comment
+    // on the post so anyone scrolling the page can see "aprovação foi
+    // pedida em <date> via WhatsApp pra <contact>" without going to
+    // /scheduled. Best-effort — wrapped in postSystemComment which
+    // soft-fails on Notion permission errors.
+    const recipient = contact.name ?? contact.phone ?? "contato"
+    const reqLabel =
+      sentVia === "manychat" ? `via WhatsApp pra ${recipient}`
+        : sentVia === "manual" ? `— agência envia via WhatsApp pra ${recipient}`
+          : sentVia === "invalid_phone" ? `— ⚠ telefone inválido (${contact.phone ?? "vazio"}); corrigir contato no Notion`
+            : `— ⚠ envio automático falhou; agência precisa enviar manualmente`
+    await notion.postSystemComment(
+      post.pageId,
+      `🔔 Aprovação solicitada ${reqLabel} · ${new Date().toLocaleString("pt-BR")}`,
+    )
   }
 }
 

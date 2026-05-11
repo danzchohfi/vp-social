@@ -1,11 +1,12 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { approvalLink, client as clientTable } from "@/lib/db/schema"
+import { approvalLink, client as clientTable, notionConnection } from "@/lib/db/schema"
 import { and, eq, inArray, isNull, or } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { userIsClientOwner } from "@/lib/active-client"
 import { sendApprovalRequest, validatePhoneE164 } from "@/lib/manychat"
+import { createNotionClient } from "@/lib/notion"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
 
@@ -142,6 +143,30 @@ export async function POST(
       .update(approvalLink)
       .set({ sentVia: "manychat", sentAt: now })
       .where(inArray(approvalLink.id, dispatchedIds))
+
+    // Audit trail in Notion: leave a comment on each post that just
+    // got notified, so the timeline is complete even when the dispatch
+    // was triggered manually from /dashboard rather than via cron.
+    // Uses the first Notion connection owned by this client — if more
+    // than one workspace serves this client, we'd need to track which
+    // connection each link came from. Acceptable for v1.
+    const [conn] = await db
+      .select({ accessToken: notionConnection.accessToken })
+      .from(notionConnection)
+      .where(eq(notionConnection.clientId, id))
+      .limit(1)
+    if (conn?.accessToken) {
+      const notion = createNotionClient(conn.accessToken)
+      const when = now.toLocaleString("pt-BR")
+      const dispatchedLinks = pending.filter((l) => dispatchedIds.includes(l.id))
+      for (const link of dispatchedLinks) {
+        const who = link.contactName ?? link.contactPhone ?? "cliente"
+        await notion.postSystemComment(
+          link.notionPageId,
+          `🔔 Aprovação solicitada (envio manual) via WhatsApp pra ${who} · ${when}`,
+        )
+      }
+    }
   }
 
   return NextResponse.json({
