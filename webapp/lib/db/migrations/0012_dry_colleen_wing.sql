@@ -1,0 +1,1 @@
+ALTER TABLE "field_mapping" ADD COLUMN "rollup_fallback_to_account" boolean DEFAULT false NOT NULL;

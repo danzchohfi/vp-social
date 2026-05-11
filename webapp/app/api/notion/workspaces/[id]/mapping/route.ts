@@ -36,6 +36,7 @@ function dbToUi(row: any) {
     contactEmailField: row.contactEmailField ?? "",
     contactPhoneField: row.contactPhoneField ?? "",
     contactApproverField: row.contactApproverField ?? "",
+    rollupFallbackToAccount: row.rollupFallbackToAccount === true,
   }
 }
 
@@ -99,6 +100,7 @@ export async function POST(
     contactEmailField: ui.contactEmailField || null,
     contactPhoneField: ui.contactPhoneField || null,
     contactApproverField: ui.contactApproverField || null,
+    rollupFallbackToAccount: ui.rollupFallbackToAccount === true,
     updatedAt: new Date(),
   }
 

@@ -95,6 +95,8 @@ export interface FieldMapping {
   // links multiple Contato pages, resolveContact prefers the one(s) with
   // this box checked. Empty/missing falls back to "first contact wins".
   contactApproverField?: string | null
+  // 2-hop rollup hybrid setting (see schema for full context).
+  rollupFallbackToAccount?: boolean | null
 }
 
 export const DEFAULT_MAPPING: FieldMapping = {
@@ -429,8 +431,30 @@ export function createNotionClient(accessToken: string) {
           } catch (e) {
             console.warn(`[notion.resolveContact] rollup ${fieldName} fallback schema lookup failed: ${e}`)
           }
+          if (relatedIds.length === 0 && rollupIsRelationShape && mapping.rollupFallbackToAccount) try {
+            // Hybrid fallback (opt-in): rollup is empty (no Contatos
+            // linked on the Conta), so use the Conta page itself as
+            // the contact. Reads phone from a phone-typed field on
+            // the Conta. Agencies enable this in /settings when they
+            // store phones directly on Conta pages.
+            const parentDbId = (page as any).parent?.database_id
+            if (parentDbId) {
+              const dbInfo: any = await client.databases.retrieve({ database_id: parentDbId })
+              const schemaProp = dbInfo?.properties?.[fieldName]
+              const sourceRelName: string | undefined = schemaProp?.rollup?.relation_property_name
+              if (sourceRelName) {
+                const sourceProp = props[sourceRelName]
+                if (sourceProp?.type === "relation") {
+                  relatedIds = sourceProp.relation?.map((r: any) => r.id) ?? []
+                  console.info(`[notion.resolveContact] post ${pageId}: rollup empty, falling back to Conta page (${sourceRelName}) — ${relatedIds.length} ID(s)`)
+                }
+              }
+            }
+          } catch (e) {
+            console.warn(`[notion.resolveContact] rollup→account fallback failed for ${fieldName}: ${e}`)
+          }
           if (relatedIds.length === 0 && rollupIsRelationShape) {
-            console.warn(`[notion.resolveContact] post ${pageId}: rollup "${fieldName}" returned 0 contacts (linked Conta(s) have no Contatos relation). Agency needs to link contacts on the Conta page in Notion.`)
+            console.warn(`[notion.resolveContact] post ${pageId}: rollup "${fieldName}" returned 0 contacts. ${mapping.rollupFallbackToAccount ? "Conta page also yielded nothing." : "Either link contacts on the Conta page in Notion, or enable 'Usar Conta como fallback' in /settings."}`)
           }
         }
         if (relatedIds.length === 0) return null
