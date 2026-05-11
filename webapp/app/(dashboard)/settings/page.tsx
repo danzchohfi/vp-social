@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { useSession } from "@/lib/auth-client"
 import { toast } from "sonner"
 import { ArrowRight, ListChecks, MessageCircle, Tag, UserCheck, Users } from "lucide-react"
+import { cn } from "@/lib/utils"
 import { RequiresSingleClient } from "@/components/dashboard/requires-single-client"
 
 type Workspace = {
@@ -202,6 +203,30 @@ export default function SettingsPage() {
         .finally(() => setLoadingDbs(false))
     }
   }, [selectedId, selected?.databaseId])
+
+  // Force-refresh the props list from Notion (used by the "Recarregar"
+  // button next to the Relation picker). Without this, props in component
+  // state are stale if the user added a new column in Notion after the
+  // page loaded.
+  const [reloadingProps, setReloadingProps] = useState(false)
+  async function reloadProps() {
+    if (!selectedId || !selected?.databaseId) return
+    setReloadingProps(true)
+    try {
+      const res = await fetch(`/api/notion/workspaces/${selectedId}/props`, { cache: "no-store" })
+      const data = await res.json()
+      if (!res.ok) {
+        toast.error(data?.error ?? "Erro ao recarregar propriedades")
+        return
+      }
+      setProps(normalizeProps(data))
+      toast.success(`${Array.isArray(data) ? data.length : 0} propriedades carregadas do Notion`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setReloadingProps(false)
+    }
+  }
 
   const propNames = props.length
     ? props.map(p => p.name)
@@ -667,7 +692,7 @@ export default function SettingsPage() {
                   Para descobrir o contato, criamos uma <strong>relação</strong> no post apontando para a sua DB de <strong>Contato</strong> (com colunas para email e WhatsApp). O app segue a relação e lê os campos lá. Os nomes das colunas variam por workspace — preencha exatamente como aparecem no seu Notion.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     <SelectField
                       label="Coluna de relação Contato (no post)"
                       value={mapping.clientContactField}
@@ -675,10 +700,64 @@ export default function SettingsPage() {
                       onChange={(v) => setField("clientContactField", v)}
                       hint={
                         relationPropNames.length === 0
-                          ? `Nenhuma propriedade do tipo Relation no DB conectado${dbName ? ` (${dbName})` : ""}. Crie uma no Notion apontando pra sua DB de Contatos (Add property → Relation → escolha a DB) e clique em "Recarregar propriedades" abaixo.`
-                          : `Apenas propriedades do tipo Relation aparecem aqui (${relationPropNames.length} encontrada${relationPropNames.length === 1 ? "" : "s"} no DB conectado). Aponta pra sua DB de Contato — ex.: "Contato", "Cliente".`
+                          ? `Nenhuma propriedade do tipo Relation foi detectada no DB conectado${dbName ? ` (${dbName})` : ""}. Se você acabou de criar uma no Notion, clique em "Recarregar propriedades" abaixo. Caso contrário, abra a tabela do Notion → Add property → escolha "Relation" → aponte pra sua DB de Contatos.`
+                          : `Apenas propriedades do tipo Relation aparecem aqui (${relationPropNames.length} encontrada${relationPropNames.length === 1 ? "" : "s"} no DB conectado). Aponta pra sua DB de Contato — ex.: "Contato", "Contatos Relacionados".`
                       }
                     />
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={reloadProps}
+                        disabled={reloadingProps || !selected?.databaseId}
+                        type="button"
+                      >
+                        {reloadingProps ? "Recarregando…" : "Recarregar propriedades do Notion"}
+                      </Button>
+                      <span className="text-[11px] text-muted-foreground">
+                        Use quando você acabou de criar/renomear uma propriedade no Notion.
+                      </span>
+                    </div>
+                    {props.length > 0 && (
+                      <details className="rounded-md border bg-muted/30 p-2 text-xs">
+                        <summary className="cursor-pointer font-medium text-muted-foreground">
+                          Diagnóstico: ver todas as {props.length} propriedades detectadas
+                        </summary>
+                        <div className="mt-2 space-y-1">
+                          <p className="text-[11px] text-muted-foreground">
+                            Lista completa do que o Notion API retornou pro DB conectado. Se a propriedade que você procura não aparece aqui, ela não existe no DB conectado (ou a integração Notion não tem acesso). Se aparece com tipo diferente de <code className="rounded bg-muted px-1 font-mono">relation</code>, esse é o motivo — recrie como Relation no Notion.
+                          </p>
+                          <ul className="mt-1.5 space-y-0.5 font-mono text-[11px]">
+                            {[...props]
+                              .sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name))
+                              .map((p) => (
+                                <li
+                                  key={p.name}
+                                  className={cn(
+                                    "flex items-center gap-2",
+                                    p.type === "relation" && "text-success font-semibold",
+                                  )}
+                                >
+                                  <span className="inline-block w-24 shrink-0 text-muted-foreground">{p.type}</span>
+                                  <span className="truncate">{p.name}</span>
+                                </li>
+                              ))}
+                          </ul>
+                          <p className="mt-2 text-[11px] text-muted-foreground">
+                            Tipos detectados:{" "}
+                            {Object.entries(
+                              props.reduce<Record<string, number>>((acc, p) => {
+                                acc[p.type] = (acc[p.type] ?? 0) + 1
+                                return acc
+                              }, {}),
+                            )
+                              .sort(([a], [b]) => a.localeCompare(b))
+                              .map(([t, n]) => `${n} ${t}`)
+                              .join(", ")}
+                          </p>
+                        </div>
+                      </details>
+                    )}
                   </div>
                   <div className="space-y-1">
                     <Label className="text-sm">Coluna de email (na DB Contato)</Label>
