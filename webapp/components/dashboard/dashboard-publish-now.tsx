@@ -45,7 +45,7 @@ export function DashboardPublishNow({
       onClick={publishNow}
       disabled={publishing}
       title="Publicar imediatamente"
-      className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-xs font-medium text-primary-foreground shadow-xs hover:bg-primary/90 disabled:opacity-60"
+      className="inline-flex items-center gap-1.5 rounded-md bg-primary px-2.5 py-1 text-sm font-medium text-primary-foreground shadow-xs hover:bg-primary/90 disabled:opacity-60"
     >
       {publishing ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
       {publishing ? "Publicando..." : "Publicar agora"}

@@ -116,7 +116,7 @@ export default function InviteAcceptPage() {
                 )}
                 <div>
                   <CardTitle className="text-lg">{invite.clientName}</CardTitle>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     Convite como {invite.role === "admin" ? "Admin" : "Membro"}
                     {invite.scope === "agency" && " · acesso de agência"}
                   </p>
@@ -132,11 +132,11 @@ export default function InviteAcceptPage() {
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-3">
-              <div className="rounded-lg bg-muted/50 p-3 text-sm">
+              <div className="rounded-lg bg-muted/50 p-3 text-base">
                 <p className="text-muted-foreground">O convite é para:</p>
                 <p className="font-medium">{invite.email}</p>
                 {session && session.user.email.toLowerCase() !== invite.email.toLowerCase() && (
-                  <p className="mt-2 text-xs text-warning">
+                  <p className="mt-2 text-sm text-warning">
                     Você está logado como {session.user.email}. Faça login com {invite.email} para aceitar.
                   </p>
                 )}
@@ -146,7 +146,7 @@ export default function InviteAcceptPage() {
                 {session ? "Aceitar convite" : "Entrar e aceitar"}
               </Button>
               {!session && (
-                <p className="text-center text-xs text-muted-foreground">
+                <p className="text-center text-sm text-muted-foreground">
                   Não tem conta?{" "}
                   <Link href={`/signup?email=${encodeURIComponent(invite.email)}&redirect=${encodeURIComponent(`/invites/${token}`)}`} className="underline">
                     Criar conta

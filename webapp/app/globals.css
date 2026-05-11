@@ -92,7 +92,11 @@
   --radius-xl: calc(var(--radius) + 4px);
   --font-sans: var(--font-geist);
   --font-mono: var(--font-geist-mono);
-  --font-display: 'Instrument Serif', ui-serif, Georgia, serif;
+  /* --font-display intentionally aliased to sans — user removed the
+     serif (Instrument Serif) globally in 2026-05-12. Kept as a var so
+     existing utility class .font-display doesn't break callers we
+     haven't migrated yet. */
+  --font-display: var(--font-geist);
 }
 
 * {

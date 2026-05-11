@@ -59,8 +59,8 @@ const NONE_VALUE = "__none__"
 function SelectField({ label, value, options, onChange, hint }: { label: string; value: string; options: string[]; onChange: (v: string) => void; hint?: string }) {
   return (
     <div className="space-y-1">
-      <Label className="text-sm">{label}</Label>
-      {hint && <p className="text-xs text-muted-foreground">{hint}</p>}
+      <Label className="text-base">{label}</Label>
+      {hint && <p className="text-sm text-muted-foreground">{hint}</p>}
       <Select value={value || NONE_VALUE} onValueChange={(v) => onChange(v === NONE_VALUE ? "" : v)}>
         <SelectTrigger className="w-full">
           <SelectValue placeholder="Selecionar campo..." />
@@ -78,14 +78,14 @@ function StatusValueSelect({ label, value, options, onChange }: { label: string;
   if (!options.length) {
     return (
       <div className="space-y-1">
-        <Label className="text-sm">{label}</Label>
+        <Label className="text-base">{label}</Label>
         <Input value={value} onChange={e => onChange(e.target.value)} placeholder="Selecione um campo de Status acima" disabled />
       </div>
     )
   }
   return (
     <div className="space-y-1">
-      <Label className="text-sm">{label}</Label>
+      <Label className="text-base">{label}</Label>
       <Select value={value || NONE_VALUE} onValueChange={(v) => onChange(v === NONE_VALUE ? "" : v)}>
         <SelectTrigger className="w-full">
           <SelectValue placeholder="Selecionar valor..." />
@@ -119,8 +119,8 @@ function ClientConfigCard({
     >
       <div className="text-muted-foreground">{icon}</div>
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-medium">{label}</p>
-        <p className="text-[11px] text-muted-foreground truncate">{description}</p>
+        <p className="text-base font-medium">{label}</p>
+        <p className="text-[13px] text-muted-foreground truncate">{description}</p>
       </div>
       <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60" />
     </Link>
@@ -404,7 +404,7 @@ export default function SettingsPage() {
     <div className="max-w-2xl mx-auto space-y-8 py-8 px-4">
       <RequiresSingleClient message="Configurações são por cliente. Selecione um cliente específico no menu lateral antes de mexer em conexões ou mapeamento." />
       <div>
-        <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Configurações</h1>
+        <h1 className="text-3xl tracking-tight sm:text-4xl">Configurações</h1>
         <p className="text-muted-foreground mt-1">Configure seus workspaces do Notion e o mapeamento de campos.</p>
       </div>
 
@@ -415,10 +415,10 @@ export default function SettingsPage() {
       {activeClient && (
         <section className="space-y-3">
           <div>
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
+            <h2 className="text-base font-semibold uppercase tracking-wide text-muted-foreground">
               Configurações de <span className="text-foreground">{activeClient.name}</span>
             </h2>
-            <p className="mt-1 text-xs text-muted-foreground">
+            <p className="mt-1 text-sm text-muted-foreground">
               Atalhos pras configurações que vivem em <Link href="/clients" className="underline">Gerenciar clientes</Link>. Cada um abre o painel certo já expandido.
             </p>
           </div>
@@ -457,8 +457,8 @@ export default function SettingsPage() {
             >
               <div className="text-muted-foreground"><UserCheck className="h-4 w-4" /></div>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-medium">Aprovadores</p>
-                <p className="text-[11px] text-muted-foreground truncate">
+                <p className="text-base font-medium">Aprovadores</p>
+                <p className="text-[13px] text-muted-foreground truncate">
                   Cadastro reutilizável de aprovadores (Magic Link, chain de produção)
                 </p>
               </div>
@@ -488,7 +488,7 @@ export default function SettingsPage() {
           </SelectContent>
         </Select>
         {workspaces.length === 0 && (
-          <p className="text-sm text-muted-foreground">Nenhum workspace conectado. <a href="/onboarding" className="underline">Conectar Notion</a></p>
+          <p className="text-base text-muted-foreground">Nenhum workspace conectado. <a href="/onboarding" className="underline">Conectar Notion</a></p>
         )}
       </div>
 
@@ -498,16 +498,16 @@ export default function SettingsPage() {
             <Label>Banco de dados do Notion</Label>
             {dbName ? (
               <div className="flex items-center gap-2">
-                <span className="text-sm font-medium text-green-600">✓ {dbName}</span>
+                <span className="text-base font-medium text-green-600">✓ {dbName}</span>
                 <Button variant="outline" size="sm" onClick={() => { setDbName(null); setDbUrl(""); setSelectedDbId("") }}>Trocar</Button>
               </div>
             ) : (
               <div className="space-y-3">
                 {loadingDbs ? (
-                  <p className="text-sm text-muted-foreground">Carregando bancos com acesso…</p>
+                  <p className="text-base text-muted-foreground">Carregando bancos com acesso…</p>
                 ) : databases.length > 0 ? (
                   <div className="space-y-1.5">
-                    <Label className="text-sm">Bancos com acesso da integração</Label>
+                    <Label className="text-base">Bancos com acesso da integração</Label>
                     <Select value={selectedDbId} onValueChange={(v) => { setSelectedDbId(v); setDbUrl("") }}>
                       <SelectTrigger className="w-full">
                         <SelectValue placeholder="Selecione um banco…" />
@@ -522,12 +522,12 @@ export default function SettingsPage() {
                 ) : (
                   <div className="space-y-3 rounded-lg border border-warning/40 bg-warning/5 p-4">
                     <div className="space-y-1">
-                      <p className="text-sm font-medium">Nenhuma página acessível para este cliente.</p>
-                      <p className="text-xs text-muted-foreground">
+                      <p className="text-base font-medium">Nenhuma página acessível para este cliente.</p>
+                      <p className="text-sm text-muted-foreground">
                         Cada cliente tem sua própria autorização do Notion. Páginas compartilhadas com outros clientes não vêm junto automaticamente. Você tem 2 caminhos:
                       </p>
                     </div>
-                    <div className="space-y-2 rounded border bg-background/50 p-3 text-xs">
+                    <div className="space-y-2 rounded border bg-background/50 p-3 text-sm">
                       <p className="font-semibold">Opção 1 — No Notion, adicione esta integração ao banco</p>
                       <ol className="list-decimal space-y-0.5 pl-4 text-muted-foreground">
                         <li>Abra o banco/página no Notion</li>
@@ -536,7 +536,7 @@ export default function SettingsPage() {
                         <li>Volte aqui e cole a URL do banco abaixo</li>
                       </ol>
                     </div>
-                    <div className="space-y-2 rounded border bg-background/50 p-3 text-xs">
+                    <div className="space-y-2 rounded border bg-background/50 p-3 text-sm">
                       <p className="font-semibold">Opção 2 — Reabrir autorização e marcar a página</p>
                       <p className="text-muted-foreground">Na tela do Notion, marque o checkbox da página antes de confirmar.</p>
                       <Button onClick={reauthNotion} variant="outline" size="sm" className="w-full">
@@ -547,7 +547,7 @@ export default function SettingsPage() {
                 )}
 
                 <div className="space-y-1.5">
-                  <Label className="text-sm">{databases.length > 0 ? "Ou cole a URL do banco" : "URL do banco"}</Label>
+                  <Label className="text-base">{databases.length > 0 ? "Ou cole a URL do banco" : "URL do banco"}</Label>
                   <div className="flex gap-2">
                     <Input
                       placeholder="https://notion.so/workspace/Titulo-xxxxxxxx"
@@ -559,7 +559,7 @@ export default function SettingsPage() {
                       {loadingDb ? "Conectando..." : "Conectar"}
                     </Button>
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-sm text-muted-foreground">
                     Abra o banco no Notion, clique em ⋯ → Copiar link e cole aqui.
                   </p>
                 </div>
@@ -571,8 +571,8 @@ export default function SettingsPage() {
             <div className="space-y-6">
               {cloneSources.length > 0 && (
                 <div className="rounded-lg border border-primary/30 bg-primary/5 p-4">
-                  <p className="text-sm font-semibold">Copiar de outro workspace</p>
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="text-base font-semibold">Copiar de outro workspace</p>
+                  <p className="mt-1 text-sm text-muted-foreground">
                     Replica o mapeamento (status, campos, analytics) de um cliente já configurado. Útil pra clientes que usam um banco do Notion com a mesma estrutura.
                   </p>
                   <div className="mt-3 flex flex-col gap-2 sm:flex-row">
@@ -603,12 +603,12 @@ export default function SettingsPage() {
                 <div className="rounded-lg border border-primary/30 bg-primary/5 p-3">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium">Preencher automaticamente</p>
-                      <p className="mt-0.5 text-xs text-muted-foreground">
+                      <p className="text-base font-medium">Preencher automaticamente</p>
+                      <p className="mt-0.5 text-sm text-muted-foreground">
                         Análise as propriedades do seu banco de dados e sugere valores pra todos os campos abaixo (status, datas, mídia, contato pra aprovação). Você revisa antes de salvar.
                       </p>
                       {detectSummary && (
-                        <p className="mt-1.5 text-xs text-success">
+                        <p className="mt-1.5 text-sm text-success">
                           {detectSummary.filled} campo(s) preenchidos.
                           {detectSummary.lowConfidence.length > 0 && (
                             <span className="text-warning">
@@ -626,8 +626,8 @@ export default function SettingsPage() {
               )}
 
               <div className="space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Status de Publicação</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Status de Publicação</p>
+                <p className="text-sm text-muted-foreground">
                   Recomendamos um campo de Publicação separado do seu Status editorial. O Status fica para o workflow da equipe (ideia / em produção / concluído); a Publicação fica para o sistema (agendado / publicado / erro). Assim o app nunca sobrescreve o estado editorial.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -639,7 +639,7 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Agendamento</p>
+                <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Agendamento</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <SelectField label="Título" value={mapping.titleField} options={titlePropNames} onChange={(v) => setField("titleField", v)} hint="Propriedade Title do Notion. Usado como título do vídeo no YouTube." />
                   <SelectField label="Data de publicação" value={mapping.dateField} options={propNames} onChange={(v) => setField("dateField", v)} />
@@ -648,7 +648,7 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Conteúdo</p>
+                <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Conteúdo</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <SelectField label="Legenda" value={mapping.captionField} options={propNames} onChange={(v) => setField("captionField", v)} hint="Inclua hashtags direto na legenda" />
                   <SelectField label="Publicar em" value={mapping.publicarEmField} options={propNames} onChange={(v) => setField("publicarEmField", v)} hint="Multi-select: Instagram Reels, YouTube Shorts, TikTok…" />
@@ -656,7 +656,7 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Mídia</p>
+                <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Mídia</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <SelectField label="Imagens Feed" value={mapping.feedImageUrlsField} options={propNames} onChange={(v) => setField("feedImageUrlsField", v)} />
                   <SelectField label="Mídia Vertical" value={mapping.verticalUrlsField} options={propNames} onChange={(v) => setField("verticalUrlsField", v)} hint="Stories, Reels" />
@@ -666,17 +666,17 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Pós-publicação</p>
-                <p className="text-xs text-muted-foreground">Crie uma propriedade do tipo <strong>Texto</strong> no Notion e mapeie aqui. Após publicar, vamos escrever um link clicável por plataforma (ex.: &quot;Instagram: https://...&quot;) — assim você não perde os links anteriores quando publicar em várias plataformas.</p>
+                <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Pós-publicação</p>
+                <p className="text-sm text-muted-foreground">Crie uma propriedade do tipo <strong>Texto</strong> no Notion e mapeie aqui. Após publicar, vamos escrever um link clicável por plataforma (ex.: &quot;Instagram: https://...&quot;) — assim você não perde os links anteriores quando publicar em várias plataformas.</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <SelectField label="Links publicados" value={mapping.postUrlField} options={propNames} onChange={(v) => setField("postUrlField", v)} />
                 </div>
               </div>
 
               <div className="space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Aprovação do cliente (opcional)</p>
-                <p className="text-xs text-muted-foreground">
-                  Dispara um link de aprovação por WhatsApp toda vez que um post entra no status &quot;aguardando aprovação&quot;. O cliente abre <code className="rounded bg-muted px-1 font-mono text-[11px]">/approve/&lt;token&gt;</code> e decide aprovar ou pedir alterações. Para ativar, preencha os 5 campos abaixo + o ManyChat do cliente em <a href="/clients" className="underline">/clients</a>.
+                <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Aprovação do cliente (opcional)</p>
+                <p className="text-sm text-muted-foreground">
+                  Dispara um link de aprovação por WhatsApp toda vez que um post entra no status &quot;aguardando aprovação&quot;. O cliente abre <code className="rounded bg-muted px-1 font-mono text-[13px]">/approve/&lt;token&gt;</code> e decide aprovar ou pedir alterações. Para ativar, preencha os 5 campos abaixo + o ManyChat do cliente em <a href="/clients" className="underline">/clients</a>.
                 </p>
                 <SelectField
                   label="Campo de status de aprovação (opcional)"
@@ -689,7 +689,7 @@ export default function SettingsPage() {
                   <StatusValueSelect label="Status que dispara aprovação" value={mapping.awaitingApprovalValue} options={approvalStatusOptions} onChange={(v) => setField("awaitingApprovalValue", v)} />
                   <StatusValueSelect label='Status quando "pedir alterações"' value={mapping.revisionRequestedValue} options={approvalStatusOptions} onChange={(v) => setField("revisionRequestedValue", v)} />
                 </div>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-sm text-muted-foreground">
                   Para descobrir o contato, criamos uma <strong>relação</strong> no post apontando para a sua DB de <strong>Contato</strong> (com colunas para email e WhatsApp). O app segue a relação e lê os campos lá. Os nomes das colunas variam por workspace — preencha exatamente como aparecem no seu Notion.
                 </p>
                 <div className="grid gap-3 sm:grid-cols-2">
@@ -715,20 +715,20 @@ export default function SettingsPage() {
                       >
                         {reloadingProps ? "Recarregando…" : "Recarregar propriedades do Notion"}
                       </Button>
-                      <span className="text-[11px] text-muted-foreground">
+                      <span className="text-[13px] text-muted-foreground">
                         Use quando você acabou de criar/renomear uma propriedade no Notion.
                       </span>
                     </div>
                     {props.length > 0 && (
-                      <details className="rounded-md border bg-muted/30 p-2 text-xs">
+                      <details className="rounded-md border bg-muted/30 p-2 text-sm">
                         <summary className="cursor-pointer font-medium text-muted-foreground">
                           Diagnóstico: ver todas as {props.length} propriedades detectadas
                         </summary>
                         <div className="mt-2 space-y-1">
-                          <p className="text-[11px] text-muted-foreground">
+                          <p className="text-[13px] text-muted-foreground">
                             Lista completa do que o Notion API retornou pro DB conectado. Se a propriedade que você procura não aparece aqui, ela não existe no DB conectado (ou a integração Notion não tem acesso). Se aparece com tipo diferente de <code className="rounded bg-muted px-1 font-mono">relation</code>, esse é o motivo — recrie como Relation no Notion.
                           </p>
-                          <ul className="mt-1.5 space-y-0.5 font-mono text-[11px]">
+                          <ul className="mt-1.5 space-y-0.5 font-mono text-[13px]">
                             {[...props]
                               .sort((a, b) => a.type.localeCompare(b.type) || a.name.localeCompare(b.name))
                               .map((p) => (
@@ -744,7 +744,7 @@ export default function SettingsPage() {
                                 </li>
                               ))}
                           </ul>
-                          <p className="mt-2 text-[11px] text-muted-foreground">
+                          <p className="mt-2 text-[13px] text-muted-foreground">
                             Tipos detectados:{" "}
                             {Object.entries(
                               props.reduce<Record<string, number>>((acc, p) => {
@@ -760,16 +760,16 @@ export default function SettingsPage() {
                       </details>
                     )}
                   </div>
-                  <div className="rounded-md border border-success/30 bg-success/5 p-3 text-xs">
+                  <div className="rounded-md border border-success/30 bg-success/5 p-3 text-sm">
                     <p className="font-medium text-success">Telefone do contato — automático</p>
                     <p className="mt-1 text-foreground/80">
-                      O app detecta automaticamente qualquer propriedade do tipo <code className="rounded bg-muted px-1 font-mono text-[10px]">Phone</code> na sua DB de Contato (ex.: &quot;Celular / WhatsApp&quot;). Valor com DDI: <code className="rounded bg-muted px-1 font-mono text-[10px]">+5511999999999</code>.
+                      O app detecta automaticamente qualquer propriedade do tipo <code className="rounded bg-muted px-1 font-mono text-[12px]">Phone</code> na sua DB de Contato (ex.: &quot;Celular / WhatsApp&quot;). Valor com DDI: <code className="rounded bg-muted px-1 font-mono text-[12px]">+5511999999999</code>.
                       Se não houver uma coluna tipo Phone, ele tenta fallback por nome (qualquer coluna com &quot;WhatsApp&quot;, &quot;Telefone&quot;, &quot;Celular&quot;).
                     </p>
                   </div>
                   <div className="space-y-1">
-                    <Label className="text-sm">Coluna &quot;Aprovador?&quot; (na DB Contato) — opcional</Label>
-                    <p className="text-xs text-muted-foreground">
+                    <Label className="text-base">Coluna &quot;Aprovador?&quot; (na DB Contato) — opcional</Label>
+                    <p className="text-sm text-muted-foreground">
                       Nome exato de uma propriedade <strong>Checkbox</strong> na DB de Contato (ex.: &quot;Aprovador&quot;, &quot;Responsável aprovação&quot;).
                       Use quando o post linka múltiplos contatos e só um deles deve receber o WhatsApp.
                       Deixe vazio = usa o primeiro contato linkado.
@@ -784,8 +784,8 @@ export default function SettingsPage() {
               </div>
 
               <div className="space-y-4">
-                <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Analytics (opcional)</p>
-                <p className="text-xs text-muted-foreground">Crie campos Number no Notion e mapeie aqui para sincronizar métricas automaticamente.</p>
+                <p className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Analytics (opcional)</p>
+                <p className="text-sm text-muted-foreground">Crie campos Number no Notion e mapeie aqui para sincronizar métricas automaticamente.</p>
                 <div className="grid gap-3 sm:grid-cols-2">
                   <SelectField label="Curtidas" value={mapping.likesField} options={numberPropNames} onChange={(v) => setField("likesField", v)} />
                   <SelectField label="Comentários" value={mapping.commentsField} options={numberPropNames} onChange={(v) => setField("commentsField", v)} />
@@ -798,8 +798,8 @@ export default function SettingsPage() {
               <div className="space-y-3 rounded-lg border border-muted-foreground/20 bg-muted/20 p-4">
                 <div className="flex flex-wrap items-baseline justify-between gap-2">
                   <div>
-                    <p className="text-sm font-semibold">Testar configuração</p>
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-base font-semibold">Testar configuração</p>
+                    <p className="text-sm text-muted-foreground">
                       Faz um dry-run: valida tokens, acessos, mapeamento e contas sociais antes de você agendar.
                     </p>
                   </div>
@@ -810,7 +810,7 @@ export default function SettingsPage() {
                 {testResults && (
                   <div className="space-y-1.5">
                     {testResults.length === 0 && (
-                      <p className="text-xs text-muted-foreground">Nada a testar.</p>
+                      <p className="text-sm text-muted-foreground">Nada a testar.</p>
                     )}
                     {testResults.map((r) => {
                       const color =
@@ -821,15 +821,15 @@ export default function SettingsPage() {
                             : "border-destructive/30 bg-destructive/5 text-destructive"
                       const icon = r.status === "ok" ? "✓" : r.status === "warn" ? "⚠" : "✗"
                       return (
-                        <div key={r.id} className={`rounded border px-3 py-2 text-xs ${color}`}>
+                        <div key={r.id} className={`rounded border px-3 py-2 text-sm ${color}`}>
                           <div className="flex items-baseline gap-2">
                             <span className="font-mono font-bold">{icon}</span>
                             <span className="font-medium text-foreground">{r.label}</span>
-                            <span className="ml-auto text-[11px] uppercase tracking-wider opacity-70">{r.status}</span>
+                            <span className="ml-auto text-[13px] uppercase tracking-wider opacity-70">{r.status}</span>
                           </div>
                           <p className="mt-0.5 text-foreground/80">{r.message}</p>
                           {r.details && (
-                            <p className="mt-1 break-all font-mono text-[10px] opacity-70">{r.details}</p>
+                            <p className="mt-1 break-all font-mono text-[12px] opacity-70">{r.details}</p>
                           )}
                         </div>
                       )

@@ -96,7 +96,7 @@ export function ClientSwitcher() {
       <button
         onClick={() => setOpen(!open)}
         disabled={loading}
-        className="flex w-full items-center gap-2 rounded-lg border bg-background px-3 py-2 text-left text-sm transition-colors hover:bg-accent"
+        className="flex w-full items-center gap-2 rounded-lg border bg-background px-3 py-2 text-left text-base transition-colors hover:bg-accent"
       >
         {agencyMode ? (
           <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-primary/10 text-primary">
@@ -124,7 +124,7 @@ export function ClientSwitcher() {
                 <button
                   onClick={() => selectClient(ALL_CLIENTS)}
                   className={cn(
-                    "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
+                    "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-base transition-colors hover:bg-accent",
                     agencyMode && "bg-accent/50"
                   )}
                 >
@@ -133,20 +133,20 @@ export function ClientSwitcher() {
                   </div>
                   <div className="flex-1 truncate">
                     <div className="font-medium">Todos os clientes</div>
-                    <div className="text-[10px] text-muted-foreground">visão agência ({clients.length})</div>
+                    <div className="text-[12px] text-muted-foreground">visão agência ({clients.length})</div>
                   </div>
                   {agencyMode && <Check className="h-3.5 w-3.5 text-primary" />}
                 </button>
                 <div className="my-1 border-t" />
               </>
             )}
-            <p className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">Clientes</p>
+            <p className="px-2 py-1.5 text-sm font-semibold text-muted-foreground">Clientes</p>
             {clients.map((c) => (
               <button
                 key={c.id}
                 onClick={() => selectClient(c.id)}
                 className={cn(
-                  "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm transition-colors hover:bg-accent",
+                  "flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-base transition-colors hover:bg-accent",
                   !agencyMode && c.id === activeId && "bg-accent/50"
                 )}
               >
@@ -173,19 +173,19 @@ export function ClientSwitcher() {
                   onChange={(e) => setNewName(e.target.value)}
                   onKeyDown={(e) => { if (e.key === "Enter") createClient(); if (e.key === "Escape") setShowCreate(false) }}
                   placeholder="Nome do cliente"
-                  className="w-full rounded border px-2 py-1.5 text-sm"
+                  className="w-full rounded border px-2 py-1.5 text-base"
                 />
                 <div className="flex gap-2">
                   <button
                     onClick={createClient}
                     disabled={creating || !newName.trim()}
-                    className="flex-1 rounded bg-primary px-2 py-1 text-xs font-medium text-primary-foreground disabled:opacity-50"
+                    className="flex-1 rounded bg-primary px-2 py-1 text-sm font-medium text-primary-foreground disabled:opacity-50"
                   >
                     {creating ? <Loader2 className="mx-auto h-3.5 w-3.5 animate-spin" /> : "Criar"}
                   </button>
                   <button
                     onClick={() => { setShowCreate(false); setNewName("") }}
-                    className="flex-1 rounded border px-2 py-1 text-xs"
+                    className="flex-1 rounded border px-2 py-1 text-sm"
                   >
                     Cancelar
                   </button>
@@ -195,7 +195,7 @@ export function ClientSwitcher() {
               <>
                 <button
                   onClick={() => setShowCreate(true)}
-                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-base text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
                   <Plus className="h-3.5 w-3.5" />
                   Novo cliente
@@ -203,7 +203,7 @@ export function ClientSwitcher() {
                 <Link
                   href="/clients"
                   onClick={() => setOpen(false)}
-                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+                  className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-base text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
                 >
                   <SettingsIcon className="h-3.5 w-3.5" />
                   Gerenciar clientes

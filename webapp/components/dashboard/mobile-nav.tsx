@@ -49,7 +49,7 @@ export function MobileNav() {
           <img src="/icon.png" alt="VP Social" className="h-7 w-7 rounded-md" />
           <span className="text-base tracking-tight">
             <span className="font-semibold">VP</span>
-            <span className="ml-1 italic font-display">Social</span>
+            <span className="ml-1 italic">Social</span>
           </span>
         </div>
         <button
@@ -60,7 +60,7 @@ export function MobileNav() {
           {user?.image ? (
             <img src={user.image} alt={user.name ?? ""} className="h-8 w-8 rounded-full object-cover" />
           ) : (
-            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+            <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-base font-semibold text-primary">
               {user?.name?.charAt(0).toUpperCase() ?? "?"}
             </div>
           )}
@@ -76,7 +76,7 @@ export function MobileNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-medium transition-colors",
+                "flex flex-1 flex-col items-center gap-1 py-2.5 text-[12px] font-medium transition-colors",
                 active ? "text-primary" : "text-muted-foreground"
               )}
             >
@@ -115,7 +115,7 @@ export function MobileNav() {
                     href={item.href}
                     onClick={() => setMenuOpen(false)}
                     className={cn(
-                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                      "flex items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium transition-colors",
                       active
                         ? "bg-primary/10 text-primary"
                         : "text-muted-foreground hover:bg-accent hover:text-accent-foreground",
@@ -137,13 +137,13 @@ export function MobileNav() {
                 {user?.image ? (
                   <img src={user.image} alt={user?.name ?? ""} className="h-8 w-8 shrink-0 rounded-full object-cover" />
                 ) : (
-                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-base font-semibold text-primary">
                     {user?.name?.charAt(0).toUpperCase() ?? "?"}
                   </div>
                 )}
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium">{user?.name}</p>
-                  <p className="truncate text-xs text-muted-foreground">{user?.email}</p>
+                  <p className="truncate text-base font-medium">{user?.name}</p>
+                  <p className="truncate text-sm text-muted-foreground">{user?.email}</p>
                 </div>
               </Link>
             </div>
@@ -151,7 +151,7 @@ export function MobileNav() {
             <div className="border-t p-3">
               <button
                 onClick={handleSignOut}
-                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+                className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-base font-medium text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
               >
                 <LogOut className="h-4 w-4 shrink-0" />
                 <span className="truncate">Sair</span>

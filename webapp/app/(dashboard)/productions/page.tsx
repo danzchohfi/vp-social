@@ -75,13 +75,13 @@ export default function ProductionsListPage() {
     <div className="p-4 sm:p-8">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Produções</h1>
+          <h1 className="text-3xl tracking-tight sm:text-4xl">Produções</h1>
           {agencyMode && (
-            <span className="mt-1 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+            <span className="mt-1 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
               Visão agência · todos os clientes
             </span>
           )}
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-base text-muted-foreground">
             Vídeos e podcasts no fluxo de roteiro → aprovação → entrega.
           </p>
         </div>
@@ -105,7 +105,7 @@ export default function ProductionsListPage() {
             key={f.value}
             onClick={() => setFilter(f.value)}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors",
+              "inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium transition-colors",
               filter === f.value
                 ? "bg-muted text-foreground"
                 : "text-muted-foreground hover:text-foreground",
@@ -114,7 +114,7 @@ export default function ProductionsListPage() {
             {f.label}
             <span
               className={cn(
-                "rounded-full px-1.5 text-[10px]",
+                "rounded-full px-1.5 text-[12px]",
                 filter === f.value ? "bg-background" : "bg-muted",
               )}
             >
@@ -125,7 +125,7 @@ export default function ProductionsListPage() {
       </div>
 
       {error && (
-        <div className="mb-6 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="mb-6 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-base text-destructive">
           {error}
         </div>
       )}
@@ -143,7 +143,7 @@ export default function ProductionsListPage() {
                 ? "Nenhuma produção ainda"
                 : "Nenhuma produção neste filtro"}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-base text-muted-foreground">
               {productions.length === 0
                 ? "Crie a primeira pra começar o fluxo de roteiro → aprovação → entrega."
                 : "Mude de filtro ou atualize a página."}
@@ -170,18 +170,18 @@ export default function ProductionsListPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2">
                     <p className="truncate font-medium">{p.title || "Sem título"}</p>
-                    <span className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                    <span className="text-[13px] uppercase tracking-wider text-muted-foreground">
                       {p.type}
                     </span>
                     <StatusPill status={p.status} />
                   </div>
                   {p.specialistName && (
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1 text-sm text-muted-foreground">
                       Especialista: {p.specialistName}
                     </p>
                   )}
                 </div>
-                <div className="text-right text-xs text-muted-foreground">
+                <div className="text-right text-sm text-muted-foreground">
                   {p.recordingDate && (
                     <p>Gravação: {formatShort(p.recordingDate)}</p>
                   )}

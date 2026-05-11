@@ -54,7 +54,7 @@ export default function NewProductionPage() {
       <div className="mb-6">
         <Link
           href="/productions"
-          className="inline-flex items-center gap-1 text-xs text-muted-foreground hover:text-foreground"
+          className="inline-flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground"
         >
           <ChevronLeft className="h-3.5 w-3.5" />
           Voltar para Produções
@@ -63,7 +63,7 @@ export default function NewProductionPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 font-display text-2xl">
+          <CardTitle className="flex items-center gap-2 text-2xl">
             <Film className="h-5 w-5 text-muted-foreground" />
             Nova produção
           </CardTitle>
@@ -93,7 +93,7 @@ export default function NewProductionPage() {
                     key={opt.value}
                     type="button"
                     onClick={() => setType(opt.value)}
-                    className={`rounded px-3 py-1.5 text-sm font-medium transition-colors ${
+                    className={`rounded px-3 py-1.5 text-base font-medium transition-colors ${
                       type === opt.value ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
                     }`}
                   >
@@ -111,14 +111,14 @@ export default function NewProductionPage() {
                 onChange={(e) => setTopic(e.target.value)}
                 placeholder="Resumo curto do que o vídeo vai abordar"
               />
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Vai compor o brief inicial. Pode editar depois com o editor TipTap na página de detalhes.
               </p>
             </div>
 
             <div className="space-y-1.5 border-t pt-4">
               <Label className="font-semibold">Especialista (opcional)</Label>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 Pessoa que vai aparecer no vídeo. Se preencher, gera link de aprovação pra ela mais tarde.
               </p>
             </div>

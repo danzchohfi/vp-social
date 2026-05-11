@@ -202,7 +202,7 @@ export default function ApprovalPage() {
           <CardContent className="py-10 text-center">
             <Clock className="mx-auto mb-4 h-10 w-10 text-muted-foreground" />
             <p className="text-lg font-medium">Link expirado</p>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-base text-muted-foreground">
               Esse link de aprovação tem 14 dias de validade. Peça pra {data.client.name} reenviar.
             </p>
           </CardContent>
@@ -226,12 +226,12 @@ export default function ApprovalPage() {
               {isApproved ? "Você já aprovou esse post" : "Você já pediu alterações"}
             </p>
             {data.decidedAt && (
-              <p className="mt-2 text-sm text-muted-foreground">
+              <p className="mt-2 text-base text-muted-foreground">
                 {new Date(data.decidedAt).toLocaleString("pt-BR")}
               </p>
             )}
             {data.pendingSiblings > 0 && (
-              <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+              <p className="mt-4 rounded-md bg-amber-50 px-3 py-2 text-base text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
                 Você ainda tem <strong>{data.pendingSiblings}</strong> outro{data.pendingSiblings > 1 ? "s" : ""} post{data.pendingSiblings > 1 ? "s" : ""} aguardando sua aprovação.
               </p>
             )}
@@ -272,7 +272,7 @@ export default function ApprovalPage() {
           <CardContent className="py-10 text-center">
             <AlertTriangle className="mx-auto mb-4 h-10 w-10 text-warning" />
             <p className="text-lg font-medium">Post não encontrado no Notion</p>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-base text-muted-foreground">
               Pode ter sido removido. Peça pra {data.client.name} criar novamente.
             </p>
           </CardContent>
@@ -294,8 +294,8 @@ export default function ApprovalPage() {
             </div>
           )}
           <div className="min-w-0">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Aprovação de conteúdo</p>
-            <p className="truncate font-display text-lg">{data.client.name}</p>
+            <p className="text-sm uppercase tracking-wider text-muted-foreground">Aprovação de conteúdo</p>
+            <p className="truncate text-lg">{data.client.name}</p>
           </div>
         </div>
       </div>
@@ -306,14 +306,14 @@ export default function ApprovalPage() {
             their decisions. Shown above the contact greeting so it's the
             first thing they see if there's a queue. */}
         {data.pendingSiblings > 0 && (
-          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300/50 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-100">
+          <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border border-amber-300/50 bg-amber-50 px-3 py-2 text-base text-amber-900 dark:border-amber-500/30 dark:bg-amber-950/40 dark:text-amber-100">
             <MessageCircle className="h-4 w-4 shrink-0" />
             <span>
               Você tem <strong>{data.pendingSiblings + 1}</strong> posts aguardando sua aprovação no total.
             </span>
             <a
               href={data.client.calendarUrl}
-              className="ml-auto rounded-md border border-amber-700/30 bg-amber-100 px-2 py-0.5 text-xs font-medium hover:bg-amber-200 dark:bg-amber-900/40 dark:hover:bg-amber-900/60"
+              className="ml-auto rounded-md border border-amber-700/30 bg-amber-100 px-2 py-0.5 text-sm font-medium hover:bg-amber-200 dark:bg-amber-900/40 dark:hover:bg-amber-900/60"
             >
               Ver todos
             </a>
@@ -321,14 +321,14 @@ export default function ApprovalPage() {
         )}
 
         {data.contactName && (
-          <p className="mb-2 text-sm text-muted-foreground">
+          <p className="mb-2 text-base text-muted-foreground">
             Olá <strong className="text-foreground">{data.contactName}</strong>, esse post está aguardando a sua aprovação:
           </p>
         )}
 
         {/* Meta-line: when sent + when expires. Helps the client gauge urgency. */}
         {(data.sentAt || data.expiresAt) && (
-          <p className="mb-6 text-xs text-muted-foreground">
+          <p className="mb-6 text-sm text-muted-foreground">
             {data.sentAt && <>Enviado {formatRelative(data.sentAt)}</>}
             {data.sentAt && data.expiresAt && " · "}
             {data.expiresAt && <>Link expira {formatRelative(data.expiresAt)}</>}
@@ -338,8 +338,8 @@ export default function ApprovalPage() {
         {/* Post preview */}
         <Card className="mb-6 overflow-hidden">
           <CardHeader className="pb-3">
-            <h2 className="font-display text-xl truncate">{post.title || "Sem título"}</h2>
-            <p className="text-xs text-muted-foreground">@{post.conta}</p>
+            <h2 className="text-xl truncate">{post.title || "Sem título"}</h2>
+            <p className="text-sm text-muted-foreground">@{post.conta}</p>
           </CardHeader>
           <CardContent className="space-y-4">
             {/* Per-platform mockups */}
@@ -352,14 +352,14 @@ export default function ApprovalPage() {
             {/* Caption */}
             {post.fullCaption && (
               <div className="rounded-lg border bg-muted/30 p-3">
-                <p className="text-xs uppercase tracking-wider text-muted-foreground mb-1">Legenda</p>
-                <p className="whitespace-pre-wrap text-sm">{post.fullCaption}</p>
+                <p className="text-sm uppercase tracking-wider text-muted-foreground mb-1">Legenda</p>
+                <p className="whitespace-pre-wrap text-base">{post.fullCaption}</p>
               </div>
             )}
 
             {/* Schedule info */}
             {post.scheduledDate && (
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 <Clock className="inline h-3 w-3 mr-1" />
                 Agendado para {new Date(post.scheduledDate).toLocaleString("pt-BR")}
               </p>
@@ -393,14 +393,14 @@ export default function ApprovalPage() {
               <MessageCircle className="h-5 w-5" />
               Pedir alterações
             </Button>
-            <p className="mt-4 text-center text-xs text-muted-foreground">
+            <p className="mt-4 text-center text-sm text-muted-foreground">
               Aprovando, esse post vai pra fila de publicação automática.
             </p>
           </div>
         ) : (
           <div className="space-y-3">
             <div className="rounded-lg border p-4 bg-card">
-              <label className="text-sm font-medium block mb-2">O que precisa ajustar?</label>
+              <label className="text-base font-medium block mb-2">O que precisa ajustar?</label>
               {/* Quick chips — tap appends to the textarea. Discourages
                   vague replies ("ajustar"); each chip is a phrased starter
                   the client can flesh out. */}
@@ -419,7 +419,7 @@ export default function ApprovalPage() {
                       })
                     }}
                     disabled={submitting !== null}
-                    className="rounded-full border bg-background px-2.5 py-1 text-xs font-medium hover:bg-muted disabled:opacity-50"
+                    className="rounded-full border bg-background px-2.5 py-1 text-sm font-medium hover:bg-muted disabled:opacity-50"
                   >
                     + {chip}
                   </button>
@@ -431,10 +431,10 @@ export default function ApprovalPage() {
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="Ex: trocar a thumb por uma mais clara, ajustar a legenda..."
                 rows={5}
-                className="w-full rounded-md border bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="w-full rounded-md border bg-background p-3 text-base focus:outline-none focus:ring-2 focus:ring-primary/30"
                 disabled={submitting !== null}
               />
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-2 text-sm text-muted-foreground">
                 Esse comentário vai como mensagem pra agência no Notion.
               </p>
             </div>
@@ -503,7 +503,7 @@ function PlatformPreview({ target, post }: { target: TargetCheck; post: PostInfo
   return (
     <div className="rounded-lg border bg-card overflow-hidden">
       <div className="border-b px-3 py-2">
-        <Badge className={cn("text-[10px]", platformClass(target.platform))}>{target.raw}</Badge>
+        <Badge className={cn("text-[12px]", platformClass(target.platform))}>{target.raw}</Badge>
       </div>
       <div className={cn("relative bg-muted", aspect)}>
         {mediaKind === "image" && mediaUrl && (
@@ -528,7 +528,7 @@ function PlatformPreview({ target, post }: { target: TargetCheck; post: PostInfo
         {!mediaUrl && (
           <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
             <AlertTriangle className="h-6 w-6 mb-1" />
-            <span className="text-xs">Sem mídia</span>
+            <span className="text-sm">Sem mídia</span>
           </div>
         )}
       </div>
@@ -565,7 +565,7 @@ function ProductionScriptApprovalView({
           <CardContent className="py-10 text-center">
             <AlertTriangle className="mx-auto mb-4 h-10 w-10 text-warning" />
             <p className="text-lg font-medium">Roteiro não encontrado</p>
-            <p className="mt-2 text-sm text-muted-foreground">
+            <p className="mt-2 text-base text-muted-foreground">
               Pode ter sido removido. Peça pra {data.client.name} criar novamente.
             </p>
           </CardContent>
@@ -587,8 +587,8 @@ function ProductionScriptApprovalView({
             </div>
           )}
           <div className="min-w-0">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Aprovação de roteiro</p>
-            <p className="truncate font-display text-lg">{data.client.name}</p>
+            <p className="text-sm uppercase tracking-wider text-muted-foreground">Aprovação de roteiro</p>
+            <p className="truncate text-lg">{data.client.name}</p>
           </div>
         </div>
       </div>
@@ -596,7 +596,7 @@ function ProductionScriptApprovalView({
       <div className="mx-auto max-w-3xl px-4 py-6 sm:py-8">
         {/* Chain banner — shows step + previous approvers */}
         {ctx && ctx.totalSteps > 1 && (
-          <div className="mb-4 rounded-lg border bg-card px-3 py-2.5 text-sm">
+          <div className="mb-4 rounded-lg border bg-card px-3 py-2.5 text-base">
             <div className="flex items-center gap-2 text-muted-foreground">
               <Users className="h-4 w-4 shrink-0" />
               <span>
@@ -605,7 +605,7 @@ function ProductionScriptApprovalView({
               </span>
             </div>
             {ctx.previousApprovers.length > 0 && (
-              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+              <div className="mt-1.5 flex flex-wrap items-center gap-1.5 text-sm">
                 {ctx.previousApprovers.map((a) => (
                   <span
                     key={a.name}
@@ -621,13 +621,13 @@ function ProductionScriptApprovalView({
         )}
 
         {data.contactName && (
-          <p className="mb-2 text-sm text-muted-foreground">
+          <p className="mb-2 text-base text-muted-foreground">
             Olá <strong className="text-foreground">{data.contactName}</strong>, esse roteiro está aguardando a sua aprovação:
           </p>
         )}
 
         {(data.sentAt || data.expiresAt) && (
-          <p className="mb-6 text-xs text-muted-foreground">
+          <p className="mb-6 text-sm text-muted-foreground">
             {data.sentAt && <>Enviado {formatRelative(data.sentAt)}</>}
             {data.sentAt && data.expiresAt && " · "}
             {data.expiresAt && <>Link expira {formatRelative(data.expiresAt)}</>}
@@ -639,9 +639,9 @@ function ProductionScriptApprovalView({
           <CardHeader className="pb-3">
             <div className="flex items-center gap-2">
               <FileText className="h-5 w-5 text-muted-foreground" />
-              <h2 className="font-display text-xl truncate">{prod.title || "Sem título"}</h2>
+              <h2 className="text-xl truncate">{prod.title || "Sem título"}</h2>
             </div>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-sm text-muted-foreground">
               {prod.type === "podcast" ? "Podcast" : "Vídeo"}
               {prod.specialistName ? ` · ${prod.specialistName}` : ""}
             </p>
@@ -654,7 +654,7 @@ function ProductionScriptApprovalView({
                 className="border-0"
               />
             ) : (
-              <p className="text-sm text-muted-foreground italic">Roteiro vazio</p>
+              <p className="text-base text-muted-foreground italic">Roteiro vazio</p>
             )}
           </CardContent>
         </Card>
@@ -685,7 +685,7 @@ function ProductionScriptApprovalView({
               <MessageCircle className="h-5 w-5" />
               Pedir alterações
             </Button>
-            <p className="mt-4 text-center text-xs text-muted-foreground">
+            <p className="mt-4 text-center text-sm text-muted-foreground">
               {ctx && ctx.stepOrder < ctx.totalSteps
                 ? "Aprovando, o roteiro vai para o próximo aprovador na fila."
                 : "Aprovando, o roteiro fica liberado para gravação."}
@@ -694,17 +694,17 @@ function ProductionScriptApprovalView({
         ) : (
           <div className="space-y-3">
             <div className="rounded-lg border p-4 bg-card">
-              <label className="text-sm font-medium block mb-2">O que precisa ajustar no roteiro?</label>
+              <label className="text-base font-medium block mb-2">O que precisa ajustar no roteiro?</label>
               <textarea
                 autoFocus
                 value={comment}
                 onChange={(e) => setComment(e.target.value)}
                 placeholder="Ex: trocar a abertura, encurtar a parte 2, adicionar exemplo concreto..."
                 rows={5}
-                className="w-full rounded-md border bg-background p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+                className="w-full rounded-md border bg-background p-3 text-base focus:outline-none focus:ring-2 focus:ring-primary/30"
                 disabled={submitting !== null}
               />
-              <p className="mt-2 text-xs text-muted-foreground">
+              <p className="mt-2 text-sm text-muted-foreground">
                 Esse comentário vai pra equipe da agência junto com o pedido de revisão.
               </p>
             </div>

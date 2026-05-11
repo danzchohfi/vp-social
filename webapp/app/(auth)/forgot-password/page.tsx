@@ -42,12 +42,12 @@ export default function ForgotPasswordPage() {
           <div className="mx-auto mb-2 flex h-12 w-12 items-center justify-center rounded-full bg-success/10">
             <CheckCircle2 className="h-6 w-6 text-success" />
           </div>
-          <CardTitle className="font-display text-2xl font-normal tracking-tight">Verifique seu email</CardTitle>
+          <CardTitle className="text-2xl font-normal tracking-tight">Verifique seu email</CardTitle>
           <CardDescription>
             Se o email <strong>{email}</strong> estiver cadastrado, você receberá um link para redefinir sua senha em alguns minutos.
           </CardDescription>
         </CardHeader>
-        <CardFooter className="justify-center text-sm">
+        <CardFooter className="justify-center text-base">
           <Link href="/login" className="font-medium text-primary hover:underline">Voltar para o login</Link>
         </CardFooter>
       </Card>
@@ -57,7 +57,7 @@ export default function ForgotPasswordPage() {
   return (
     <Card className="w-full max-w-md shadow-lg">
       <CardHeader className="text-center">
-        <CardTitle className="font-display text-3xl font-normal tracking-tight">Esqueceu a senha?</CardTitle>
+        <CardTitle className="text-3xl font-normal tracking-tight">Esqueceu a senha?</CardTitle>
         <CardDescription>Digite seu email e enviaremos um link para você criar uma nova senha.</CardDescription>
       </CardHeader>
       <CardContent>
@@ -72,7 +72,7 @@ export default function ForgotPasswordPage() {
           </Button>
         </form>
       </CardContent>
-      <CardFooter className="justify-center text-sm text-muted-foreground">
+      <CardFooter className="justify-center text-base text-muted-foreground">
         Lembrou a senha?{" "}
         <Link href="/login" className="ml-1 font-medium text-primary hover:underline">Voltar ao login</Link>
       </CardFooter>

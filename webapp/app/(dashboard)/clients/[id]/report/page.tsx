@@ -154,7 +154,7 @@ export default function ReportPage() {
         <Card>
           <CardContent className="py-10 text-center">
             <AlertTriangle className="mx-auto mb-3 h-8 w-8 text-destructive" />
-            <p className="text-sm text-muted-foreground">{error ?? "Erro ao carregar"}</p>
+            <p className="text-base text-muted-foreground">{error ?? "Erro ao carregar"}</p>
           </CardContent>
         </Card>
       </div>
@@ -182,9 +182,9 @@ export default function ReportPage() {
             </div>
           )}
           <div>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Relatório mensal</p>
-            <h1 className="font-display text-2xl">{data.client.name}</h1>
-            <p className="text-sm text-muted-foreground capitalize">{data.month.label}</p>
+            <p className="text-sm uppercase tracking-wider text-muted-foreground">Relatório mensal</p>
+            <h1 className="text-2xl">{data.client.name}</h1>
+            <p className="text-base text-muted-foreground capitalize">{data.month.label}</p>
           </div>
         </div>
         <div className="flex items-center gap-1.5 print:hidden">
@@ -212,7 +212,7 @@ export default function ReportPage() {
       </header>
 
       {syncMessage && (
-        <div className="mb-4 rounded-md border border-primary/30 bg-primary/5 p-3 text-sm print:hidden">
+        <div className="mb-4 rounded-md border border-primary/30 bg-primary/5 p-3 text-base print:hidden">
           {syncMessage}
         </div>
       )}
@@ -236,7 +236,7 @@ export default function ReportPage() {
         <section className="mb-8">
           <div className="mb-3 flex items-center gap-2">
             <TrendingUp className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Engajamento</h2>
+            <h2 className="text-base font-semibold uppercase tracking-wider text-muted-foreground">Engajamento</h2>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-5">
             <Stat label="Curtidas" value={fmt(data.engagement.totalLikes)} icon={<Heart className="h-3.5 w-3.5" />} />
@@ -246,7 +246,7 @@ export default function ReportPage() {
             <Stat label="Impressões" value={fmt(data.engagement.totalImpressions)} />
           </div>
           {data.engagement.coveragePercent < 100 && (
-            <p className="mt-2 text-[11px] text-muted-foreground">
+            <p className="mt-2 text-[13px] text-muted-foreground">
               {data.engagement.coveragePercent}% dos posts têm analytics sincronizadas. Os dados podem subir após o próximo sync.
             </p>
           )}
@@ -254,7 +254,7 @@ export default function ReportPage() {
       ) : (
         <section className="mb-8">
           <Card>
-            <CardContent className="py-6 text-center text-sm text-muted-foreground">
+            <CardContent className="py-6 text-center text-base text-muted-foreground">
               Engajamento ainda não sincronizado pra este mês. As métricas aparecerão depois do próximo sync de analytics.
             </CardContent>
           </Card>
@@ -264,7 +264,7 @@ export default function ReportPage() {
       {/* Per-platform breakdown */}
       {data.publish.byPlatform.length > 0 && (
         <section className="mb-8">
-          <h2 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+          <h2 className="mb-3 text-base font-semibold uppercase tracking-wider text-muted-foreground">
             Por plataforma
           </h2>
           <Card>
@@ -273,7 +273,7 @@ export default function ReportPage() {
                 {data.publish.byPlatform.map((p) => (
                   <li key={p.platform} className="flex items-center justify-between py-2">
                     <span className="font-medium">{p.platform}</span>
-                    <div className="flex items-center gap-3 text-sm">
+                    <div className="flex items-center gap-3 text-base">
                       <span className="text-success">{p.published} publicados</span>
                       {p.failed > 0 && <span className="text-destructive">{p.failed} falha(s)</span>}
                       {p.skipped > 0 && <span className="text-muted-foreground">{p.skipped} pulados</span>}
@@ -291,23 +291,23 @@ export default function ReportPage() {
         <section className="mb-8">
           <div className="mb-3 flex items-center gap-2">
             <ThumbsUp className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+            <h2 className="text-base font-semibold uppercase tracking-wider text-muted-foreground">
               Top {data.topPosts.length} posts
             </h2>
           </div>
           <ul className="space-y-2">
             {data.topPosts.map((p, idx) => (
               <li key={p.pageId + p.platform} className="flex items-center gap-3 rounded-lg border bg-card p-3">
-                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-primary/10 text-base font-semibold text-primary">
                   {idx + 1}
                 </div>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{p.title || "Sem título"}</p>
-                  <p className="text-[11px] text-muted-foreground">
+                  <p className="truncate text-base font-medium">{p.title || "Sem título"}</p>
+                  <p className="text-[13px] text-muted-foreground">
                     @{p.conta} · {p.platform} · {new Date(p.publishedAt).toLocaleDateString("pt-BR")}
                   </p>
                 </div>
-                <div className="flex shrink-0 items-center gap-3 text-xs">
+                <div className="flex shrink-0 items-center gap-3 text-sm">
                   <span className="inline-flex items-center gap-1">
                     <Heart className="h-3 w-3" />
                     {fmt(p.likes)}
@@ -340,7 +340,7 @@ export default function ReportPage() {
         <section className="mb-8">
           <div className="mb-3 flex items-center gap-2">
             <MessageCircle className="h-4 w-4 text-muted-foreground" />
-            <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Fluxo de aprovação</h2>
+            <h2 className="text-base font-semibold uppercase tracking-wider text-muted-foreground">Fluxo de aprovação</h2>
           </div>
           <Card>
             <CardContent className="grid gap-3 py-4 sm:grid-cols-4">
@@ -357,7 +357,7 @@ export default function ReportPage() {
         </section>
       )}
 
-      <footer className="mt-12 border-t pt-4 text-[11px] text-muted-foreground">
+      <footer className="mt-12 border-t pt-4 text-[13px] text-muted-foreground">
         <p>Relatório gerado por <strong>VP Social</strong> · {new Date().toLocaleDateString("pt-BR")}</p>
       </footer>
     </div>
@@ -385,11 +385,11 @@ function Stat({
 }) {
   return (
     <div className="rounded-lg border bg-card p-3">
-      <div className="flex items-center gap-1.5 text-[10px] uppercase tracking-wider text-muted-foreground">
+      <div className="flex items-center gap-1.5 text-[12px] uppercase tracking-wider text-muted-foreground">
         {icon}
         {label}
       </div>
-      <p className={cn("mt-1 font-display text-2xl leading-none", TONE_CLASS[tone])}>{value}</p>
+      <p className={cn("mt-1 text-2xl leading-none", TONE_CLASS[tone])}>{value}</p>
     </div>
   )
 }

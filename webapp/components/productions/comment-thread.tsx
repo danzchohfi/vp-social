@@ -100,7 +100,7 @@ export function CommentThread({ productionId }: { productionId: string }) {
     <section>
       <div className="mb-3 flex items-center gap-2">
         <MessageCircle className="h-4 w-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+        <h2 className="text-base font-semibold uppercase tracking-wider text-muted-foreground">
           Comentários ({comments.length})
         </h2>
       </div>
@@ -110,7 +110,7 @@ export function CommentThread({ productionId }: { productionId: string }) {
           <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
         </div>
       ) : comments.length === 0 ? (
-        <p className="rounded-md border border-dashed bg-muted/20 px-3 py-3 text-xs text-muted-foreground">
+        <p className="rounded-md border border-dashed bg-muted/20 px-3 py-3 text-sm text-muted-foreground">
           Nenhum comentário ainda. Conversa entre agência e cliente aparece aqui.
         </p>
       ) : (
@@ -129,27 +129,27 @@ export function CommentThread({ productionId }: { productionId: string }) {
                   {c.authorImage ? (
                     <img src={c.authorImage} alt="" className="h-5 w-5 rounded-full object-cover shrink-0" />
                   ) : (
-                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[10px] font-semibold text-primary">
+                    <div className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[12px] font-semibold text-primary">
                       {c.authorName.charAt(0).toUpperCase()}
                     </div>
                   )}
-                  <p className="truncate text-sm font-medium">{c.authorName}</p>
+                  <p className="truncate text-base font-medium">{c.authorName}</p>
                   {c.isClient && (
-                    <span className="rounded-full bg-amber-200/60 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
+                    <span className="rounded-full bg-amber-200/60 px-1.5 py-0.5 text-[12px] font-medium uppercase tracking-wider text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">
                       Cliente
                     </span>
                   )}
                 </div>
-                <span className="shrink-0 text-[11px] text-muted-foreground">
+                <span className="shrink-0 text-[13px] text-muted-foreground">
                   {timeAgo(c.createdAt)}
                 </span>
               </div>
-              <p className="whitespace-pre-wrap text-sm">{c.body}</p>
+              <p className="whitespace-pre-wrap text-base">{c.body}</p>
               <button
                 type="button"
                 onClick={() => toggleResolved(c.id, !c.resolved)}
                 className={cn(
-                  "mt-2 inline-flex items-center gap-1 text-[11px] font-medium",
+                  "mt-2 inline-flex items-center gap-1 text-[13px] font-medium",
                   c.resolved
                     ? "text-success"
                     : "text-muted-foreground hover:text-foreground",
@@ -170,7 +170,7 @@ export function CommentThread({ productionId }: { productionId: string }) {
           onChange={(e) => setBody(e.target.value)}
           placeholder="Adicione um comentário…"
           rows={3}
-          className="w-full resize-none rounded-md border bg-background p-2 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30"
+          className="w-full resize-none rounded-md border bg-background p-2 text-base focus:outline-none focus:ring-2 focus:ring-primary/30"
         />
         <div className="mt-2 flex justify-end">
           <Button size="sm" onClick={postComment} disabled={posting || !body.trim()}>

@@ -100,7 +100,7 @@ export default function ActivityPage() {
     <div className="mx-auto max-w-3xl p-8">
       <div className="mb-6 flex items-end justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Atividade</h1>
+          <h1 className="text-3xl tracking-tight sm:text-4xl">Atividade</h1>
           <p className="text-muted-foreground">
             Tudo que rolou — posts publicados, falhas e decisões dos clientes.
           </p>
@@ -112,13 +112,13 @@ export default function ActivityPage() {
       </div>
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
-        <span className="text-xs font-medium uppercase tracking-wider text-muted-foreground">Período</span>
+        <span className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Período</span>
         {([7, 14, 30] as const).map((d) => (
           <button
             key={d}
             onClick={() => changeDays(d)}
             className={cn(
-              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              "rounded-full border px-3 py-1 text-sm font-medium transition-colors",
               days === d
                 ? "border-primary bg-primary/10 text-primary"
                 : "border-muted bg-muted/30 text-muted-foreground hover:bg-muted/50",
@@ -127,7 +127,7 @@ export default function ActivityPage() {
             {d}d
           </button>
         ))}
-        <span className="ml-3 text-xs font-medium uppercase tracking-wider text-muted-foreground">Tipo</span>
+        <span className="ml-3 text-sm font-medium uppercase tracking-wider text-muted-foreground">Tipo</span>
         {([
           { key: "all" as const, label: "Tudo" },
           { key: "publishes" as const, label: "Publicações" },
@@ -137,7 +137,7 @@ export default function ActivityPage() {
             key={opt.key}
             onClick={() => changeKind(opt.key)}
             className={cn(
-              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
+              "rounded-full border px-3 py-1 text-sm font-medium transition-colors",
               kindFilter === opt.key
                 ? "border-primary bg-primary/10 text-primary"
                 : "border-muted bg-muted/30 text-muted-foreground hover:bg-muted/50",
@@ -149,7 +149,7 @@ export default function ActivityPage() {
       </div>
 
       {error && (
-        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+        <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-base text-destructive">
           {error}
         </div>
       )}
@@ -163,7 +163,7 @@ export default function ActivityPage() {
           <CardContent className="py-12 text-center">
             <ActivityIcon className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
             <p className="font-medium">Nada por aqui</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-base text-muted-foreground">
               Sem eventos nos últimos {days} dias{kindFilter !== "all" ? ` (filtro: ${kindFilter === "publishes" ? "publicações" : "aprovações"})` : ""}.
               {kindFilter !== "all" && " Tenta outro filtro."}
             </p>
@@ -203,18 +203,18 @@ function EventRow({ event }: { event: Event }) {
         <div className="flex items-start gap-3">
           <div className="mt-0.5">{icon}</div>
           <div className="min-w-0 flex-1">
-            <p className="text-sm">
+            <p className="text-base">
               <strong>{who}</strong> {verb} <strong>{event.postTitle || "post sem título"}</strong>
               {event.clientName && (
                 <span className="text-muted-foreground"> · {event.clientName}</span>
               )}
             </p>
             {event.comment && (
-              <p className="mt-1 break-words text-[11px] italic text-muted-foreground">
+              <p className="mt-1 break-words text-[13px] italic text-muted-foreground">
                 &quot;{event.comment}&quot;
               </p>
             )}
-            <p className="mt-1 text-[11px] text-muted-foreground">{ago}</p>
+            <p className="mt-1 text-[13px] text-muted-foreground">{ago}</p>
           </div>
           <Button variant="ghost" size="sm" asChild className="shrink-0">
             <Link href={`/approve/${event.token}`} target="_blank" rel="noopener noreferrer">
@@ -237,7 +237,7 @@ function EventRow({ event }: { event: Event }) {
           {failed ? <XCircle className="h-4 w-4 text-destructive" /> : <CheckCircle2 className="h-4 w-4 text-success" />}
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm">
+          <p className="text-base">
             {failed ? "Falhou: " : "Publicado: "}
             <strong>{event.postTitle || "post sem título"}</strong>
             {event.conta && <span className="text-muted-foreground"> · @{event.conta}</span>}
@@ -245,9 +245,9 @@ function EventRow({ event }: { event: Event }) {
             {event.clientName && <span className="text-muted-foreground"> · {event.clientName}</span>}
           </p>
           {failed && event.error && (
-            <p className="mt-1 break-words text-[11px] text-destructive">{event.error}</p>
+            <p className="mt-1 break-words text-[13px] text-destructive">{event.error}</p>
           )}
-          <p className="mt-1 text-[11px] text-muted-foreground">{ago}</p>
+          <p className="mt-1 text-[13px] text-muted-foreground">{ago}</p>
         </div>
         {!failed && event.permalink && (
           <Button variant="ghost" size="sm" asChild className="shrink-0">

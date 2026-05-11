@@ -56,10 +56,10 @@ function ResetPasswordForm() {
     return (
       <Card className="w-full max-w-md shadow-lg">
         <CardHeader className="text-center">
-          <CardTitle className="font-display text-2xl font-normal tracking-tight">Link inválido</CardTitle>
+          <CardTitle className="text-2xl font-normal tracking-tight">Link inválido</CardTitle>
           <CardDescription>Este link de reset está incompleto ou expirou.</CardDescription>
         </CardHeader>
-        <CardFooter className="justify-center text-sm">
+        <CardFooter className="justify-center text-base">
           <Link href="/forgot-password" className="font-medium text-primary hover:underline">Pedir um novo link</Link>
         </CardFooter>
       </Card>
@@ -69,7 +69,7 @@ function ResetPasswordForm() {
   return (
     <Card className="w-full max-w-md shadow-lg">
       <CardHeader className="text-center">
-        <CardTitle className="font-display text-3xl font-normal tracking-tight">Nova senha</CardTitle>
+        <CardTitle className="text-3xl font-normal tracking-tight">Nova senha</CardTitle>
         <CardDescription>Escolha uma nova senha para sua conta.</CardDescription>
       </CardHeader>
       <CardContent>

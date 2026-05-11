@@ -355,9 +355,9 @@ export default function ScheduledPage() {
     <div className="p-4 sm:p-8">
       <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Publicações</h1>
+          <h1 className="text-3xl tracking-tight sm:text-4xl">Publicações</h1>
           {agencyMode && (
-            <span className="mt-1 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-xs font-medium text-primary">
+            <span className="mt-1 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
               Visão agência · todos os clientes
             </span>
           )}
@@ -378,7 +378,7 @@ export default function ScheduledPage() {
             <button
               onClick={() => setView("list")}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium transition-colors",
                 view === "list" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -388,7 +388,7 @@ export default function ScheduledPage() {
             <button
               onClick={() => setView("calendar")}
               className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors",
+                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium transition-colors",
                 view === "calendar" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -410,14 +410,14 @@ export default function ScheduledPage() {
             key={opt.value}
             onClick={() => setFilter(opt.value)}
             className={cn(
-              "inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-xs font-medium transition-colors",
+              "inline-flex items-center gap-1.5 rounded-md px-3 py-1 text-sm font-medium transition-colors",
               filter === opt.value ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
             )}
           >
             {opt.label}
             {typeof opt.count === "number" && (
               <span className={cn(
-                "rounded-full px-1.5 text-[10px]",
+                "rounded-full px-1.5 text-[12px]",
                 filter === opt.value ? "bg-background" : "bg-muted"
               )}>
                 {opt.count}
@@ -439,7 +439,7 @@ export default function ScheduledPage() {
         <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-6 text-center">
           <CalendarClock className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
           <p className="font-medium">Notion não configurado</p>
-          <p className="mt-1 mb-4 text-sm text-muted-foreground">
+          <p className="mt-1 mb-4 text-base text-muted-foreground">
             Configure a conexão com o Notion e selecione o banco de dados primeiro.
           </p>
           <Button asChild size="sm">
@@ -453,38 +453,38 @@ export default function ScheduledPage() {
           <div className="mb-2 flex items-start gap-2">
             <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning" />
             <div>
-              <p className="text-sm font-semibold">
+              <p className="text-base font-semibold">
                 {ignored.length} {ignored.length === 1 ? "post ignorado" : "posts ignorados"}
               </p>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-sm text-muted-foreground">
                 A conta no Notion não bate com nenhuma cadastrada — o sistema não vai publicar esses posts até resolver. Sugestões abaixo ↓
               </p>
             </div>
           </div>
           <ul className="mt-2 space-y-1.5">
             {ignored.slice(0, 8).map((p) => (
-              <li key={p.pageId} className="flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded border bg-card px-3 py-2 text-sm">
+              <li key={p.pageId} className="flex flex-wrap items-baseline gap-x-2 gap-y-1 rounded border bg-card px-3 py-2 text-base">
                 <span className="font-medium truncate">{p.title || "Sem título"}</span>
                 {p.clientName && (
-                  <span className="text-[10px] text-muted-foreground">· {p.clientName}</span>
+                  <span className="text-[12px] text-muted-foreground">· {p.clientName}</span>
                 )}
-                <span className="text-xs text-muted-foreground">
-                  Notion diz <code className="rounded bg-muted px-1 py-0.5 font-mono text-[11px]">{p.conta}</code>
+                <span className="text-sm text-muted-foreground">
+                  Notion diz <code className="rounded bg-muted px-1 py-0.5 font-mono text-[13px]">{p.conta}</code>
                 </span>
                 {p.suggestion ? (
-                  <span className="text-xs">
-                    — quis dizer <code className="rounded bg-success/15 px-1 py-0.5 font-mono text-[11px] text-success">{p.suggestion}</code>?
+                  <span className="text-sm">
+                    — quis dizer <code className="rounded bg-success/15 px-1 py-0.5 font-mono text-[13px] text-success">{p.suggestion}</code>?
                   </span>
                 ) : (
-                  <span className="text-xs text-muted-foreground">— sem conta parecida cadastrada</span>
+                  <span className="text-sm text-muted-foreground">— sem conta parecida cadastrada</span>
                 )}
               </li>
             ))}
             {ignored.length > 8 && (
-              <li className="text-xs text-muted-foreground">+ {ignored.length - 8} outros</li>
+              <li className="text-sm text-muted-foreground">+ {ignored.length - 8} outros</li>
             )}
           </ul>
-          <div className="mt-3 flex flex-wrap gap-2 text-xs">
+          <div className="mt-3 flex flex-wrap gap-2 text-sm">
             <Link href="/accounts" className="text-warning underline hover:no-underline">
               Editar contas conectadas →
             </Link>
@@ -494,13 +494,13 @@ export default function ScheduledPage() {
       )}
 
       {error && (
-        <div className="mb-6 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+        <div className="mb-6 rounded-lg border border-destructive/20 bg-destructive/10 px-4 py-3 text-base text-destructive">
           Erro ao buscar posts: {error}
         </div>
       )}
 
       {hasTikTokTarget && (
-        <div className="mb-6 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-sm text-warning">
+        <div className="mb-6 rounded-lg border border-warning/40 bg-warning/10 px-4 py-3 text-base text-warning">
           <strong>TikTok em aprovação.</strong>{" "}
           Posts com TikTok não publicam automaticamente. Agende manualmente em{" "}
           <a href="https://studio.tiktok.com" target="_blank" rel="noopener noreferrer" className="underline font-medium">
@@ -524,7 +524,7 @@ export default function ScheduledPage() {
               {filter === "published" && "Nenhuma publicação concluída"}
               {filter === "errors" && "Nenhum erro recente — tudo certo!"}
             </p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-base text-muted-foreground">
               {filter === "upcoming" || filter === "all"
                 ? <>Mude o status de um post para &quot;<span className="font-mono">Agendamento</span>&quot; no Notion para ele aparecer aqui.</>
                 : "Histórico mostra os últimos 90 dias."}
@@ -542,11 +542,11 @@ export default function ScheduledPage() {
             <section>
               <div className="mb-4 flex items-center gap-2">
                 <MessageCircle className="h-4 w-4 text-amber-500" />
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
+                <h2 className="text-base font-semibold uppercase tracking-wider text-amber-600 dark:text-amber-400">
                   Aguardando aprovação ({awaitingApproval.length})
                 </h2>
               </div>
-              <p className="mb-3 text-xs text-muted-foreground">
+              <p className="mb-3 text-sm text-muted-foreground">
                 Posts que estão no status &quot;aguardando aprovação&quot; no Notion. O cliente recebe link via WhatsApp; quando aprovar, o post entra no fluxo normal.
               </p>
               <div className="space-y-6">
@@ -562,7 +562,7 @@ export default function ScheduledPage() {
             <section>
               <div className="mb-4 flex items-center gap-2">
                 <CheckCircle2 className="h-4 w-4 text-success" />
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-success">
+                <h2 className="text-base font-semibold uppercase tracking-wider text-success">
                   Prontos para publicar agora ({readyNow.length})
                 </h2>
               </div>
@@ -578,7 +578,7 @@ export default function ScheduledPage() {
             <section>
               <div className="mb-4 flex items-center gap-2">
                 <Clock className="h-4 w-4 text-muted-foreground" />
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                <h2 className="text-base font-semibold uppercase tracking-wider text-muted-foreground">
                   Próximas publicações ({upcomingFuture.length})
                 </h2>
               </div>
@@ -594,11 +594,11 @@ export default function ScheduledPage() {
             <section>
               <div className="mb-4 flex items-center gap-2">
                 <AlertTriangle className="h-4 w-4 text-warning" />
-                <h2 className="text-sm font-semibold uppercase tracking-wider text-warning">
+                <h2 className="text-base font-semibold uppercase tracking-wider text-warning">
                   Não vão publicar — precisam de ajustes ({needsAttention.length})
                 </h2>
               </div>
-              <p className="mb-3 text-xs text-muted-foreground">
+              <p className="mb-3 text-sm text-muted-foreground">
                 Estes posts estão com status de agendamento mas o sistema não vai publicá-los até resolver os pontos abaixo.
               </p>
               <div className="space-y-6">
@@ -615,7 +615,7 @@ export default function ScheduledPage() {
               <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <CheckCircle2 className="h-4 w-4 text-muted-foreground" />
-                  <h2 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
+                  <h2 className="text-base font-semibold uppercase tracking-wider text-muted-foreground">
                     {filter === "errors" ? "Posts com erro" : filter === "published" ? "Já publicados" : "Histórico recente"} ({visiblePast.length})
                   </h2>
                 </div>
@@ -641,7 +641,7 @@ export default function ScheduledPage() {
       <div className="mt-12 flex justify-center border-t pt-6">
         <Link
           href="/history"
-          className="inline-flex items-center gap-1.5 text-xs text-muted-foreground transition-colors hover:text-foreground"
+          className="inline-flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
         >
           Ver histórico completo (todas as publicações, com IDs e erros) →
         </Link>
@@ -808,7 +808,7 @@ function PastPostRow({ post, onRetried }: { post: PastPost; onRetried?: () => vo
               <p className="font-medium truncate">{post.title || "Sem título"}</p>
             )}
             {post.clientName && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary">
                 {post.clientLogoUrl ? (
                   <img src={post.clientLogoUrl} alt="" className="h-3 w-3 rounded-full object-cover" />
                 ) : null}
@@ -816,10 +816,10 @@ function PastPostRow({ post, onRetried }: { post: PastPost; onRetried?: () => vo
               </span>
             )}
           </div>
-          <p className="mt-0.5 text-xs text-muted-foreground">{post.conta}</p>
+          <p className="mt-0.5 text-sm text-muted-foreground">{post.conta}</p>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-sm text-muted-foreground">
+          <p className="text-base text-muted-foreground">
             {new Date(post.date).toLocaleString("pt-BR", {
               day: "2-digit", month: "2-digit", year: "numeric",
               hour: "2-digit", minute: "2-digit",
@@ -835,7 +835,7 @@ function PastPostRow({ post, onRetried }: { post: PastPost; onRetried?: () => vo
           {errorPlatforms.length > 0 && (
             <button
               onClick={() => setShowErrors((v) => !v)}
-              className="text-xs text-destructive underline hover:no-underline"
+              className="text-sm text-destructive underline hover:no-underline"
             >
               {showErrors ? "Ocultar erros" : `Ver erro${errorPlatforms.length > 1 ? "s" : ""}`}
             </button>
@@ -863,7 +863,7 @@ function PastPostRow({ post, onRetried }: { post: PastPost; onRetried?: () => vo
       {showErrors && errorPlatforms.length > 0 && (
         <div className="mt-3 space-y-2">
           {errorPlatforms.map((pl) => (
-            <div key={pl.logId} className="rounded bg-destructive/10 px-3 py-2 text-xs">
+            <div key={pl.logId} className="rounded bg-destructive/10 px-3 py-2 text-sm">
               <p className="font-medium text-destructive">{pl.raw}</p>
               <p className="mt-1 text-destructive/80 break-words font-mono">{pl.error}</p>
             </div>
@@ -880,7 +880,7 @@ function PastPlatformBadge({ pl }: { pl: PastPlatform }) {
   const platform = target.split(/[\s-]+/)[0]
   if (pl.status === "failed") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-destructive/15 px-2 py-0.5 text-xs font-medium text-destructive">
+      <span className="inline-flex items-center gap-1 rounded-full bg-destructive/15 px-2 py-0.5 text-sm font-medium text-destructive">
         <XCircle className="h-3 w-3" />
         {pl.raw}
       </span>
@@ -888,14 +888,14 @@ function PastPlatformBadge({ pl }: { pl: PastPlatform }) {
   }
   if (pl.status === "skipped") {
     return (
-      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
+      <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-sm font-medium text-muted-foreground">
         {pl.raw}
         <span className="opacity-70">— ignorado</span>
       </span>
     )
   }
   return (
-    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium", platformClass(platform))}>
+    <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-sm font-medium", platformClass(platform))}>
       <CheckCircle2 className="h-3 w-3" />
       {pl.raw}
     </span>
@@ -907,8 +907,8 @@ function ContaGroup({ conta, posts, canPublishNow, onPublished, issuesFn }: { co
   return (
     <div className="space-y-2">
       <div className="flex items-baseline gap-2 px-1">
-        <h3 className="text-sm font-semibold">{conta}</h3>
-        <span className="text-xs text-muted-foreground">
+        <h3 className="text-base font-semibold">{conta}</h3>
+        <span className="text-sm text-muted-foreground">
           {posts.length} post{posts.length === 1 ? "" : "s"}
           {ws && <span className="ml-2 opacity-70">· {ws}</span>}
         </span>
@@ -927,7 +927,7 @@ function TargetBadge({ check }: { check: TargetCheck }) {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs font-medium",
+        "inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-sm font-medium",
         ok ? platformClass(check.platform) : "bg-warning/15 text-warning"
       )}
     >
@@ -1025,7 +1025,7 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
             )}
             {/* Client chip — only shown in agency view (clientName present). */}
             {post.clientName && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[10px] font-medium text-primary">
+              <span className="inline-flex items-center gap-1 rounded-full bg-primary/10 px-2 py-0.5 text-[12px] font-medium text-primary">
                 {post.clientLogoUrl ? (
                   <img src={post.clientLogoUrl} alt="" className="h-3 w-3 rounded-full object-cover" />
                 ) : null}
@@ -1033,16 +1033,16 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
               </span>
             )}
             {isOtherClient && (
-              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+              <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[12px] font-medium uppercase tracking-wider text-muted-foreground">
                 Outro cliente
               </span>
             )}
           </div>
         </div>
         <div className="text-right shrink-0">
-          <p className="text-sm text-muted-foreground">{formatDate(post.scheduledDate)}</p>
+          <p className="text-base text-muted-foreground">{formatDate(post.scheduledDate)}</p>
           {post.scheduledDate && (
-            <p className={cn("text-xs font-medium", isPast ? "text-success" : "text-muted-foreground")}>
+            <p className={cn("text-sm font-medium", isPast ? "text-success" : "text-muted-foreground")}>
               {label}
             </p>
           )}
@@ -1054,7 +1054,7 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
       {issues && issues.length > 0 && (
         <ul className="mt-3 space-y-1.5">
           {issues.map((issue) => (
-            <li key={issue.message} className="flex flex-wrap items-start gap-x-2 gap-y-1 text-xs text-warning">
+            <li key={issue.message} className="flex flex-wrap items-start gap-x-2 gap-y-1 text-sm text-warning">
               <span className="flex items-start gap-2">
                 <AlertTriangle className="mt-0.5 h-3 w-3 shrink-0" />
                 <span>{issue.message}</span>
@@ -1064,7 +1064,7 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
                   href={issue.actionHref}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="ml-5 inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning hover:bg-warning/20"
+                  className="ml-5 inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[13px] font-medium text-warning hover:bg-warning/20"
                 >
                   {issue.actionLabel}
                   <ExternalLink className="h-3 w-3" />
@@ -1072,7 +1072,7 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
               ) : (
                 <Link
                   href={issue.actionHref}
-                  className="ml-5 inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[11px] font-medium text-warning hover:bg-warning/20"
+                  className="ml-5 inline-flex items-center gap-1 rounded-md border border-warning/30 bg-warning/10 px-2 py-0.5 text-[13px] font-medium text-warning hover:bg-warning/20"
                 >
                   {issue.actionLabel}
                 </Link>
@@ -1082,9 +1082,9 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
         </ul>
       )}
       <div className="mt-3 flex flex-wrap items-center gap-1.5">
-        <span className="text-xs text-muted-foreground">Publicar em:</span>
+        <span className="text-sm text-muted-foreground">Publicar em:</span>
         {noTargets ? (
-          <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-xs font-medium text-warning">
+          <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-sm font-medium text-warning">
             <AlertTriangle className="h-3 w-3" />
             Campo vazio
           </span>
@@ -1132,13 +1132,13 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
       {priorAttempts.length > 0 && (
         <div className="mt-3 rounded-md border border-dashed border-warning/40 bg-warning/5 p-3">
           <div className="flex items-center justify-between gap-2">
-            <p className="text-xs font-medium uppercase tracking-wider text-muted-foreground">
+            <p className="text-sm font-medium uppercase tracking-wider text-muted-foreground">
               Tentativas anteriores
             </p>
             {hasFailedHistory && (
               <button
                 onClick={() => setShowPriorErrors((v) => !v)}
-                className="text-xs text-destructive underline hover:no-underline"
+                className="text-sm text-destructive underline hover:no-underline"
               >
                 {showPriorErrors ? "Ocultar erros" : `Ver erro${failedAttempts.length > 1 ? "s" : ""}`}
               </button>
@@ -1148,14 +1148,14 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
             {priorAttempts.map((pl) => <PastPlatformBadge key={pl.logId} pl={pl} />)}
           </div>
           {hasPublishedHistory && (
-            <p className="mt-2 text-[11px] text-muted-foreground">
+            <p className="mt-2 text-[13px] text-muted-foreground">
               Já publicado em {publishedAttempts.map((p) => p.raw).join(", ")} — não vai republicar para evitar duplicação.
             </p>
           )}
           {showPriorErrors && hasFailedHistory && (
             <div className="mt-2 space-y-2">
               {failedAttempts.map((pl) => (
-                <div key={pl.logId} className="rounded bg-destructive/10 px-3 py-2 text-xs">
+                <div key={pl.logId} className="rounded bg-destructive/10 px-3 py-2 text-sm">
                   <p className="font-medium text-destructive">{pl.raw}</p>
                   <p className="mt-1 text-destructive/80 break-words font-mono">{pl.error}</p>
                 </div>
@@ -1298,7 +1298,7 @@ function ApprovalBanner({
   }
 
   return (
-    <div className={cn("mt-3 rounded-md border px-3 py-2 text-xs", tone)}>
+    <div className={cn("mt-3 rounded-md border px-3 py-2 text-sm", tone)}>
       <div className="flex flex-wrap items-center gap-2">
         {approval.state === "decided" && approval.decision === "approved" ? (
           <ThumbsUp className="h-3.5 w-3.5 shrink-0" />
@@ -1311,13 +1311,13 @@ function ApprovalBanner({
         )}
         <span className="font-medium">{headline}</span>
         {approval.contactName && approval.state !== "decided" && (
-          <span className="text-[11px] opacity-80">· {approval.contactName}</span>
+          <span className="text-[13px] opacity-80">· {approval.contactName}</span>
         )}
         {approval.sentVia === "none" && (approval.state === "pending" || approval.state === "stale") && (
-          <span className="text-[11px] opacity-80">· WhatsApp não foi enviado automaticamente</span>
+          <span className="text-[13px] opacity-80">· WhatsApp não foi enviado automaticamente</span>
         )}
         {approval.sentVia === "invalid_phone" && (
-          <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-[11px] font-medium text-destructive">
+          <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-[13px] font-medium text-destructive">
             ⚠ Telefone inválido na DB Contato — corrija no Notion
           </span>
         )}
@@ -1326,7 +1326,7 @@ function ApprovalBanner({
             <button
               onClick={triggerNow}
               disabled={triggering}
-              className="inline-flex items-center gap-1 rounded border border-current/30 bg-background/70 px-1.5 py-0.5 text-[11px] font-medium hover:bg-background disabled:opacity-50"
+              className="inline-flex items-center gap-1 rounded border border-current/30 bg-background/70 px-1.5 py-0.5 text-[13px] font-medium hover:bg-background disabled:opacity-50"
               title="Forçar criação do link agora (sem esperar o cron)"
             >
               {triggering ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
@@ -1336,7 +1336,7 @@ function ApprovalBanner({
           {approval.approvalUrl && approval.state !== "decided" && approval.state !== "expired" && (
             <button
               onClick={copyLink}
-              className="inline-flex items-center gap-1 rounded border border-current/20 bg-background/50 px-1.5 py-0.5 text-[11px] font-medium hover:bg-background"
+              className="inline-flex items-center gap-1 rounded border border-current/20 bg-background/50 px-1.5 py-0.5 text-[13px] font-medium hover:bg-background"
               title="Copiar link de aprovação"
             >
               <Copy className="h-3 w-3" />
@@ -1347,7 +1347,7 @@ function ApprovalBanner({
             <button
               onClick={resendViaWa}
               disabled={resending}
-              className="inline-flex items-center gap-1 rounded border border-current/30 bg-background/70 px-1.5 py-0.5 text-[11px] font-medium hover:bg-background"
+              className="inline-flex items-center gap-1 rounded border border-current/30 bg-background/70 px-1.5 py-0.5 text-[13px] font-medium hover:bg-background"
               title="Abrir WhatsApp com mensagem pré-preenchida"
             >
               <MessageCircle className="h-3 w-3" />
@@ -1357,7 +1357,7 @@ function ApprovalBanner({
         </div>
       </div>
       {approval.comment && approval.state === "decided" && (
-        <p className="mt-1.5 break-words border-t border-current/15 pt-1.5 text-[11px] opacity-90">
+        <p className="mt-1.5 break-words border-t border-current/15 pt-1.5 text-[13px] opacity-90">
           &quot;{approval.comment}&quot;
         </p>
       )}
@@ -1420,9 +1420,9 @@ function PreviewDialog({ post, onClose }: { post: ScheduledPost; onClose: () => 
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Preview</p>
-            <h3 className="font-display text-xl truncate">{post.title || "Sem título"}</h3>
-            <p className="text-xs text-muted-foreground">@{post.conta}</p>
+            <p className="text-sm uppercase tracking-wider text-muted-foreground">Preview</p>
+            <h3 className="text-xl truncate">{post.title || "Sem título"}</h3>
+            <p className="text-sm text-muted-foreground">@{post.conta}</p>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Fechar">
             <X className="h-4 w-4" />
@@ -1430,7 +1430,7 @@ function PreviewDialog({ post, onClose }: { post: ScheduledPost; onClose: () => 
         </div>
 
         {targets.length === 0 ? (
-          <div className="rounded-lg border border-warning/40 bg-warning/5 p-4 text-sm text-warning">
+          <div className="rounded-lg border border-warning/40 bg-warning/5 p-4 text-base text-warning">
             Campo &quot;Publicar em&quot; vazio — sem plataformas pra prever.
           </div>
         ) : (
@@ -1440,12 +1440,12 @@ function PreviewDialog({ post, onClose }: { post: ScheduledPost; onClose: () => 
               const isVideoTarget = ["reel", "story", "youtube short", "youtube"].includes(t.tipo.toLowerCase())
               return (
                 <div key={t.raw} className="rounded-lg border bg-card overflow-hidden">
-                  <div className="flex items-center gap-2 border-b px-3 py-2 text-xs">
+                  <div className="flex items-center gap-2 border-b px-3 py-2 text-sm">
                     <span className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 font-medium", platformClass(t.platform))}>
                       {t.raw}
                     </span>
                     {!t.configured && (
-                      <span className="text-warning ml-auto inline-flex items-center gap-1 text-[10px] uppercase tracking-wider">
+                      <span className="text-warning ml-auto inline-flex items-center gap-1 text-[12px] uppercase tracking-wider">
                         <AlertTriangle className="h-3 w-3" /> Sem conta
                       </span>
                     )}
@@ -1473,7 +1473,7 @@ function PreviewDialog({ post, onClose }: { post: ScheduledPost; onClose: () => 
                     {!media && (
                       <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
                         <AlertTriangle className="h-6 w-6 mb-1" />
-                        <span className="text-xs">
+                        <span className="text-sm">
                           {isVideoTarget ? "Sem thumbnail nem vídeo" : "Sem mídia"}
                         </span>
                       </div>
@@ -1481,7 +1481,7 @@ function PreviewDialog({ post, onClose }: { post: ScheduledPost; onClose: () => 
                   </div>
                   {caption && (
                     <div className="p-3">
-                      <p className="text-xs text-muted-foreground whitespace-pre-wrap line-clamp-6">
+                      <p className="text-sm text-muted-foreground whitespace-pre-wrap line-clamp-6">
                         <strong className="text-foreground">{post.conta}</strong>{" "}
                         {caption}
                       </p>
@@ -1493,7 +1493,7 @@ function PreviewDialog({ post, onClose }: { post: ScheduledPost; onClose: () => 
           </div>
         )}
 
-        <div className="mt-4 rounded-lg border bg-muted/30 px-3 py-2 text-xs text-muted-foreground">
+        <div className="mt-4 rounded-lg border bg-muted/30 px-3 py-2 text-sm text-muted-foreground">
           <strong>Heads up:</strong> isso é um mock visual baseado nos campos do Notion. As plataformas podem aplicar crops/compressão diferentes na hora real da publicação.
         </div>
       </div>
@@ -1642,8 +1642,8 @@ function CalendarView({
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-col">
-          <h2 className="font-display text-xl capitalize">{monthLabel}</h2>
-          <p className="text-[11px] text-muted-foreground">
+          <h2 className="text-xl capitalize">{monthLabel}</h2>
+          <p className="text-[13px] text-muted-foreground">
             💡 Arraste posts agendados pra outro dia pra remarcar (no mobile, segura por 1s antes de arrastar) — atualiza a data no Notion automaticamente.
           </p>
         </div>
@@ -1661,7 +1661,7 @@ function CalendarView({
 
       <DndContext sensors={sensors} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
         <div className="overflow-hidden rounded-lg border bg-card">
-          <div className="grid grid-cols-7 border-b bg-muted/40 text-xs font-medium uppercase tracking-wider text-muted-foreground">
+          <div className="grid grid-cols-7 border-b bg-muted/40 text-sm font-medium uppercase tracking-wider text-muted-foreground">
             {WEEKDAYS_PT.map((w) => (
               <div key={w} className="px-2 py-2 text-center">{w}</div>
             ))}
@@ -1747,7 +1747,7 @@ function CalendarDayCell({
       )}
     >
       <div className={cn(
-        "mb-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-xs font-medium",
+        "mb-1 inline-flex h-5 w-5 items-center justify-center rounded-full text-sm font-medium",
         isToday && "bg-primary text-primary-foreground",
         !isToday && !inMonth && "text-muted-foreground/50",
       )}>
@@ -1764,7 +1764,7 @@ function CalendarDayCell({
           />
         ))}
         {overflow > 0 && (
-          <div className="px-1 text-[10px] font-medium text-muted-foreground">
+          <div className="px-1 text-[12px] font-medium text-muted-foreground">
             +{overflow} mais
           </div>
         )}
@@ -1828,7 +1828,7 @@ function CalendarChip({ post, ok }: { post: AnyPost; ok: boolean }) {
     return (
       <div
         className={cn(
-          "flex items-center gap-1 truncate rounded px-1 py-0.5 text-[11px] leading-tight",
+          "flex items-center gap-1 truncate rounded px-1 py-0.5 text-[13px] leading-tight",
           allFailed
             ? "bg-destructive/15 text-destructive"
             : failed
@@ -1840,7 +1840,7 @@ function CalendarChip({ post, ok }: { post: AnyPost; ok: boolean }) {
         {allFailed
           ? <XCircle className="h-2.5 w-2.5 shrink-0" />
           : <CheckCircle2 className="h-2.5 w-2.5 shrink-0 opacity-70" />}
-        <span className="shrink-0 font-mono text-[10px] opacity-70">{time}</span>
+        <span className="shrink-0 font-mono text-[12px] opacity-70">{time}</span>
         <span className="truncate">{post.title || "Sem título"}</span>
       </div>
     )
@@ -1851,13 +1851,13 @@ function CalendarChip({ post, ok }: { post: AnyPost; ok: boolean }) {
   return (
     <div
       className={cn(
-        "flex items-center gap-1 truncate rounded px-1 py-0.5 text-[11px] leading-tight",
+        "flex items-center gap-1 truncate rounded px-1 py-0.5 text-[13px] leading-tight",
         failedHistory ? "bg-warning/15 text-warning" : ok ? platformClass(platform) : "bg-warning/15 text-warning"
       )}
       title={failedHistory ? `${post.title} (com tentativas anteriores)` : post.title}
     >
       {failedHistory && <RefreshCw className="h-2.5 w-2.5 shrink-0" />}
-      <span className="shrink-0 font-mono text-[10px] opacity-70">{time}</span>
+      <span className="shrink-0 font-mono text-[12px] opacity-70">{time}</span>
       <span className="truncate">{post.title || "Sem título"}</span>
     </div>
   )
@@ -1886,8 +1886,8 @@ function DayDrawer({
       >
         <div className="mb-4 flex items-start justify-between gap-3">
           <div>
-            <p className="text-xs uppercase tracking-wider text-muted-foreground">Agenda do dia</p>
-            <h3 className="font-display text-xl capitalize">{label}</h3>
+            <p className="text-sm uppercase tracking-wider text-muted-foreground">Agenda do dia</p>
+            <h3 className="text-xl capitalize">{label}</h3>
           </div>
           <Button variant="ghost" size="sm" onClick={onClose} aria-label="Fechar">
             <X className="h-4 w-4" />

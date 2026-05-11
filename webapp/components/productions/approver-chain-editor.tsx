@@ -134,7 +134,7 @@ export function ApproverChainEditor({
   return (
     <div className="space-y-3">
       <div className="flex items-baseline justify-between">
-        <h3 className="text-xs font-semibold uppercase tracking-wider text-muted-foreground">
+        <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">
           Aprovadores ({chain.length})
         </h3>
         {dirty && !disabled && (
@@ -146,7 +146,7 @@ export function ApproverChainEditor({
       </div>
 
       {chain.length === 0 ? (
-        <p className="rounded border border-dashed bg-muted/20 px-3 py-2 text-xs text-muted-foreground">
+        <p className="rounded border border-dashed bg-muted/20 px-3 py-2 text-sm text-muted-foreground">
           Nenhum aprovador. {disabled ? "" : "Adicione abaixo."}
         </p>
       ) : (
@@ -156,12 +156,12 @@ export function ApproverChainEditor({
               key={a.id}
               className="flex items-center gap-2 rounded-md border bg-card px-2 py-1.5"
             >
-              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[11px] font-semibold text-primary">
+              <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-[13px] font-semibold text-primary">
                 {idx + 1}
               </span>
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium">{a.name}</p>
-                <p className="truncate text-[11px] text-muted-foreground">
+                <p className="truncate text-base font-medium">{a.name}</p>
+                <p className="truncate text-[13px] text-muted-foreground">
                   {a.phone ?? a.email ?? "sem contato"} · {a.role}
                 </p>
               </div>
@@ -218,7 +218,7 @@ export function ApproverChainEditor({
             <button
               type="button"
               onClick={() => setShowAdd(true)}
-              className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-xs font-medium text-muted-foreground hover:border-primary hover:text-primary"
+              className="inline-flex w-full items-center justify-center gap-1.5 rounded-md border border-dashed py-2 text-sm font-medium text-muted-foreground hover:border-primary hover:text-primary"
             >
               <Plus className="h-3.5 w-3.5" />
               Adicionar aprovador
@@ -227,7 +227,7 @@ export function ApproverChainEditor({
             <div className="space-y-2 rounded-md border bg-muted/20 p-2">
               {candidates.length > 0 && (
                 <div className="space-y-1">
-                  <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                  <p className="text-[13px] uppercase tracking-wider text-muted-foreground">
                     Existentes
                   </p>
                   <div className="max-h-48 space-y-1 overflow-y-auto">
@@ -236,11 +236,11 @@ export function ApproverChainEditor({
                         key={a.id}
                         type="button"
                         onClick={() => addExisting(a)}
-                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-sm hover:bg-accent"
+                        className="flex w-full items-center gap-2 rounded px-2 py-1.5 text-left text-base hover:bg-accent"
                       >
                         <Plus className="h-3 w-3 text-muted-foreground" />
                         <span className="flex-1 truncate">{a.name}</span>
-                        <span className="text-[11px] text-muted-foreground">
+                        <span className="text-[13px] text-muted-foreground">
                           {a.phone ?? a.email ?? ""}
                         </span>
                       </button>
@@ -249,7 +249,7 @@ export function ApproverChainEditor({
                 </div>
               )}
               <div className="space-y-1.5 border-t pt-2">
-                <p className="text-[11px] uppercase tracking-wider text-muted-foreground">
+                <p className="text-[13px] uppercase tracking-wider text-muted-foreground">
                   Criar novo
                 </p>
                 <input
@@ -257,21 +257,21 @@ export function ApproverChainEditor({
                   placeholder="Nome"
                   value={newName}
                   onChange={(e) => setNewName(e.target.value)}
-                  className="w-full rounded border bg-background px-2 py-1 text-sm"
+                  className="w-full rounded border bg-background px-2 py-1 text-base"
                 />
                 <input
                   type="tel"
                   placeholder="Telefone (E.164, ex: +5511...)"
                   value={newPhone}
                   onChange={(e) => setNewPhone(e.target.value)}
-                  className="w-full rounded border bg-background px-2 py-1 text-sm"
+                  className="w-full rounded border bg-background px-2 py-1 text-base"
                 />
                 <input
                   type="email"
                   placeholder="Email (opcional)"
                   value={newEmail}
                   onChange={(e) => setNewEmail(e.target.value)}
-                  className="w-full rounded border bg-background px-2 py-1 text-sm"
+                  className="w-full rounded border bg-background px-2 py-1 text-base"
                 />
                 <div className="flex justify-end gap-1.5">
                   <Button size="sm" variant="ghost" onClick={() => setShowAdd(false)}>

@@ -19,17 +19,17 @@ export default function PrivacyPage() {
         <div>
           <p className="text-lg font-semibold tracking-tight">
             <span>VP</span>
-            <span className="ml-1 italic font-display">Social</span>
+            <span className="ml-1 italic">Social</span>
           </p>
-          <p className="text-xs text-muted-foreground">posts.vitaminapublicitaria.com.br</p>
+          <p className="text-sm text-muted-foreground">posts.vitaminapublicitaria.com.br</p>
         </div>
       </div>
 
-      <Link href="/" className="mb-8 inline-block text-sm text-muted-foreground hover:text-foreground">← Voltar</Link>
+      <Link href="/" className="mb-8 inline-block text-base text-muted-foreground hover:text-foreground">← Voltar</Link>
       <h1 className="mb-2 text-3xl font-semibold tracking-tight">Política de Privacidade</h1>
-      <p className="mb-8 text-sm text-muted-foreground">Última atualização: 2 de maio de 2026</p>
+      <p className="mb-8 text-base text-muted-foreground">Última atualização: 2 de maio de 2026</p>
 
-      <div className="prose prose-neutral dark:prose-invert max-w-none space-y-6 text-sm leading-relaxed">
+      <div className="prose prose-neutral dark:prose-invert max-w-none space-y-6 text-base leading-relaxed">
         <section>
           <h2 className="text-lg font-semibold">1. Quem somos</h2>
           <p>VP Social é uma plataforma de agendamento e publicação de conteúdo em redes sociais operada pela Vitamina Publicitária. Nosso site é <strong>posts.vitaminapublicitaria.com.br</strong>.</p>

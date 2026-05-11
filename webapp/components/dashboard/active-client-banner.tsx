@@ -5,7 +5,7 @@ export async function ActiveClientBanner({ userId }: { userId: string }) {
   const client = await getActiveClient(userId)
 
   return (
-    <div className="flex items-center gap-2 border-b bg-muted/30 px-8 py-2 text-xs">
+    <div className="flex items-center gap-2 border-b bg-muted/30 px-8 py-2 text-sm">
       <span className="text-muted-foreground">Cliente ativo:</span>
       {client.logoUrl ? (
         <img src={client.logoUrl} alt="" className="h-4 w-4 rounded object-cover" />

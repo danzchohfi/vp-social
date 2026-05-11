@@ -46,7 +46,7 @@ export function NotifyPendingButton({ clientId, pendingCount }: { clientId: stri
       onClick={notify}
       disabled={sending || pendingCount === 0}
       title={`Disparar ${pendingCount} WhatsApp pra este cliente`}
-      className="inline-flex h-5 items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-1.5 text-[10px] font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
+      className="inline-flex h-5 items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-1.5 text-[12px] font-medium text-primary hover:bg-primary/20 disabled:opacity-50"
     >
       {sending ? <Loader2 className="h-2.5 w-2.5 animate-spin" /> : <Send className="h-2.5 w-2.5" />}
       Notificar

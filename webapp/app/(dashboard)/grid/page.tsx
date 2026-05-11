@@ -143,7 +143,7 @@ export default function GridPreviewPage() {
     <div className="mx-auto max-w-5xl p-8">
       <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
         <div>
-          <h1 className="font-display text-3xl tracking-tight sm:text-4xl">Preview do grid</h1>
+          <h1 className="text-3xl tracking-tight sm:text-4xl">Preview do grid</h1>
           <p className="text-muted-foreground">
             Veja como o feed do Instagram vai ficar depois que os posts agendados publicarem.
           </p>
@@ -160,7 +160,7 @@ export default function GridPreviewPage() {
           <CardContent className="py-12 text-center">
             <Grid3x3 className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
             <p className="font-medium">Nenhuma conta Instagram conectada</p>
-            <p className="mt-1 text-sm text-muted-foreground">
+            <p className="mt-1 text-base text-muted-foreground">
               Vá em <Link href="/accounts" className="underline">Contas</Link> e conecte uma página do Facebook + IG.
             </p>
           </CardContent>
@@ -179,7 +179,7 @@ export default function GridPreviewPage() {
                       type="button"
                       onClick={() => pickAccount(a.conta)}
                       className={cn(
-                        "rounded-md border px-3 py-1.5 text-sm transition-colors",
+                        "rounded-md border px-3 py-1.5 text-base transition-colors",
                         active
                           ? "border-primary bg-primary/10 text-primary"
                           : "hover:bg-accent",
@@ -187,7 +187,7 @@ export default function GridPreviewPage() {
                     >
                       <span className="font-medium">@{a.conta}</span>
                       {client?.name && (
-                        <span className="ml-1.5 text-[11px] text-muted-foreground">· {client.name}</span>
+                        <span className="ml-1.5 text-[13px] text-muted-foreground">· {client.name}</span>
                       )}
                     </button>
                   )
@@ -197,7 +197,7 @@ export default function GridPreviewPage() {
           </Card>
 
           {error && (
-            <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-sm text-destructive">
+            <div className="mb-4 rounded-md border border-destructive/30 bg-destructive/10 p-3 text-base text-destructive">
               {error}
             </div>
           )}
@@ -209,14 +209,14 @@ export default function GridPreviewPage() {
           ) : items === null ? null : items.length === 0 ? (
             <Card>
               <CardContent className="py-12 text-center">
-                <p className="text-sm text-muted-foreground">
+                <p className="text-base text-muted-foreground">
                   Sem posts pra mostrar. Agende um post no Notion ou aguarde os já agendados aparecerem.
                 </p>
               </CardContent>
             </Card>
           ) : (
             <>
-              <div className="mb-3 flex items-center gap-3 text-xs text-muted-foreground">
+              <div className="mb-3 flex items-center gap-3 text-sm text-muted-foreground">
                 <span className="inline-flex items-center gap-1.5">
                   <span className="inline-block h-2 w-2 rounded-full bg-success" />
                   Publicado
@@ -233,7 +233,7 @@ export default function GridPreviewPage() {
                 ))}
               </div>
 
-              <p className="mt-3 text-[11px] text-muted-foreground">
+              <p className="mt-3 text-[13px] text-muted-foreground">
                 Posts à esquerda/topo são os mais novos (mesma ordem do feed real do Instagram). Borda contínua = publicado; borda tracejada = agendado.
               </p>
             </>
@@ -275,7 +275,7 @@ function GridTile({ item }: { item: GridItem }) {
           )}
         />
       ) : (
-        <div className="flex h-full w-full items-center justify-center bg-muted/40 text-xs text-muted-foreground">
+        <div className="flex h-full w-full items-center justify-center bg-muted/40 text-sm text-muted-foreground">
           Sem mídia
         </div>
       )}
@@ -296,7 +296,7 @@ function GridTile({ item }: { item: GridItem }) {
 
       {/* Date overlay on hover */}
       {dateStr && (
-        <div className="absolute inset-x-0 bottom-0 translate-y-full bg-black/70 px-2 py-1 text-[10px] text-white transition-transform group-hover:translate-y-0">
+        <div className="absolute inset-x-0 bottom-0 translate-y-full bg-black/70 px-2 py-1 text-[12px] text-white transition-transform group-hover:translate-y-0">
           <CalendarIcon className="mr-1 inline h-2.5 w-2.5" />
           {new Date(dateStr).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}
         </div>
