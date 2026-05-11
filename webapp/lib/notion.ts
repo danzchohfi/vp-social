@@ -363,9 +363,40 @@ export function createNotionClient(accessToken: string) {
         const emailVal = mapping.contactEmailField
           ? readContactProp(cp[mapping.contactEmailField])
           : null
-        const phoneVal = mapping.contactPhoneField
-          ? readContactProp(cp[mapping.contactPhoneField])
-          : null
+
+        // Phone resolution priority:
+        //   1. Explicit mapping (legacy `contactPhoneField`) — kept so existing
+        //      configurations don't break.
+        //   2. Auto-detect: scan for the first property of type `phone_number`
+        //      on the contact page. Lets agencies skip the setting entirely
+        //      when the Contato DB has a properly-typed phone column (e.g.
+        //      "Celular / WhatsApp"). User asked for this in 2026-05-12.
+        //   3. Fallback: any property whose name suggests "whatsapp" / "phone"
+        //      / "celular" — catches workspaces that stored phones as
+        //      rich_text instead of using the typed phone field.
+        let phoneVal: string | null = null
+        if (mapping.contactPhoneField) {
+          phoneVal = readContactProp(cp[mapping.contactPhoneField])
+        }
+        if (!phoneVal) {
+          for (const v of Object.values(cp)) {
+            if ((v as any)?.type === "phone_number" && typeof (v as any).phone_number === "string") {
+              phoneVal = (v as any).phone_number.trim() || null
+              if (phoneVal) break
+            }
+          }
+        }
+        if (!phoneVal) {
+          // Name-based heuristic only as a last resort — Notion supports
+          // the typed phone_number column natively, so any decent setup
+          // hits the previous branch.
+          const phoneNamePattern = /\b(whatsapp|whats\b|wa\b|telefone|celular|phone|mobile)\b/i
+          for (const [propName, v] of Object.entries(cp)) {
+            if (!phoneNamePattern.test(propName)) continue
+            const candidate = readContactProp(v)
+            if (candidate) { phoneVal = candidate; break }
+          }
+        }
 
         return { name, email: emailVal, phone: phoneVal, multipleContacts }
       } catch (e) {

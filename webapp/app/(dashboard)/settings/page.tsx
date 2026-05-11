@@ -759,14 +759,12 @@ export default function SettingsPage() {
                       </details>
                     )}
                   </div>
-                  <div className="space-y-1">
-                    <Label className="text-sm">Coluna de WhatsApp (na DB Contato)</Label>
-                    <p className="text-xs text-muted-foreground">Nome exato da propriedade Phone/Texto (ex.: &quot;Celular&quot;, &quot;WhatsApp&quot;, &quot;Telefone&quot;). Valor com DDI: <code className="rounded bg-muted px-1 font-mono text-[10px]">+5511999999999</code>.</p>
-                    <Input
-                      placeholder="Celular / WhatsApp"
-                      value={mapping.contactPhoneField}
-                      onChange={(e) => setField("contactPhoneField", e.target.value)}
-                    />
+                  <div className="rounded-md border border-success/30 bg-success/5 p-3 text-xs">
+                    <p className="font-medium text-success">Telefone do contato — automático</p>
+                    <p className="mt-1 text-foreground/80">
+                      O app detecta automaticamente qualquer propriedade do tipo <code className="rounded bg-muted px-1 font-mono text-[10px]">Phone</code> na sua DB de Contato (ex.: &quot;Celular / WhatsApp&quot;). Valor com DDI: <code className="rounded bg-muted px-1 font-mono text-[10px]">+5511999999999</code>.
+                      Se não houver uma coluna tipo Phone, ele tenta fallback por nome (qualquer coluna com &quot;WhatsApp&quot;, &quot;Telefone&quot;, &quot;Celular&quot;).
+                    </p>
                   </div>
                   <div className="space-y-1">
                     <Label className="text-sm">Coluna &quot;Aprovador?&quot; (na DB Contato) — opcional</Label>
