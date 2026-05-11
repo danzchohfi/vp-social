@@ -391,38 +391,54 @@ export function createNotionClient(accessToken: string) {
           ? readContactProp(cp[mapping.contactEmailField])
           : null
 
-        // Phone resolution priority:
-        //   1. Explicit mapping (legacy `contactPhoneField`) — kept so existing
-        //      configurations don't break.
-        //   2. Auto-detect: scan for the first property of type `phone_number`
-        //      on the contact page. Lets agencies skip the setting entirely
-        //      when the Contato DB has a properly-typed phone column (e.g.
-        //      "Celular / WhatsApp"). User asked for this in 2026-05-12.
-        //   3. Fallback: any property whose name suggests "whatsapp" / "phone"
-        //      / "celular" — catches workspaces that stored phones as
-        //      rich_text instead of using the typed phone field.
+        // Phone resolution priority (most specific → least):
+        //   1. Explicit mapping (legacy `contactPhoneField`).
+        //   2. WhatsApp-named phone_number property — "Celular / WhatsApp",
+        //      "WhatsApp", etc. A contact page often has multiple phone
+        //      fields (escritório, pessoal, etc.); the one named for
+        //      WhatsApp should win over "first phone_number found".
+        //   3. Any phone_number-type property (fallback when no name hints).
+        //   4. Name-only heuristic on any property type (catches
+        //      workspaces that stored phones as rich_text).
+        const phoneNamePattern = /\b(whatsapp|whats|wa|telefone|celular|phone|mobile)\b/i
         let phoneVal: string | null = null
+        let phoneSource: string | null = null
         if (mapping.contactPhoneField) {
           phoneVal = readContactProp(cp[mapping.contactPhoneField])
+          if (phoneVal) phoneSource = mapping.contactPhoneField
         }
         if (!phoneVal) {
-          for (const v of Object.values(cp)) {
-            if ((v as any)?.type === "phone_number" && typeof (v as any).phone_number === "string") {
-              phoneVal = (v as any).phone_number.trim() || null
-              if (phoneVal) break
-            }
+          // Pass 1: phone_number type with WhatsApp-related name.
+          for (const [propName, v] of Object.entries(cp)) {
+            if ((v as any)?.type !== "phone_number") continue
+            if (!phoneNamePattern.test(propName)) continue
+            const candidate = typeof (v as any).phone_number === "string"
+              ? (v as any).phone_number.trim() || null
+              : null
+            if (candidate) { phoneVal = candidate; phoneSource = propName; break }
           }
         }
         if (!phoneVal) {
-          // Name-based heuristic only as a last resort — Notion supports
-          // the typed phone_number column natively, so any decent setup
-          // hits the previous branch.
-          const phoneNamePattern = /\b(whatsapp|whats\b|wa\b|telefone|celular|phone|mobile)\b/i
+          // Pass 2: any phone_number type, even without a name hint.
+          for (const [propName, v] of Object.entries(cp)) {
+            if ((v as any)?.type !== "phone_number") continue
+            const candidate = typeof (v as any).phone_number === "string"
+              ? (v as any).phone_number.trim() || null
+              : null
+            if (candidate) { phoneVal = candidate; phoneSource = propName; break }
+          }
+        }
+        if (!phoneVal) {
+          // Pass 3: name-only — catches workspaces that stored phones
+          // as rich_text instead of the typed column.
           for (const [propName, v] of Object.entries(cp)) {
             if (!phoneNamePattern.test(propName)) continue
             const candidate = readContactProp(v)
-            if (candidate) { phoneVal = candidate; break }
+            if (candidate) { phoneVal = candidate; phoneSource = propName; break }
           }
+        }
+        if (phoneVal && phoneSource) {
+          console.info(`[notion.resolveContact] post ${pageId} → contact ${targetId} → phone from "${phoneSource}"`)
         }
 
         return { name, email: emailVal, phone: phoneVal, multipleContacts }

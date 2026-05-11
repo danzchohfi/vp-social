@@ -1313,6 +1313,14 @@ function ApprovalBanner({
         {approval.contactName && approval.state !== "decided" && (
           <span className="text-[13px] opacity-80">· {approval.contactName}</span>
         )}
+        {approval.contactPhone && approval.state !== "decided" && (
+          <span
+            className="text-[13px] font-mono opacity-70"
+            title="Telefone resolvido do contato no Notion — é pra esse número que o WhatsApp vai."
+          >
+            · {approval.contactPhone}
+          </span>
+        )}
         {approval.sentVia === "none" && (approval.state === "pending" || approval.state === "stale") && (
           <span className="text-[13px] opacity-80">· WhatsApp não foi enviado automaticamente</span>
         )}
