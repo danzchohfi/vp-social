@@ -490,15 +490,31 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
     })
     .from(schema.client)
     .where(eq(schema.client.userId, userId))
-  function resolveOwnerClient(contaRaw: string | null | undefined): string {
+  // Returns the clientId that "owns" a given conta value, or null if
+  // no client claims it. Strict mode: if no client matches AND the
+  // connection's owner client has notionContaValues set, we refuse to
+  // fall back — that signals "this client only handles these
+  // specific contas". Posts with unclaimed contas get skipped so the
+  // user inside client X doesn't see posts from brand Y in their
+  // dashboard. Permissive fallback only when the connection owner
+  // hasn't claimed any contas (legacy setups before #90).
+  function resolveOwnerClient(contaRaw: string | null | undefined): string | null {
     const conta = (contaRaw ?? "").trim().toLowerCase()
-    if (!conta) return clientId
+    if (!conta) return null
     const byName = allClients.find((c) => c.name.trim().toLowerCase() === conta)
     if (byName) return byName.id
     for (const c of allClients) {
       const claims = c.notionContaValues ?? []
       if (claims.some((v) => v.trim().toLowerCase() === conta)) return c.id
     }
+    const connectionOwner = allClients.find((c) => c.id === clientId)
+    const ownerHasClaims = (connectionOwner?.notionContaValues ?? []).length > 0
+    if (ownerHasClaims) {
+      // Strict: owner has claims and this conta isn't among them.
+      return null
+    }
+    // Permissive legacy fallback: owner has no claims configured →
+    // funnel everything to the connection's owner (old behavior).
     return clientId
   }
 
@@ -527,12 +543,28 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       const matchingPost = postsByPageId.get(row.notionPageId)
       if (!matchingPost) continue
       const correctOwner = resolveOwnerClient(matchingPost.conta)
-      if (correctOwner !== row.clientId) {
+      if (!correctOwner) {
+        // Conta isn't claimed by any client + connection owner has its
+        // own claims set → strict mode says "this post isn't for any
+        // current client". Expire the orphan link so it stops polluting
+        // the dashboard pending count.
         await db
           .update(schema.approvalLink)
-          .set({ clientId: correctOwner })
+          .set({ decision: "expired", decidedAt: new Date() })
           .where(eq(schema.approvalLink.id, row.id))
-        logger.info(`[approval] re-routed approvalLink ${row.id} clientId ${row.clientId} → ${correctOwner} (conta="${matchingPost.conta}")`)
+        logger.info(`[approval] expired orphan approvalLink ${row.id} (conta="${matchingPost.conta}" não reivindicada por nenhum cliente)`)
+        continue
+      }
+      const correctConta = matchingPost.conta || null
+      const patch: { clientId?: string; conta?: string | null } = {}
+      if (correctOwner !== row.clientId) patch.clientId = correctOwner
+      if ((row as any).conta !== correctConta) patch.conta = correctConta
+      if (Object.keys(patch).length > 0) {
+        await db
+          .update(schema.approvalLink)
+          .set(patch)
+          .where(eq(schema.approvalLink.id, row.id))
+        logger.info(`[approval] re-routed approvalLink ${row.id}: ${JSON.stringify(patch)} (conta="${matchingPost.conta}")`)
       }
     }
   } catch (e) {
@@ -608,10 +640,15 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       logger.info(`[approval] post "${post.title}" linked to approver ${matchedApprover.id} (${matchedApprover.name}) via phone match`)
     }
 
-    // Resolve the TRUE owner client by the post's conta. Without this,
-    // every link gets the cron's connection.clientId — see comment near
-    // resolveOwnerClient above.
+    // Resolve the TRUE owner client by the post's conta. Skips the
+    // post entirely if no client claims this conta — prevents posts
+    // for brand A from showing in client B's dashboard when the user
+    // is inside B's view.
     const ownerClientId = resolveOwnerClient(post.conta)
+    if (!ownerClientId) {
+      logger.warn(`[approval] post "${post.title}" (conta="${post.conta}") sem cliente reivindicando esta conta — pulando aprovação. Adicione a conta em /settings → Contas do Notion mapeadas do cliente certo, ou crie um cliente com esse nome.`)
+      continue
+    }
     if (ownerClientId !== clientId) {
       logger.info(`[approval] post "${post.title}" (conta="${post.conta}") roteado pra cliente ${ownerClientId} (não ${clientId} do connection)`)
     }
@@ -623,6 +660,7 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       connectionId,
       notionPageId: post.pageId,
       postTitle: post.title || "Sem título",
+      conta: post.conta || null,
       contactName: contact.name,
       contactEmail: contact.email,
       contactPhone: contact.phone,

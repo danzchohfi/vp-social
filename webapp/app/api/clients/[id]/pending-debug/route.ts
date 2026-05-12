@@ -68,6 +68,7 @@ export async function GET(
       token: approvalLink.token,
       notionPageId: approvalLink.notionPageId,
       postTitle: approvalLink.postTitle,
+      conta: approvalLink.conta,
       contactName: approvalLink.contactName,
       contactPhone: approvalLink.contactPhone,
       sentVia: approvalLink.sentVia,

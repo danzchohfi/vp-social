@@ -9,6 +9,7 @@ type PendingRow = {
   token: string
   notionPageId: string | null
   postTitle: string | null
+  conta: string | null
   contactName: string | null
   contactPhone: string | null
   sentVia: string | null
@@ -96,56 +97,78 @@ export function PendingDetailsButton({ clientId }: { clientId: string }) {
           ) : pending.length === 0 ? (
             <p className="py-6 text-center text-muted-foreground">Sem pendentes.</p>
           ) : (
-            <ul className="space-y-2">
-              {pending.map((p) => (
-                <li
-                  key={p.id}
-                  className={
-                    "rounded-md border p-3 text-sm " +
-                    (p.stillAwaiting
-                      ? "border-success/40 bg-success/5"
-                      : p.sentVia === "manychat"
-                      ? "border-muted bg-muted/30"
-                      : "border-warning/40 bg-warning/10")
-                  }
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium">{p.postTitle ?? "(sem título)"}</p>
-                      <p className="mt-0.5 text-[13px] text-muted-foreground">
-                        {p.contactName ?? "(sem contato)"}{p.contactPhone ? ` · ${p.contactPhone}` : ""}
-                      </p>
-                      <p className="mt-1 text-[12px]">
-                        <span className="font-mono">{p.sentVia ?? "none"}</span>
-                        {p.stillAwaiting ? (
-                          <span className="ml-2 text-success">✓ ainda awaiting</span>
-                        ) : p.sentVia === "manychat" ? (
-                          <span className="ml-2 text-muted-foreground">já enviado · link WA válido</span>
-                        ) : (
-                          <span className="ml-2 text-warning">⚠ post NÃO está awaiting no Notion (órfão)</span>
-                        )}
-                      </p>
-                      {p.lastError && (
-                        <p className="mt-1 text-[12px] text-destructive break-all">{p.lastError}</p>
-                      )}
-                      {!p.connectionId && (
-                        <p className="mt-1 text-[12px] text-muted-foreground">connectionId: null (legacy row)</p>
-                      )}
-                    </div>
-                    {p.notionUrl && (
-                      <a
-                        href={p.notionUrl}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="inline-flex shrink-0 items-center gap-1 text-[13px] text-primary hover:underline"
-                      >
-                        Notion <ExternalLink className="h-3 w-3" />
-                      </a>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+            <div className="space-y-4">
+              {(() => {
+                // Group pending rows by conta so the user (inside one
+                // client view) sees per-brand sections instead of a
+                // flat list. Posts without conta land in "(sem conta)".
+                const byConta = new Map<string, PendingRow[]>()
+                for (const p of pending) {
+                  const key = p.conta?.trim() || "(sem conta)"
+                  const arr = byConta.get(key) ?? []
+                  arr.push(p)
+                  byConta.set(key, arr)
+                }
+                const groups = Array.from(byConta.entries()).sort(([a], [b]) => a.localeCompare(b))
+                return groups.map(([conta, rows]) => (
+                  <section key={conta} className="space-y-2">
+                    <h3 className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">
+                      {conta} <span className="font-mono text-muted-foreground/70">({rows.length})</span>
+                    </h3>
+                    <ul className="space-y-2">
+                      {rows.map((p) => (
+                        <li
+                          key={p.id}
+                          className={
+                            "rounded-md border p-3 text-sm " +
+                            (p.stillAwaiting
+                              ? "border-success/40 bg-success/5"
+                              : p.sentVia === "manychat"
+                              ? "border-muted bg-muted/30"
+                              : "border-warning/40 bg-warning/10")
+                          }
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div className="min-w-0 flex-1">
+                              <p className="font-medium">{p.postTitle ?? "(sem título)"}</p>
+                              <p className="mt-0.5 text-[13px] text-muted-foreground">
+                                {p.contactName ?? "(sem contato)"}{p.contactPhone ? ` · ${p.contactPhone}` : ""}
+                              </p>
+                              <p className="mt-1 text-[12px]">
+                                <span className="font-mono">{p.sentVia ?? "none"}</span>
+                                {p.stillAwaiting ? (
+                                  <span className="ml-2 text-success">✓ ainda awaiting</span>
+                                ) : p.sentVia === "manychat" ? (
+                                  <span className="ml-2 text-muted-foreground">já enviado · link WA válido</span>
+                                ) : (
+                                  <span className="ml-2 text-warning">⚠ post NÃO está awaiting no Notion (órfão)</span>
+                                )}
+                              </p>
+                              {p.lastError && (
+                                <p className="mt-1 text-[12px] text-destructive break-all">{p.lastError}</p>
+                              )}
+                              {!p.connectionId && (
+                                <p className="mt-1 text-[12px] text-muted-foreground">connectionId: null (legacy row)</p>
+                              )}
+                            </div>
+                            {p.notionUrl && (
+                              <a
+                                href={p.notionUrl}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex shrink-0 items-center gap-1 text-[13px] text-primary hover:underline"
+                              >
+                                Notion <ExternalLink className="h-3 w-3" />
+                              </a>
+                            )}
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </section>
+                ))
+              })()}
+            </div>
           )}
 
           {data?.awaitingByConnection?.length > 0 && (
