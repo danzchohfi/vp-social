@@ -35,8 +35,13 @@ export async function GET(
   const [row] = await db
     .select({
       name: client.name,
+      whatsappProvider: client.whatsappProvider,
       manychatApiKey: client.manychatApiKey,
       manychatApprovalFlowNs: client.manychatApprovalFlowNs,
+      metaWaToken: client.metaWaToken,
+      metaPhoneNumberId: client.metaPhoneNumberId,
+      metaTemplateName: client.metaTemplateName,
+      metaTemplateLanguage: client.metaTemplateLanguage,
       approvalNotificationMode: client.approvalNotificationMode,
       manualWhatsappTemplate: client.manualWhatsappTemplate,
     })
@@ -145,8 +150,13 @@ export async function GET(
     clientName: row.name,
     calendarToken,
     calendarPath: `/c/${calendarToken}`,
+    whatsappProvider: row.whatsappProvider,
     manychatApiKey: row.manychatApiKey ?? "",
     manychatApprovalFlowNs: row.manychatApprovalFlowNs ?? "",
+    metaWaToken: row.metaWaToken ?? "",
+    metaPhoneNumberId: row.metaPhoneNumberId ?? "",
+    metaTemplateName: row.metaTemplateName ?? "",
+    metaTemplateLanguage: row.metaTemplateLanguage ?? "pt_BR",
     approvalNotificationMode: mode,
     manualWhatsappTemplate: row.manualWhatsappTemplate ?? "",
     connections: connectionStatus,

@@ -59,6 +59,30 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (body.publishingPaused !== undefined) {
     update.publishingPaused = body.publishingPaused === true
   }
+  // WhatsApp dispatch provider per client. Either ManyChat (legacy)
+  // or Meta Cloud API direct. Restrict accepted values explicitly
+  // so a malformed UI payload can't write garbage.
+  if (body.whatsappProvider !== undefined) {
+    const v = body.whatsappProvider
+    if (v !== "manychat" && v !== "meta_cloud") {
+      return NextResponse.json({ error: "whatsappProvider inválido" }, { status: 400 })
+    }
+    update.whatsappProvider = v
+  }
+  // Meta WhatsApp Cloud credentials. Empty string → null so the
+  // dispatcher's "not configured" check fires correctly.
+  if (body.metaWaToken !== undefined) {
+    update.metaWaToken = typeof body.metaWaToken === "string" && body.metaWaToken.trim() ? body.metaWaToken.trim() : null
+  }
+  if (body.metaPhoneNumberId !== undefined) {
+    update.metaPhoneNumberId = typeof body.metaPhoneNumberId === "string" && body.metaPhoneNumberId.trim() ? body.metaPhoneNumberId.trim() : null
+  }
+  if (body.metaTemplateName !== undefined) {
+    update.metaTemplateName = typeof body.metaTemplateName === "string" && body.metaTemplateName.trim() ? body.metaTemplateName.trim() : null
+  }
+  if (body.metaTemplateLanguage !== undefined) {
+    update.metaTemplateLanguage = typeof body.metaTemplateLanguage === "string" && body.metaTemplateLanguage.trim() ? body.metaTemplateLanguage.trim() : "pt_BR"
+  }
   // Notion `conta` values that belong to this client. Used by
   // /api/notion/scheduled + trigger/publish.ts to route posts to the
   // right tenant without name-matching heuristics. Empty array clears
