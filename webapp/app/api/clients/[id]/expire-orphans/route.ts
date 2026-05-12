@@ -31,9 +31,13 @@ export async function POST(
     .from(notionConnection)
     .where(eq(notionConnection.clientId, id))
 
-  let totalExpired = 0
+  // Fetch awaiting posts across ALL connections of this client up
+  // front. Build a single global set of pageIds the cron considers
+  // "still awaiting". A pending approvalLink whose notionPageId isn't
+  // in this union — regardless of its own connectionId — is an
+  // orphan. Catches legacy rows with connectionId=null too.
+  const allAwaiting = new Set<string>()
   const details: Array<{ connectionId: string; expired: number; awaiting: number; reason?: string }> = []
-
   for (const conn of connections) {
     if (!conn.databaseId) continue
     const [mappingRow] = await db
@@ -45,50 +49,59 @@ export async function POST(
       details.push({ connectionId: conn.id, expired: 0, awaiting: 0, reason: "Sem awaitingApprovalValue configurado" })
       continue
     }
-
     const notion = createNotionClient(conn.accessToken)
-    let awaitingPosts: Array<{ pageId: string }> = []
     try {
-      awaitingPosts = await notion.getPostsByStatus(conn.databaseId, mapping, mapping.awaitingApprovalValue)
+      const awaitingPosts = await notion.getPostsByStatus(conn.databaseId, mapping, mapping.awaitingApprovalValue)
+      for (const p of awaitingPosts) allAwaiting.add(p.pageId)
+      details.push({ connectionId: conn.id, expired: 0, awaiting: awaitingPosts.length })
     } catch (e) {
       details.push({ connectionId: conn.id, expired: 0, awaiting: 0, reason: `getPostsByStatus failed: ${e}` })
-      continue
     }
-    const awaitingIds = new Set(awaitingPosts.map((p) => p.pageId))
-
-    const existing = await db
-      .select({
-        id: approvalLink.id,
-        notionPageId: approvalLink.notionPageId,
-        sentVia: approvalLink.sentVia,
-      })
-      .from(approvalLink)
-      .where(and(
-        eq(approvalLink.clientId, id),
-        eq(approvalLink.connectionId, conn.id),
-        eq(approvalLink.kind, "post"),
-        isNull(approvalLink.decision),
-      ))
-
-    const orphanIds = existing
-      .filter((r) => r.notionPageId && !awaitingIds.has(r.notionPageId))
-      .filter((r) => r.sentVia === "none" || r.sentVia === "invalid_phone" || !r.sentVia)
-      .map((r) => r.id)
-
-    if (orphanIds.length > 0) {
-      await db
-        .update(approvalLink)
-        .set({ decision: "expired", decidedAt: new Date() })
-        .where(inArray(approvalLink.id, orphanIds))
-    }
-
-    totalExpired += orphanIds.length
-    details.push({ connectionId: conn.id, expired: orphanIds.length, awaiting: awaitingPosts.length })
   }
+
+  // Now query EVERY pending post link for this client (no connectionId
+  // filter), so legacy rows with connectionId=null get cleaned too.
+  const existing = await db
+    .select({
+      id: approvalLink.id,
+      notionPageId: approvalLink.notionPageId,
+      sentVia: approvalLink.sentVia,
+      postTitle: approvalLink.postTitle,
+      connectionId: approvalLink.connectionId,
+    })
+    .from(approvalLink)
+    .where(and(
+      eq(approvalLink.clientId, id),
+      eq(approvalLink.kind, "post"),
+      isNull(approvalLink.decision),
+    ))
+
+  const orphans = existing
+    .filter((r) => !r.notionPageId || !allAwaiting.has(r.notionPageId))
+    .filter((r) => r.sentVia === "none" || r.sentVia === "invalid_phone" || !r.sentVia)
+  const orphanIds = orphans.map((r) => r.id)
+  let totalExpired = 0
+  if (orphanIds.length > 0) {
+    await db
+      .update(approvalLink)
+      .set({ decision: "expired", decidedAt: new Date() })
+      .where(inArray(approvalLink.id, orphanIds))
+    totalExpired = orphanIds.length
+  }
+  // Surface a sample of the orphan titles + their connectionId state
+  // so the UI can show "10 órfãos limpos: <titles>".
+  const orphanSample = orphans.slice(0, 20).map((r) => ({
+    title: r.postTitle ?? "(sem título)",
+    connectionId: r.connectionId,
+    notionPageId: r.notionPageId,
+  }))
 
   return NextResponse.json({
     expired: totalExpired,
     connectionsScanned: connections.length,
+    totalAwaitingAcrossConnections: allAwaiting.size,
+    totalPendingLinksBefore: existing.length,
+    orphanSample,
     details,
   })
 }
