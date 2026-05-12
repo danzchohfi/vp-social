@@ -5,7 +5,8 @@ import { eq } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { userIsClientOwner } from "@/lib/active-client"
-import { sendApprovalRequest, validatePhoneE164 } from "@/lib/manychat"
+import { validatePhoneE164 } from "@/lib/manychat"
+import { dispatchApprovalRequest } from "@/lib/whatsapp-dispatch"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
 
@@ -46,33 +47,32 @@ export async function POST(
   const [row] = await db
     .select({
       name: client.name,
+      whatsappProvider: client.whatsappProvider,
       manychatApiKey: client.manychatApiKey,
       manychatApprovalFlowNs: client.manychatApprovalFlowNs,
+      metaWaToken: client.metaWaToken,
+      metaPhoneNumberId: client.metaPhoneNumberId,
+      metaTemplateName: client.metaTemplateName,
+      metaTemplateLanguage: client.metaTemplateLanguage,
     })
     .from(client)
     .where(eq(client.id, id))
   if (!row) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 })
-  if (!row.manychatApiKey || !row.manychatApprovalFlowNs) {
-    return NextResponse.json({
-      error: "ManyChat não configurado pra este cliente. Cole a API key e escolha um Flow primeiro.",
-    }, { status: 400 })
-  }
 
-  const result = await sendApprovalRequest({
-    apiKey: row.manychatApiKey,
-    flowNs: row.manychatApprovalFlowNs,
-    phone,
-    customFields: {
-      // Distinguishable test marker so the agency can see "[TESTE]" in the
-      // WhatsApp template if they branch on this. Falls back gracefully
-      // if the ManyChat flow ignores the field. For the recipient name,
-      // template should use {{Primeiro Nome}} (native first_name) instead
-      // of a custom contact_name field.
-      approval_url: `${APP_URL}/test-approval`,
-      post_title: `[TESTE] Configuração de aprovação — ${row.name}`,
-      post_url: "",
-      is_test: "true",
+  const result = await dispatchApprovalRequest({
+    client: {
+      whatsappProvider: row.whatsappProvider,
+      manychatApiKey: row.manychatApiKey,
+      manychatApprovalFlowNs: row.manychatApprovalFlowNs,
+      metaWaToken: row.metaWaToken,
+      metaPhoneNumberId: row.metaPhoneNumberId,
+      metaTemplateName: row.metaTemplateName,
+      metaTemplateLanguage: row.metaTemplateLanguage,
     },
+    phone,
+    contactName: name,
+    postTitle: `[TESTE] Configuração de aprovação — ${row.name}`,
+    approvalUrl: `${APP_URL}/test-approval`,
   })
 
   if (!result.ok) {

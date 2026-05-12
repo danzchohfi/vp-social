@@ -10,7 +10,8 @@ import { and, eq, isNull } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping } from "@/lib/notion"
-import { buildWhatsAppClickToChatUrl, sendApprovalRequest } from "@/lib/manychat"
+import { buildWhatsAppClickToChatUrl } from "@/lib/manychat"
+import { dispatchApprovalRequest } from "@/lib/whatsapp-dispatch"
 import { userIsClientOwner } from "@/lib/active-client"
 import { generateId } from "@/lib/utils"
 
@@ -69,8 +70,13 @@ export async function POST(req: Request) {
   const [clientRow] = await db
     .select({
       name: clientTable.name,
+      whatsappProvider: clientTable.whatsappProvider,
       manychatApiKey: clientTable.manychatApiKey,
       manychatApprovalFlowNs: clientTable.manychatApprovalFlowNs,
+      metaWaToken: clientTable.metaWaToken,
+      metaPhoneNumberId: clientTable.metaPhoneNumberId,
+      metaTemplateName: clientTable.metaTemplateName,
+      metaTemplateLanguage: clientTable.metaTemplateLanguage,
     })
     .from(clientTable)
     .where(eq(clientTable.id, conn.clientId))
@@ -197,41 +203,45 @@ export async function POST(req: Request) {
     })
   }
 
-  // Full mode: try ManyChat.
-  if (!clientRow?.manychatApiKey || !clientRow?.manychatApprovalFlowNs) {
-    return NextResponse.json({
-      ok: false,
-      mode: "dispatch",
-      ...diagnostics,
-      manychat: { result: { ok: false, reason: "ManyChat não configurado em /clients" } },
-    })
-  }
+  // Full mode: try the configured WhatsApp provider.
   if (!contact.phone) {
     return NextResponse.json({
       ok: false,
       mode: "dispatch",
       ...diagnostics,
-      manychat: { result: { ok: false, reason: "Contato sem telefone — ManyChat precisa do número" } },
+      manychat: { result: { ok: false, reason: "Contato sem telefone — WhatsApp dispatch precisa do número" } },
+    })
+  }
+  if (!clientRow) {
+    return NextResponse.json({
+      ok: false,
+      mode: "dispatch",
+      ...diagnostics,
+      manychat: { result: { ok: false, reason: "Cliente não encontrado" } },
     })
   }
 
-  const result = await sendApprovalRequest({
-    apiKey: clientRow.manychatApiKey,
-    flowNs: clientRow.manychatApprovalFlowNs,
-    phone: contact.phone,
-    customFields: {
-      approval_url: approvalUrl,
-      post_title: post.title || "",
-      post_url: post.notionUrl || "",
-      // Use {{Primeiro Nome}} (native first_name) in the template
-      // instead of a custom contact_name field.
+  const result = await dispatchApprovalRequest({
+    client: {
+      whatsappProvider: clientRow.whatsappProvider,
+      manychatApiKey: clientRow.manychatApiKey,
+      manychatApprovalFlowNs: clientRow.manychatApprovalFlowNs,
+      metaWaToken: clientRow.metaWaToken,
+      metaPhoneNumberId: clientRow.metaPhoneNumberId,
+      metaTemplateName: clientRow.metaTemplateName,
+      metaTemplateLanguage: clientRow.metaTemplateLanguage,
     },
+    phone: contact.phone,
+    contactName: contact.name,
+    postTitle: post.title || "",
+    approvalUrl,
+    postUrl: post.notionUrl || "",
   })
 
   if (result.ok) {
     await db
       .update(approvalLink)
-      .set({ sentVia: "manychat", sentAt: new Date() })
+      .set({ sentVia: result.provider, sentAt: new Date() })
       .where(eq(approvalLink.token, token))
   }
 
