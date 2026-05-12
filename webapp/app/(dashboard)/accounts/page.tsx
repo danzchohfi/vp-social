@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Instagram, Trash2, Loader2, Facebook, Pencil, Check, X, Youtube, Linkedin, Building2, Star } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RequiresSingleClient } from "@/components/dashboard/requires-single-client"
+import { PageHeader } from "@/components/ui/page-header"
 
 function TikTokIcon({ className }: { className?: string }) {
   return (
@@ -273,24 +274,24 @@ export default function AccountsPage() {
   return (
     <div className="p-4 sm:p-8">
       <RequiresSingleClient message="As contas conectadas pertencem a um cliente específico. Selecione um cliente no menu lateral para gerenciar contas." />
-      <div className="mb-6">
-        <div className="flex flex-wrap items-baseline gap-2">
-          <h1 className="text-3xl tracking-tight sm:text-4xl">Contas conectadas</h1>
-          {activeClient && (
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-sm font-medium text-primary">
-              {activeClient.logoUrl ? (
-                <img src={activeClient.logoUrl} alt="" className="h-3.5 w-3.5 rounded object-cover" />
-              ) : (
-                <Building2 className="h-3 w-3" />
-              )}
-              {activeClient.name}
-            </span>
-          )}
-        </div>
-        <p className="text-muted-foreground text-base">
-          Apenas as contas deste cliente. Para conectar outro, troque o cliente na barra lateral.
-        </p>
-      </div>
+      <PageHeader
+        title={
+          <span className="flex flex-wrap items-baseline gap-2">
+            Contas conectadas
+            {activeClient && (
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-primary/10 px-2.5 py-0.5 text-base font-medium text-primary">
+                {activeClient.logoUrl ? (
+                  <img src={activeClient.logoUrl} alt="" className="h-3.5 w-3.5 rounded object-cover" />
+                ) : (
+                  <Building2 className="h-3 w-3" />
+                )}
+                {activeClient.name}
+              </span>
+            )}
+          </span>
+        }
+        subtitle="Apenas as contas deste cliente. Para conectar outro, troque o cliente na barra lateral."
+      />
 
       {pendingAccounts.length > 0 && (
         <div className="mb-6 rounded-xl border-2 border-primary/40 bg-primary/5 p-4 sm:p-5">
