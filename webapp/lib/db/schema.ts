@@ -188,6 +188,11 @@ export const instagramAccount = pgTable("instagram_account", {
   refreshToken: text("refresh_token"),
   instagramBusinessAccountId: text("instagram_business_account_id").notNull().default(""),
   active: boolean("active").notNull().default(true),
+  // Captured the last time a refresh attempt failed (token expired,
+  // revoked, scope changed). Surfaced in the dashboard banner so the
+  // agency reconnects before the next publish breaks.
+  lastRefreshError: text("last_refresh_error"),
+  lastRefreshErrorAt: timestamp("last_refresh_error_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (t) => ({
