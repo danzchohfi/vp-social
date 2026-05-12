@@ -65,6 +65,11 @@ export async function GET(req: Request) {
           refreshToken: token.refresh_token ?? null,
           pageName: displayName,
           updatedAt: new Date(),
+          // Reconnect: clear any stale refresh-error so the banner
+          // disappears immediately instead of waiting for the next
+          // successful publish to clear it.
+          lastRefreshError: null,
+          lastRefreshErrorAt: null,
         },
       })
 
