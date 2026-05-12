@@ -11,6 +11,8 @@
  * ─ Publicações:   máx 25 posts por 24h por conta
  */
 
+import { logger } from "./log"
+
 const GRAPH = "https://graph.facebook.com/v19.0"
 
 export function createInstagramPublisher(accountId: string, accessToken: string) {
@@ -344,7 +346,17 @@ export async function listInstagramMedia(
       mediaType: typeof m.media_type === "string" ? m.media_type : "IMAGE",
     })).filter((m) => m.id && m.thumbnailUrl)
   } catch (e) {
-    console.warn(`[listInstagramMedia] failed for ${igUserId}:`, e)
+    // Soft-fail: grid preview survives without this account's media —
+    // shows just the scheduled posts. Logger context captures the
+    // account that flaked so agency can grep "platform=instagram
+    // op=list_media" if a specific account keeps failing.
+    logger.warn({
+      platform: "instagram",
+      op: "list_media",
+      igUserId,
+      msg: "listInstagramMedia failed",
+      error: e,
+    })
     return []
   }
 }
