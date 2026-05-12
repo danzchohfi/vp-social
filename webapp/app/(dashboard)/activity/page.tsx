@@ -21,14 +21,60 @@ import {
   AlertTriangle,
   CheckCircle2,
   ExternalLink,
+  Facebook,
+  Instagram,
+  Linkedin,
   Loader2,
   MessageCircle,
   ThumbsUp,
   XCircle,
   Clock,
   RefreshCw,
+  Youtube,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
+
+// Tiny inline icon for the platform a post was published to. Replaces
+// the previous `· {event.platform}` text rendering ("Instagram Story 2/2"
+// + "@ComparaCar" + "comparaCAR" = redundant chain). Just the icon now,
+// with the post format (Story, Reel, Feed) kept as a tiny lowercase
+// suffix when meaningful — drops the platform name itself since the
+// icon already tells you. TikTok ships its own SVG (lucide doesn't).
+const PLATFORM_ICON: Record<string, React.ComponentType<{ className?: string }>> = {
+  instagram: Instagram,
+  facebook: Facebook,
+  youtube: Youtube,
+  linkedin: Linkedin,
+}
+
+function TikTokGlyph({ className }: { className?: string }) {
+  return (
+    <svg className={className} viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V8.69a8.18 8.18 0 0 0 4.78 1.52V6.75a4.85 4.85 0 0 1-1.01-.06z" />
+    </svg>
+  )
+}
+
+function PlatformChip({ raw }: { raw: string | null }) {
+  if (!raw || raw === "—") return null
+  // event.platform comes as "Instagram Story 2/2" / "Instagram Feed" /
+  // "Instagram Reel" / "Facebook Feed" / "YouTube Short" / etc. First
+  // word identifies the platform; the rest is the post format we want
+  // to keep (compact, lowercase-friendly).
+  const [first, ...rest] = raw.split(/\s+/)
+  const key = first.toLowerCase()
+  const Icon = key === "tiktok" ? TikTokGlyph : (PLATFORM_ICON[key] ?? null)
+  const tipo = rest.join(" ").trim()
+  return (
+    <span
+      className="inline-flex items-center gap-1 rounded-full bg-muted/60 px-1.5 py-0.5 text-[12px] text-muted-foreground"
+      title={raw}
+    >
+      {Icon ? <Icon className="h-3 w-3" /> : null}
+      {tipo && <span>{tipo}</span>}
+    </span>
+  )
+}
 
 type Event =
   | {
@@ -99,15 +145,15 @@ export default function ActivityPage() {
   }
 
   return (
-    <div className="mx-auto max-w-3xl p-8">
-      <div className="mb-6 flex items-end justify-between gap-3">
-        <div>
+    <div className="mx-auto max-w-3xl p-4 sm:p-8">
+      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-3xl tracking-tight sm:text-4xl">Atividade</h1>
           <p className="text-muted-foreground">
             Tudo que rolou — posts publicados, falhas e decisões dos clientes.
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => load()} disabled={loading}>
+        <Button variant="outline" size="sm" onClick={() => load()} disabled={loading} className="shrink-0">
           {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
           Atualizar
         </Button>
@@ -236,9 +282,17 @@ function EventRow({ event }: { event: Event }) {
           <p className="text-base">
             {failed ? "Falhou: " : "Publicado: "}
             <strong>{event.postTitle || "post sem título"}</strong>
-            {event.conta && <span className="text-muted-foreground"> · @{event.conta}</span>}
-            {event.platform && <span className="text-muted-foreground"> · {event.platform}</span>}
-            {event.clientName && <span className="text-muted-foreground"> · {event.clientName}</span>}
+          </p>
+          {/* Meta row: platform icon + format chip + (conta only when
+              it differs from clientName, to avoid the
+              `@ComparaCar · ... · comparaCAR` repetition). Compact + on
+              its own line so the title stays clean. */}
+          <p className="mt-1 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-sm text-muted-foreground">
+            <PlatformChip raw={event.platform} />
+            {event.conta && (!event.clientName || event.conta.toLowerCase() !== event.clientName.toLowerCase()) && (
+              <span>@{event.conta}</span>
+            )}
+            {event.clientName && <span>· {event.clientName}</span>}
           </p>
           {failed && event.error && (
             <p className="mt-1 break-words text-[13px] text-destructive">{event.error}</p>
