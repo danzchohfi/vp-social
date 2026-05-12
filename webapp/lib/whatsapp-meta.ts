@@ -22,6 +22,8 @@
 //   per-variable parameter array. Meta returns { messages: [{id}] }
 //   on success; non-2xx with { error: {message, code} } on failure.
 
+import { fetchWithRetry } from "./fetch-with-retry"
+
 const META_BASE = "https://graph.facebook.com/v18.0"
 
 type SendApprovalMetaArgs = {
@@ -66,13 +68,14 @@ export async function sendApprovalRequestMeta(args: SendApprovalMetaArgs): Promi
   }
 
   try {
-    const res = await fetch(`${META_BASE}/${args.phoneNumberId}/messages`, {
+    const res = await fetchWithRetry(`${META_BASE}/${args.phoneNumberId}/messages`, {
       method: "POST",
       headers: {
         Authorization: `Bearer ${args.token}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify(body),
+      logContext: { platform: "meta_wa", op: "send_template", phoneNumberId: args.phoneNumberId },
     })
     const data: any = await res.json().catch(() => null)
     if (!res.ok) {
@@ -117,9 +120,14 @@ export async function validateMetaCreds(token: string, phoneNumberId: string): P
 } | { ok: false; reason: string }> {
   if (!token || !phoneNumberId) return { ok: false, reason: "token ou phone_number_id vazios" }
   try {
-    const res = await fetch(`${META_BASE}/${phoneNumberId}`, {
+    const res = await fetchWithRetry(`${META_BASE}/${phoneNumberId}`, {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
+      logContext: { platform: "meta_wa", op: "validate_creds", phoneNumberId },
+      // Validate is interactive — user is waiting. No retries (validation
+      // failure should be deterministic from credentials, not transient).
+      maxRetries: 0,
+      timeoutMs: 10_000,
     })
     const data: any = await res.json().catch(() => null)
     if (!res.ok) {
