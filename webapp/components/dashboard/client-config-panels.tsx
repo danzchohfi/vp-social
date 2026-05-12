@@ -2213,7 +2213,18 @@ function SelfTestPanel({ clientId }: { clientId: string }) {
       })
       const data = await res.json().catch(() => null)
       if (!res.ok) {
-        setResult({ ok: false, reason: data?.error ?? "Erro", hint: data?.hint ?? null })
+        // Endpoint returns `reason` (from dispatchApprovalRequest) on
+        // failure. Older callers might have read `error` (Next.js
+        // default 4xx shape). Try both so we never show a bare "Erro".
+        const reason = data?.reason ?? data?.error ?? `HTTP ${res.status}: sem detalhe`
+        setResult({ ok: false, reason, hint: data?.hint ?? null })
+        return
+      }
+      // Even with HTTP 200 the dispatcher can return ok:false (e.g.
+      // when /api/.../test-approval-self surfaces dispatch result
+      // without remapping to a 5xx). Honor that.
+      if (data && data.ok === false) {
+        setResult({ ok: false, reason: data.reason ?? "Falha no dispatch (sem detalhe)", hint: data.hint ?? null })
         return
       }
       setResult({ ok: true })

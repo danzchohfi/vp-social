@@ -76,12 +76,31 @@ export async function POST(
   })
 
   if (!result.ok) {
+    // Map common failure modes to a concrete next-step suggestion.
+    // explainMetaError in lib/whatsapp-meta.ts already returns a
+    // Portuguese explanation embedded in result.reason for Meta
+    // errors — surface that verbatim. For ManyChat errors add the
+    // subscriber-onboarding hint the agency keeps hitting.
+    let hint: string | null = null
+    const reasonLower = result.reason.toLowerCase()
+    if (row.whatsappProvider === "meta_cloud") {
+      if (reasonLower.includes("template not found") || result.reason.includes("132000")) {
+        hint = `Confira o NOME do template em /settings: cópia EXATA do que está em Meta Business Manager → WhatsApp Manager → Templates aprovados (case-sensitive, sem espaços extras).`
+      } else if (reasonLower.includes("language")) {
+        hint = `Idioma do template em /settings não bate com o que você gravou na Meta. Olhe o template aprovado e confira o código (pt_BR, en_US etc).`
+      } else if (reasonLower.includes("not in allowed list") || reasonLower.includes("permitted phone")) {
+        hint = `Seu número não está na lista de telefones de teste do app Meta. Adicione em Meta App → WhatsApp → API Setup → "To" → Manage phone number list, verifique via SMS, e tente de novo.`
+      } else if (result.reason.includes("code 190")) {
+        hint = `Token expirou ou foi revogado. Gere um novo System User token (Expiration: Never) e cole em /settings.`
+      }
+    } else if (result.reason.includes("not found") || reasonLower.includes("subscriber")) {
+      hint = `O ManyChat não encontrou um subscriber com o telefone ${phone}. Solução: pelo menos uma vez, mande qualquer mensagem do seu WhatsApp pra página do ManyChat — isso registra você como subscriber. Depois tente o teste de novo.`
+    }
+
     return NextResponse.json({
       ok: false,
       reason: result.reason,
-      hint: result.reason.includes("not found") || result.reason.toLowerCase().includes("subscriber")
-        ? `O ManyChat não encontrou um subscriber com o telefone ${phone}. Solução: pelo menos uma vez, mande qualquer mensagem do seu WhatsApp pra página do ManyChat — isso registra você como subscriber. Depois tente o teste de novo.`
-        : null,
+      hint,
     }, { status: 502 })
   }
   return NextResponse.json({ ok: true })
