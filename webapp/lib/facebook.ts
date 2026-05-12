@@ -1,11 +1,14 @@
+import { fetchWithRetry } from "./fetch-with-retry"
+
 const GRAPH = "https://graph.facebook.com/v19.0"
 
 export function createFacebookPublisher(pageId: string, pageAccessToken: string) {
   async function post(path: string, body: Record<string, unknown>) {
-    const res = await fetch(`${GRAPH}/${path}`, {
+    const res = await fetchWithRetry(`${GRAPH}/${path}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ ...body, access_token: pageAccessToken }),
+      logContext: { platform: "facebook", op: "publish", pageId, path },
     })
     const data = await res.json()
     if (!res.ok || data.error) throw new Error(data.error?.message ?? `Facebook API error: ${res.status}`)
