@@ -54,38 +54,15 @@ export async function sendApprovalRequest(args: SendApprovalArgs): Promise<SendR
     phone.replace(/[^\d]/g, ""),     // digits only (same as above for E.164)
   ])).filter(Boolean)
 
-  // Step 1 — find subscriber by phone. ManyChat's WA endpoint:
-  //   POST /wa/subscriber/findByPhone   { phone }
+  // Subscriber lookup. We only use ManyChat's WhatsApp endpoint here —
+  // the Messenger findByCustomField path was removed in 2026-05-12 after
+  // it consistently returned 400 (it expects a numeric field_id of a
+  // custom field, not the system "phone" by name — and it wouldn't help
+  // for WA channel subscribers anyway).
   let subscriberId: number | null = null
-  // Collect the responses so we can surface the actual cause if all
-  // lookups fail. Was being swallowed before, leaving the agency with
-  // a generic "subscriber not found" that didn't help debug.
   const lookupErrors: string[] = []
 
-  // IMPORTANT: ManyChat's findByPhone / findByCustomField endpoints are
-  // GET with query params, NOT POST with JSON body. The previous POST
-  // calls always returned 405 "Wrong request method" — the agency saw
-  // "subscriber não encontrado" but the real cause was our HTTP verb.
-  // Surfaced in 2026-05-12 trace logs.
   for (const candidate of phoneVariants) {
-    if (subscriberId) break
-    try {
-      const qs = new URLSearchParams({ field_name: "phone", field_value: candidate })
-      const res = await fetch(`${MANYCHAT_BASE}/fb/subscriber/findByCustomField?${qs}`, {
-        method: "GET",
-        headers: { Authorization: `Bearer ${args.apiKey}` },
-      })
-      const data: any = await res.json().catch(() => null)
-      if (res.ok && data?.status === "success") {
-        const list = data.data?.subscribers ?? data.data ?? []
-        subscriberId = (Array.isArray(list) ? list[0]?.id : list?.id) ?? null
-      } else if (!res.ok) {
-        lookupErrors.push(`fb/findByCustomField "${candidate}" → ${res.status}: ${data?.message ?? data?.details ?? "no body"}`)
-      }
-    } catch (e) {
-      lookupErrors.push(`fb/findByCustomField "${candidate}" threw: ${e instanceof Error ? e.message : String(e)}`)
-    }
-
     if (subscriberId) break
     try {
       const qs = new URLSearchParams({ phone: candidate })
@@ -107,10 +84,16 @@ export async function sendApprovalRequest(args: SendApprovalArgs): Promise<SendR
   }
 
   if (!subscriberId) {
-    const detail = lookupErrors.length > 0 ? ` Detalhes: ${lookupErrors.join(" | ")}` : ""
+    // 404 from wa/findByPhone almost always means the contact never
+    // messaged this WA Business number, so ManyChat doesn't have them
+    // as a subscriber yet. ManyChat WA can ONLY target subscribers —
+    // there's no "send to a cold number" mode via API. Spell this out
+    // so the agency knows the fix is on the contact's side (or use a
+    // WA template via Meta directly, outside ManyChat).
+    const detail = lookupErrors.length > 0 ? ` Detalhes técnicos: ${lookupErrors.join(" | ")}` : ""
     return {
       ok: false,
-      reason: `subscriber não encontrado no ManyChat — tentei formatos: ${phoneVariants.join(", ")}. Verifique se o número existe na sua conta ManyChat com algum desses formatos.${detail}`,
+      reason: `Subscriber não encontrado no ManyChat (tentei ${phoneVariants.join(", ")}). Causa mais comum: o contato NUNCA mandou mensagem pro seu número WhatsApp Business — ManyChat só conhece quem deu opt-in primeiro. Peça pro contato mandar "oi" pro seu WA business uma vez; aí ele vira subscriber e o disparo automático passa a funcionar.${detail}`,
     }
   }
 
