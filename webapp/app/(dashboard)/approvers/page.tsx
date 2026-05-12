@@ -18,6 +18,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
+import { PostRowSkeleton } from "@/components/ui/skeleton"
+import { EmptyState } from "@/components/ui/empty-state"
 import {
   Loader2,
   Plus,
@@ -270,19 +272,14 @@ export default function ApproversPage() {
       )}
 
       {loading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <PostRowSkeleton count={3} />
       ) : approvers.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <UserCheck className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
-            <p className="font-medium">Nenhum aprovador cadastrado</p>
-            <p className="mt-1 text-base text-muted-foreground">
-              Crie aprovadores aqui ou direto na chain de uma produção.
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={UserCheck}
+          tone="primary"
+          title="Nenhum aprovador cadastrado"
+          description="Crie aprovadores aqui ou direto na chain de uma produção."
+        />
       ) : (
         <div className="space-y-2">
           {approvers.map((a) => (

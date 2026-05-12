@@ -14,6 +14,8 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { PostRowSkeleton } from "@/components/ui/skeleton"
+import { EmptyState } from "@/components/ui/empty-state"
 import {
   Activity as ActivityIcon,
   AlertTriangle,
@@ -155,20 +157,14 @@ export default function ActivityPage() {
       )}
 
       {loading && events === null ? (
-        <div className="flex justify-center py-16">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <PostRowSkeleton count={5} />
       ) : !events || events.length === 0 ? (
-        <Card>
-          <CardContent className="py-12 text-center">
-            <ActivityIcon className="mx-auto mb-3 h-10 w-10 text-muted-foreground/50" />
-            <p className="font-medium">Nada por aqui</p>
-            <p className="mt-1 text-base text-muted-foreground">
-              Sem eventos nos últimos {days} dias{kindFilter !== "all" ? ` (filtro: ${kindFilter === "publishes" ? "publicações" : "aprovações"})` : ""}.
-              {kindFilter !== "all" && " Tenta outro filtro."}
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={ActivityIcon}
+          title="Nada por aqui"
+          description={`Sem eventos nos últimos ${days} dias${kindFilter !== "all" ? ` (filtro: ${kindFilter === "publishes" ? "publicações" : "aprovações"})` : ""}.${kindFilter !== "all" ? " Tenta outro filtro." : ""}`}
+          tone="neutral"
+        />
       ) : (
         <ul className="space-y-2">
           {events.map((e) => (

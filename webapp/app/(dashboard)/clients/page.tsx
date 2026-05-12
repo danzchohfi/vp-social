@@ -10,6 +10,7 @@ import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { LogoUploader } from "@/components/dashboard/logo-uploader"
+import { PostRowSkeleton } from "@/components/ui/skeleton"
 
 type Client = {
   id: string
@@ -201,9 +202,7 @@ export default function ClientsPage() {
       )}
 
       {loading ? (
-        <div className="flex justify-center py-12">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <PostRowSkeleton count={3} />
       ) : (
         <div className="space-y-2">
           {clients.map((c) => {
