@@ -1,9 +1,11 @@
+import { fetchWithRetry } from "./fetch-with-retry"
+
 const TOKEN_URL = "https://oauth2.googleapis.com/token"
 const YOUTUBE_API = "https://www.googleapis.com/youtube/v3"
 const UPLOAD_API = "https://www.googleapis.com/upload/youtube/v3/videos"
 
 async function refreshAccessToken(refreshToken: string): Promise<string> {
-  const res = await fetch(TOKEN_URL, {
+  const res = await fetchWithRetry(TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -12,6 +14,7 @@ async function refreshAccessToken(refreshToken: string): Promise<string> {
       refresh_token: refreshToken,
       grant_type: "refresh_token",
     }),
+    logContext: { platform: "youtube", op: "refresh_token" },
   })
   const data = await res.json()
   if (!data.access_token) throw new Error(data.error_description ?? "YouTube token refresh failed")
