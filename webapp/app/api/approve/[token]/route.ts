@@ -19,7 +19,7 @@ import {
   lookupApprovalLink,
 } from "@/lib/approval-link"
 import { advanceChain } from "@/lib/productions"
-import { sendApprovalRequest } from "@/lib/manychat"
+import { dispatchApprovalRequest } from "@/lib/whatsapp-dispatch"
 import { notifyClientDecisionAsync } from "@/lib/email-notifications"
 import { generateId } from "@/lib/utils"
 
@@ -306,29 +306,38 @@ export async function POST(
       try {
         const next = await advanceChain(db, row.productionId, row.round)
         if (next.kind === "next") {
-          // Dispatch ManyChat to the next approver.
+          // Dispatch WhatsApp to the next approver via the unified
+          // provider-aware path.
           const [client] = await db
             .select({
+              whatsappProvider: clientTable.whatsappProvider,
               manychatApiKey: clientTable.manychatApiKey,
-              manychatFlowNs: clientTable.manychatApprovalFlowNs,
+              manychatApprovalFlowNs: clientTable.manychatApprovalFlowNs,
+              metaWaToken: clientTable.metaWaToken,
+              metaPhoneNumberId: clientTable.metaPhoneNumberId,
+              metaTemplateName: clientTable.metaTemplateName,
+              metaTemplateLanguage: clientTable.metaTemplateLanguage,
             })
             .from(clientTable)
             .where(eq(clientTable.id, row.clientId))
-          let nextSentVia: "manychat" | "none" = "none"
-          if (client?.manychatApiKey && client?.manychatFlowNs && next.approver.phone) {
-            const sendResult = await sendApprovalRequest({
-              apiKey: client.manychatApiKey,
-              flowNs: client.manychatFlowNs,
-              phone: next.approver.phone,
-              customFields: {
-                approval_url: `${APP_URL}/approve/${next.approvalLinkRow.token}`,
-                post_title: next.approvalLinkRow.postTitle,
-                post_url: "",
-                // Use {{Primeiro Nome}} (native first_name) in the
-                // template instead of a custom contact_name field.
+          let nextSentVia: "manychat" | "meta_cloud" | "none" = "none"
+          if (client && next.approver.phone) {
+            const sendResult = await dispatchApprovalRequest({
+              client: {
+                whatsappProvider: client.whatsappProvider,
+                manychatApiKey: client.manychatApiKey,
+                manychatApprovalFlowNs: client.manychatApprovalFlowNs,
+                metaWaToken: client.metaWaToken,
+                metaPhoneNumberId: client.metaPhoneNumberId,
+                metaTemplateName: client.metaTemplateName,
+                metaTemplateLanguage: client.metaTemplateLanguage,
               },
+              phone: next.approver.phone,
+              contactName: next.approver.name,
+              postTitle: next.approvalLinkRow.postTitle,
+              approvalUrl: `${APP_URL}/approve/${next.approvalLinkRow.token}`,
             })
-            if (sendResult.ok) nextSentVia = "manychat"
+            if (sendResult.ok) nextSentVia = sendResult.provider
           }
           await db
             .update(approvalLink)

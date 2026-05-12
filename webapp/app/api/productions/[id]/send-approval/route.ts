@@ -11,7 +11,7 @@ import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { userHasClientAccess } from "@/lib/active-client"
 import { advanceChain, bumpRound, type ProductionStatus } from "@/lib/productions"
-import { sendApprovalRequest } from "@/lib/manychat"
+import { dispatchApprovalRequest } from "@/lib/whatsapp-dispatch"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
 
@@ -95,39 +95,47 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
   // not implemented in v1).
   const [client] = await db
     .select({
+      whatsappProvider: clientTable.whatsappProvider,
       manychatApiKey: clientTable.manychatApiKey,
-      manychatFlowNs: clientTable.manychatApprovalFlowNs,
+      manychatApprovalFlowNs: clientTable.manychatApprovalFlowNs,
+      metaWaToken: clientTable.metaWaToken,
+      metaPhoneNumberId: clientTable.metaPhoneNumberId,
+      metaTemplateName: clientTable.metaTemplateName,
+      metaTemplateLanguage: clientTable.metaTemplateLanguage,
     })
     .from(clientTable)
     .where(eq(clientTable.id, prod.clientId))
 
   const approvalUrl = `${APP_URL}/approve/${approvalLinkRow.token}`
 
-  let sentVia: "manychat" | "none" = "none"
+  let sentVia: "manychat" | "meta_cloud" | "none" = "none"
   let dispatchReason: string | null = null
 
-  if (client?.manychatApiKey && client?.manychatFlowNs && approver.phone) {
-    const sendResult = await sendApprovalRequest({
-      apiKey: client.manychatApiKey,
-      flowNs: client.manychatFlowNs,
-      phone: approver.phone,
-      customFields: {
-        approval_url: approvalUrl,
-        post_title: prod.title,
-        post_url: "",
-        // Use {{Primeiro Nome}} (native first_name) in the template
-        // instead of a custom contact_name field.
+  if (client && approver.phone) {
+    const sendResult = await dispatchApprovalRequest({
+      client: {
+        whatsappProvider: client.whatsappProvider,
+        manychatApiKey: client.manychatApiKey,
+        manychatApprovalFlowNs: client.manychatApprovalFlowNs,
+        metaWaToken: client.metaWaToken,
+        metaPhoneNumberId: client.metaPhoneNumberId,
+        metaTemplateName: client.metaTemplateName,
+        metaTemplateLanguage: client.metaTemplateLanguage,
       },
+      phone: approver.phone,
+      contactName: approver.name,
+      postTitle: prod.title,
+      approvalUrl,
     })
     if (sendResult.ok) {
-      sentVia = "manychat"
+      sentVia = sendResult.provider
     } else {
       dispatchReason = sendResult.reason
     }
   } else if (!approver.phone) {
     dispatchReason = "Aprovador sem telefone"
   } else {
-    dispatchReason = "ManyChat não configurado pra este cliente"
+    dispatchReason = "Cliente não encontrado"
   }
 
   await db

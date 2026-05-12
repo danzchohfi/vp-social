@@ -5,7 +5,7 @@ import { and, eq } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { userIsClientOwner } from "@/lib/active-client"
-import { sendApprovalRequest } from "@/lib/manychat"
+import { dispatchApprovalRequest } from "@/lib/whatsapp-dispatch"
 import { createNotionClient } from "@/lib/notion"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
@@ -45,37 +45,45 @@ export async function POST(
     })
   }
 
-  // Pull ManyChat creds for this client.
+  // Load the client's WhatsApp config (both providers). The dispatcher
+  // picks based on client.whatsappProvider.
   const [c] = await db
     .select({
+      whatsappProvider: clientTable.whatsappProvider,
       manychatApiKey: clientTable.manychatApiKey,
       manychatApprovalFlowNs: clientTable.manychatApprovalFlowNs,
+      metaWaToken: clientTable.metaWaToken,
+      metaPhoneNumberId: clientTable.metaPhoneNumberId,
+      metaTemplateName: clientTable.metaTemplateName,
+      metaTemplateLanguage: clientTable.metaTemplateLanguage,
     })
     .from(clientTable)
     .where(eq(clientTable.id, link.clientId))
-  if (!c?.manychatApiKey || !c?.manychatApprovalFlowNs) {
-    return NextResponse.json({
-      ok: false,
-      reason: "ManyChat não configurado pra este cliente (API key + Flow em /settings).",
-    })
+  if (!c) {
+    return NextResponse.json({ ok: false, reason: "Cliente não encontrado." })
   }
 
   const approvalUrl = `${APP_URL}/approve/${link.token}`
-  const result = await sendApprovalRequest({
-    apiKey: c.manychatApiKey,
-    flowNs: c.manychatApprovalFlowNs,
-    phone: link.contactPhone,
-    customFields: {
-      approval_url: approvalUrl,
-      post_title: link.postTitle ?? "",
-      post_url: "",
+  const result = await dispatchApprovalRequest({
+    client: {
+      whatsappProvider: c.whatsappProvider,
+      manychatApiKey: c.manychatApiKey,
+      manychatApprovalFlowNs: c.manychatApprovalFlowNs,
+      metaWaToken: c.metaWaToken,
+      metaPhoneNumberId: c.metaPhoneNumberId,
+      metaTemplateName: c.metaTemplateName,
+      metaTemplateLanguage: c.metaTemplateLanguage,
     },
+    phone: link.contactPhone,
+    contactName: link.contactName,
+    postTitle: link.postTitle ?? "",
+    approvalUrl,
   })
 
   if (result.ok) {
     await db
       .update(approvalLink)
-      .set({ sentVia: "manychat", sentAt: new Date(), lastError: null })
+      .set({ sentVia: result.provider, sentAt: new Date(), lastError: null })
       .where(eq(approvalLink.token, token))
 
     // Audit comment in Notion (best-effort, mirrors the cron behavior).
@@ -108,7 +116,7 @@ export async function POST(
 
   await db
     .update(approvalLink)
-    .set({ lastError: `ManyChat: ${result.reason}` })
+    .set({ lastError: `${result.provider ?? "dispatch"}: ${result.reason}` })
     .where(eq(approvalLink.token, token))
 
   return NextResponse.json({

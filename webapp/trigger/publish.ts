@@ -8,7 +8,8 @@ import { publishToPlatform, saveLog, claimPublishSlot, completePublishSlot, hasP
 import { createInstagramPublisher, fetchInstagramPermalink } from "../lib/instagram"
 import { probeVideoDurationSec, splitStoryVideo } from "../lib/video-splitter"
 import { notifyPublishFailureAsync } from "../lib/email-notifications"
-import { sendApprovalRequest, validatePhoneE164 } from "../lib/manychat"
+import { validatePhoneE164 } from "../lib/manychat"
+import { dispatchApprovalRequest, sentViaForResult, type DispatchClient } from "../lib/whatsapp-dispatch"
 import { generateId } from "../lib/utils"
 import { findApproverByPhone } from "../lib/approvers"
 
@@ -64,11 +65,20 @@ export const publishForConnection = task({
 
     const { userId } = connection
 
-    // Owning client name + ManyChat config — fetched once per connection so
-    // we don't N+1 inside the per-post loop.
+    // Owning client name + WhatsApp dispatch config — fetched once per
+    // connection so we don't N+1 inside the per-post loop. Carries both
+    // ManyChat (legacy) and Meta Cloud (new) credentials; the dispatcher
+    // picks based on client.whatsappProvider.
     let clientName: string | null = null
-    let manychatApiKey: string | null = null
-    let manychatFlowNs: string | null = null
+    let dispatchClient: DispatchClient = {
+      whatsappProvider: "manychat",
+      manychatApiKey: null,
+      manychatApprovalFlowNs: null,
+      metaWaToken: null,
+      metaPhoneNumberId: null,
+      metaTemplateName: null,
+      metaTemplateLanguage: "pt_BR",
+    }
     let approvalMode: "auto_manychat" | "manual_whatsapp" = "auto_manychat"
     // 'auto' = cron dispatches WhatsApp on every new pending post.
     // 'manual' = cron creates the approvalLink but doesn't dispatch; agency
@@ -80,6 +90,11 @@ export const publishForConnection = task({
           name: schema.client.name,
           manychatApiKey: schema.client.manychatApiKey,
           manychatApprovalFlowNs: schema.client.manychatApprovalFlowNs,
+          whatsappProvider: schema.client.whatsappProvider,
+          metaWaToken: schema.client.metaWaToken,
+          metaPhoneNumberId: schema.client.metaPhoneNumberId,
+          metaTemplateName: schema.client.metaTemplateName,
+          metaTemplateLanguage: schema.client.metaTemplateLanguage,
           approvalNotificationMode: schema.client.approvalNotificationMode,
           approvalDispatchMode: schema.client.approvalDispatchMode,
           publishingPaused: schema.client.publishingPaused,
@@ -95,8 +110,15 @@ export const publishForConnection = task({
         return { published: 0, failed: 0, skipped: 0 }
       }
       clientName = c?.name ?? null
-      manychatApiKey = c?.manychatApiKey ?? null
-      manychatFlowNs = c?.manychatApprovalFlowNs ?? null
+      dispatchClient = {
+        whatsappProvider: c?.whatsappProvider ?? "manychat",
+        manychatApiKey: c?.manychatApiKey ?? null,
+        manychatApprovalFlowNs: c?.manychatApprovalFlowNs ?? null,
+        metaWaToken: c?.metaWaToken ?? null,
+        metaPhoneNumberId: c?.metaPhoneNumberId ?? null,
+        metaTemplateName: c?.metaTemplateName ?? null,
+        metaTemplateLanguage: c?.metaTemplateLanguage ?? "pt_BR",
+      }
       // Treat NULL as auto_manychat for backward compat with clients
       // configured before the column existed.
       if (c?.approvalNotificationMode === "manual_whatsapp") {
@@ -132,8 +154,7 @@ export const publishForConnection = task({
           mapping,
           approvalMode,
           approvalDispatchMode,
-          manychatApiKey,
-          manychatFlowNs,
+          dispatchClient,
         })
       } catch (e) {
         logger.error(`Falha no approval sweep (workspace ${connection.workspaceName}): ${e}`)
@@ -403,12 +424,13 @@ type SweepArgs = {
   // When 'manual', cron creates the approvalLink but does NOT dispatch.
   // Agency triggers via /api/clients/[id]/notify-pending later.
   approvalDispatchMode: "auto" | "manual"
-  manychatApiKey: string | null
-  manychatFlowNs: string | null
+  // Client's WhatsApp config — ManyChat creds + Meta creds + provider
+  // discriminator. Resolved by the dispatcher (lib/whatsapp-dispatch).
+  dispatchClient: DispatchClient
 }
 
 async function runApprovalSweep(a: SweepArgs): Promise<void> {
-  const { db, notion, connectionId, clientId, clientName, userId, mapping, approvalMode, approvalDispatchMode, manychatApiKey, manychatFlowNs } = a
+  const { db, notion, connectionId, clientId, clientName, userId, mapping, approvalMode, approvalDispatchMode, dispatchClient } = a
   if (!mapping.awaitingApprovalValue) return
   const connection = await db
     .select()
@@ -694,7 +716,7 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
     // contact's phone in the Notion DB doesn't look like a real E.164
     // number. UI surfaces this clearly in /scheduled so the agency
     // knows to fix the Contato page (vs. silent ManyChat 'not found').
-    let sentVia: "manychat" | "manual" | "invalid_phone" | "none" = "none"
+    let sentVia: "manychat" | "meta_cloud" | "manual" | "invalid_phone" | "none" = "none"
     // Captures why the dispatch didn't fire (or did, but failed).
     // Surfaces in /scheduled so the agency sees the actual cause
     // without having to open Trigger.dev worker logs.
@@ -719,34 +741,26 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       sentVia = "invalid_phone"
       lastError = `Telefone inválido (${contact.phone}): ${phoneIssue}`
       logger.warn(`[approval] telefone inválido pra "${post.title}" (${contact.phone}): ${phoneIssue}. Agência precisa corrigir a página Contato no Notion.`)
-    } else if (contact.phone && manychatApiKey && manychatFlowNs) {
-      const result = await sendApprovalRequest({
-        apiKey: manychatApiKey,
-        flowNs: manychatFlowNs,
+    } else if (contact.phone) {
+      // Provider-agnostic dispatch: ManyChat OR Meta Cloud API based
+      // on client.whatsappProvider. The dispatcher handles missing
+      // creds with a friendly reason.
+      const result = await dispatchApprovalRequest({
+        client: dispatchClient,
         phone: contact.phone,
-        customFields: {
-          approval_url: approvalUrl,
-          post_title: post.title || "",
-          // post_url and other custom fields the WA template may want.
-          // The agency creates the matching custom fields in ManyChat —
-          // undefined field names get surfaced as setCustomFields errors
-          // (see lib/manychat.ts). For the recipient's name, prefer the
-          // native `{{Primeiro Nome}}` (first_name) in the template — no
-          // custom field needed.
-          post_url: post.notionUrl || "",
-        },
+        contactName: contact.name,
+        postTitle: post.title || "",
+        approvalUrl,
+        postUrl: post.notionUrl || "",
       })
       if (result.ok) {
-        sentVia = "manychat"
+        sentVia = sentViaForResult(result)
         lastError = null
-        logger.info(`[approval] ManyChat enviado para ${contact.phone} (${post.title})`)
+        logger.info(`[approval] ${result.provider} enviado para ${contact.phone} (${post.title})`)
       } else {
-        lastError = `ManyChat: ${result.reason}`
-        logger.warn(`[approval] ManyChat falhou para "${post.title}": ${result.reason}`)
+        lastError = result.provider ? `${result.provider}: ${result.reason}` : result.reason
+        logger.warn(`[approval] ${result.provider ?? "dispatch"} falhou para "${post.title}": ${result.reason}`)
       }
-    } else if (!manychatApiKey || !manychatFlowNs) {
-      lastError = "ManyChat não configurado pra este cliente (API key + Flow em /settings)"
-      logger.warn(`[approval] ManyChat não configurado para este cliente — agência precisa enviar manualmente via /scheduled (ou trocar pra modo manual em /clients)`)
     } else if (!contact.phone) {
       lastError = "Contato resolvido sem telefone — verifique a página Contato no Notion"
       logger.warn(`[approval] Contato sem telefone — agência precisa enviar manualmente via /scheduled`)
@@ -776,7 +790,7 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
     // soft-fails on Notion permission errors.
     const recipient = contact.name ?? contact.phone ?? "contato"
     const reqLabel =
-      sentVia === "manychat" ? `via WhatsApp pra ${recipient}`
+      sentVia === "manychat" || sentVia === "meta_cloud" ? `via WhatsApp pra ${recipient}`
         : sentVia === "manual" ? `— agência envia via WhatsApp pra ${recipient}`
           : sentVia === "invalid_phone" ? `— ⚠ telefone inválido (${contact.phone ?? "vazio"}); corrigir contato no Notion`
             : `— ⚠ envio automático falhou; agência precisa enviar manualmente`
@@ -888,32 +902,35 @@ export const productionApprovalReminders = schedules.task({
         }
         const [client] = await db
           .select({
+            whatsappProvider: schema.client.whatsappProvider,
             manychatApiKey: schema.client.manychatApiKey,
-            manychatFlowNs: schema.client.manychatApprovalFlowNs,
+            manychatApprovalFlowNs: schema.client.manychatApprovalFlowNs,
+            metaWaToken: schema.client.metaWaToken,
+            metaPhoneNumberId: schema.client.metaPhoneNumberId,
+            metaTemplateName: schema.client.metaTemplateName,
+            metaTemplateLanguage: schema.client.metaTemplateLanguage,
           })
           .from(schema.client)
           .where(eq(schema.client.id, row.clientId))
-        if (!client?.manychatApiKey || !client?.manychatFlowNs) {
+        if (!client) {
           skipped++
           continue
         }
 
-        const dispatch = await sendApprovalRequest({
-          apiKey: client.manychatApiKey,
-          flowNs: client.manychatFlowNs,
-          phone: approver.phone,
-          customFields: {
-            approval_url: `${APP_URL}/approve/${row.token}`,
-            post_title: row.postTitle,
-            post_url: "",
-            // Custom flag the user's ManyChat flow CAN read to switch the
-            // template (e.g. "Lembrete: você ainda tem ..."). If the
-            // custom field doesn't exist in their ManyChat account the
-            // dispatch still goes through — ManyChat ignores unknown
-            // fields by default. For the recipient's name, prefer the
-            // native `{{Primeiro Nome}}` (first_name) in the template.
-            is_reminder: "true",
+        const dispatch = await dispatchApprovalRequest({
+          client: {
+            whatsappProvider: client.whatsappProvider,
+            manychatApiKey: client.manychatApiKey,
+            manychatApprovalFlowNs: client.manychatApprovalFlowNs,
+            metaWaToken: client.metaWaToken,
+            metaPhoneNumberId: client.metaPhoneNumberId,
+            metaTemplateName: client.metaTemplateName,
+            metaTemplateLanguage: client.metaTemplateLanguage,
           },
+          phone: approver.phone,
+          contactName: approver.name,
+          postTitle: row.postTitle,
+          approvalUrl: `${APP_URL}/approve/${row.token}`,
         })
 
         // Mark the row even if dispatch failed — we don't want to retry

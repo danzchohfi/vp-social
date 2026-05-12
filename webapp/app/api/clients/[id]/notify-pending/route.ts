@@ -5,7 +5,8 @@ import { and, eq, inArray, isNull, or } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { userIsClientOwner } from "@/lib/active-client"
-import { sendApprovalRequest, validatePhoneE164 } from "@/lib/manychat"
+import { validatePhoneE164 } from "@/lib/manychat"
+import { dispatchApprovalRequest } from "@/lib/whatsapp-dispatch"
 import { createNotionClient } from "@/lib/notion"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
@@ -41,16 +42,30 @@ export async function POST(
   const [row] = await db
     .select({
       name: clientTable.name,
+      whatsappProvider: clientTable.whatsappProvider,
       manychatApiKey: clientTable.manychatApiKey,
       manychatApprovalFlowNs: clientTable.manychatApprovalFlowNs,
+      metaWaToken: clientTable.metaWaToken,
+      metaPhoneNumberId: clientTable.metaPhoneNumberId,
+      metaTemplateName: clientTable.metaTemplateName,
+      metaTemplateLanguage: clientTable.metaTemplateLanguage,
     })
     .from(clientTable)
     .where(eq(clientTable.id, id))
   if (!row) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 })
-  if (!row.manychatApiKey || !row.manychatApprovalFlowNs) {
-    return NextResponse.json({
-      error: "ManyChat não configurado pra este cliente. Cole a API key e escolha um Flow em /clients antes.",
-    }, { status: 400 })
+  // Validate provider creds — fast-fail with friendly error.
+  if (row.whatsappProvider === "meta_cloud") {
+    if (!row.metaWaToken || !row.metaPhoneNumberId || !row.metaTemplateName) {
+      return NextResponse.json({
+        error: "Meta WhatsApp não configurado pra este cliente (token + phone_number_id + template em /settings → Aprovação cliente).",
+      }, { status: 400 })
+    }
+  } else {
+    if (!row.manychatApiKey || !row.manychatApprovalFlowNs) {
+      return NextResponse.json({
+        error: "ManyChat não configurado pra este cliente. Cole a API key e escolha um Flow em /settings → Aprovação cliente.",
+      }, { status: 400 })
+    }
   }
 
   // Pending approvalLinks for this client = decision IS NULL AND not yet
@@ -117,15 +132,20 @@ export async function POST(
     const titleField = isBatch
       ? `${links.length} posts aguardando sua aprovação`
       : (first.postTitle || "Post sem título")
-    const result = await sendApprovalRequest({
-      apiKey: row.manychatApiKey,
-      flowNs: row.manychatApprovalFlowNs,
-      phone: first.contactPhone!,
-      customFields: {
-        approval_url: approvalUrl,
-        post_title: titleField,
-        post_url: "",
+    const result = await dispatchApprovalRequest({
+      client: {
+        whatsappProvider: row.whatsappProvider,
+        manychatApiKey: row.manychatApiKey,
+        manychatApprovalFlowNs: row.manychatApprovalFlowNs,
+        metaWaToken: row.metaWaToken,
+        metaPhoneNumberId: row.metaPhoneNumberId,
+        metaTemplateName: row.metaTemplateName,
+        metaTemplateLanguage: row.metaTemplateLanguage,
       },
+      phone: first.contactPhone!,
+      contactName: first.contactName,
+      postTitle: titleField,
+      approvalUrl,
     })
     if (result.ok) {
       dispatched += links.length
@@ -133,11 +153,11 @@ export async function POST(
     } else {
       errors.push({ phone, reason: result.reason })
       // Persist the failure on every link that we just tried for
-      // this phone group, so /scheduled can show "ManyChat: <reason>"
+      // this phone group, so /scheduled can show "<provider>: <reason>"
       // instead of the generic "WhatsApp não foi enviado automaticamente".
       await db
         .update(approvalLink)
-        .set({ lastError: `ManyChat: ${result.reason}` })
+        .set({ lastError: `${result.provider ?? "dispatch"}: ${result.reason}` })
         .where(inArray(approvalLink.id, links.map((l) => l.id)))
     }
   }
@@ -148,7 +168,7 @@ export async function POST(
     const now = new Date()
     await db
       .update(approvalLink)
-      .set({ sentVia: "manychat", sentAt: now, lastError: null })
+      .set({ sentVia: row.whatsappProvider === "meta_cloud" ? "meta_cloud" : "manychat", sentAt: now, lastError: null })
       .where(inArray(approvalLink.id, dispatchedIds))
 
     // Audit trail in Notion: leave a comment on each post that just
