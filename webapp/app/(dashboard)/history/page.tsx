@@ -15,6 +15,10 @@ const PLATFORM_COLORS: Record<string, string> = {
   youtube: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
   tiktok: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
   linkedin: "bg-sky-100 text-sky-700 dark:bg-sky-900 dark:text-sky-300",
+  // Approval-dispatch failures land here with platform="aprovação"
+  // so the agency sees "envio do WhatsApp falhou" in /history without
+  // digging Trigger.dev logs.
+  "aprovação": "bg-warning/15 text-warning-foreground dark:bg-warning/10",
 }
 
 function PlatformBadge({ raw }: { raw: string | null }) {
