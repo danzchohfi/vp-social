@@ -65,6 +65,8 @@ export async function GET(req: Request) {
           pageName: displayName,
           platformAccountId: personUrn,
           updatedAt: new Date(),
+          lastRefreshError: null,
+          lastRefreshErrorAt: null,
         },
       })
 
