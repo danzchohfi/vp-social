@@ -1,3 +1,4 @@
+import { cache } from "react"
 import { cookies } from "next/headers"
 import { db } from "./db"
 import * as schema from "./db/schema"
@@ -20,7 +21,10 @@ export type ActiveClientScope =
   | { mode: "single"; client: Client }
   | { mode: "all"; clients: Client[] }
 
-export async function listAccessibleClients(userId: string): Promise<Client[]> {
+// Wrapped in React.cache so multiple callers in the same request (dashboard
+// page + active-client resolution + route handler scope check) hit Postgres
+// once instead of 2-3 times. cache() is keyed on the argument (userId).
+export const listAccessibleClients = cache(async (userId: string): Promise<Client[]> => {
   const owned = await db
     .select()
     .from(schema.client)
@@ -62,9 +66,9 @@ export async function listAccessibleClients(userId: string): Promise<Client[]> {
   const byId = new Map<string, Client>()
   for (const c of merged) if (!byId.has(c.id)) byId.set(c.id, c)
   return Array.from(byId.values())
-}
+})
 
-export async function getActiveClient(userId: string): Promise<Client> {
+export const getActiveClient = cache(async (userId: string): Promise<Client> => {
   const clients = await listAccessibleClients(userId)
 
   if (!clients.length) {
@@ -131,7 +135,7 @@ export async function getActiveClient(userId: string): Promise<Client> {
     if (found) return found
   }
   return clients[0]
-}
+})
 
 export async function getActiveClientId(userId: string): Promise<string> {
   const c = await getActiveClient(userId)
@@ -182,7 +186,9 @@ export async function userHasClientAccess(userId: string, clientId: string): Pro
   return clients.some((c) => c.id === clientId)
 }
 
-export async function userIsClientOwner(userId: string, clientId: string): Promise<boolean> {
+// Cached per (userId, clientId) so a single request hitting an API route
+// can both auth-check and read without paying twice.
+export const userIsClientOwner = cache(async (userId: string, clientId: string): Promise<boolean> => {
   const [c] = await db
     .select()
     .from(schema.client)
@@ -197,4 +203,4 @@ export async function userIsClientOwner(userId: string, clientId: string): Promi
       eq(schema.clientMember.role, "owner")
     ))
   return !!m
-}
+})
