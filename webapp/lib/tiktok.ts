@@ -1,10 +1,11 @@
 import { signProxyUrl } from "./tiktok-proxy"
+import { fetchWithRetry } from "./fetch-with-retry"
 
 const TIKTOK_API = "https://open.tiktokapis.com/v2"
 const TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 
 async function refreshAccessToken(refreshToken: string): Promise<string> {
-  const res = await fetch(TOKEN_URL, {
+  const res = await fetchWithRetry(TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -13,6 +14,7 @@ async function refreshAccessToken(refreshToken: string): Promise<string> {
       grant_type: "refresh_token",
       refresh_token: refreshToken,
     }),
+    logContext: { platform: "tiktok", op: "refresh_token" },
   })
   const data = await res.json()
   if (!data.data?.access_token) throw new Error(data.message ?? "TikTok token refresh failed")
