@@ -4,33 +4,17 @@ import { db } from "@/lib/db"
 import { publishLog } from "@/lib/db/schema"
 import { eq, desc } from "drizzle-orm"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, XCircle, Clock, History } from "lucide-react"
 import { parsePublishTarget } from "@/lib/notion"
-import { cn } from "@/lib/utils"
-
-const PLATFORM_COLORS: Record<string, string> = {
-  instagram: "bg-pink-100 text-pink-700 dark:bg-pink-900 dark:text-pink-300",
-  facebook: "bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300",
-  youtube: "bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300",
-  tiktok: "bg-purple-100 text-purple-700 dark:bg-purple-900 dark:text-purple-300",
-  linkedin: "bg-sky-100 text-sky-700 dark:bg-sky-900 dark:text-sky-300",
-  // Approval-dispatch failures land here with platform="aprovação"
-  // so the agency sees "envio do WhatsApp falhou" in /history without
-  // digging Trigger.dev logs.
-  "aprovação": "bg-warning/15 text-warning-foreground dark:bg-warning/10",
-}
+import { PageHeader } from "@/components/ui/page-header"
+import { StatusBadge } from "@/components/ui/status-badge"
+import { EmptyState } from "@/components/ui/empty-state"
 
 function PlatformBadge({ raw }: { raw: string | null }) {
   if (!raw || raw === "—") return null
   const target = parsePublishTarget(raw)
-  const platform = target?.platform ?? raw.toLowerCase().split(/[\s-]+/)[0]
-  const colorClass = PLATFORM_COLORS[platform] ?? "bg-muted text-muted-foreground"
-  return (
-    <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-sm font-medium", colorClass)}>
-      {raw}
-    </span>
-  )
+  const platform = target?.platform ?? raw
+  return <StatusBadge variant="platform" value={platform} label={raw} />
 }
 
 export default async function HistoryPage() {
@@ -50,10 +34,7 @@ export default async function HistoryPage() {
 
   return (
     <div className="p-8">
-      <div className="mb-8">
-        <h1 className="text-3xl tracking-tight sm:text-4xl">Histórico</h1>
-        <p className="text-muted-foreground">Registro completo de todas as publicações</p>
-      </div>
+      <PageHeader title="Histórico" subtitle="Registro completo de todas as publicações" />
 
       {/* Summary */}
       <div className="mb-8 flex flex-wrap gap-3">
@@ -81,13 +62,11 @@ export default async function HistoryPage() {
         </CardHeader>
         <CardContent>
           {logs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-16 text-center">
-              <History className="mb-3 h-10 w-10 text-muted-foreground/40" />
-              <p className="font-medium">Nenhuma publicação ainda</p>
-              <p className="mt-1 text-base text-muted-foreground">
-                O histórico aparecerá aqui assim que o sistema publicar o primeiro post.
-              </p>
-            </div>
+            <EmptyState
+              icon={History}
+              title="Nenhuma publicação ainda"
+              description="O histórico aparecerá aqui assim que o sistema publicar o primeiro post."
+            />
           ) : (
             <div className="space-y-2">
               {logs.map((log) => (
@@ -114,22 +93,7 @@ export default async function HistoryPage() {
                         </div>
                       </div>
                     </div>
-                    <Badge
-                      className="shrink-0"
-                      variant={
-                        log.status === "published"
-                          ? "success"
-                          : log.status === "failed"
-                          ? "destructive"
-                          : "secondary"
-                      }
-                    >
-                      {log.status === "published"
-                        ? "Publicado"
-                        : log.status === "failed"
-                        ? "Erro"
-                        : "Ignorado"}
-                    </Badge>
+                    <StatusBadge variant="publish" value={log.status} className="shrink-0" />
                   </div>
                   {log.error && (
                     <p className="mt-2 rounded bg-destructive/10 px-3 py-1.5 text-sm text-destructive">
