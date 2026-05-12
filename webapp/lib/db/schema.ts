@@ -316,6 +316,11 @@ export const approvalLink = pgTable("approval_link", {
   connectionId: text("connection_id").notNull().references(() => notionConnection.id, { onDelete: "cascade" }),
   notionPageId: text("notion_page_id").notNull(),
   postTitle: text("post_title").notNull(),
+  // Notion `conta` field value at link-creation time. Lets the dashboard
+  // / Detalhes group pending approvals by conta within a single client
+  // (the agency runs many contas under one client and wants to see
+  // per-brand breakdowns without changing the routing model).
+  conta: text("conta"),
   contactName: text("contact_name"),
   contactEmail: text("contact_email"),
   contactPhone: text("contact_phone"),

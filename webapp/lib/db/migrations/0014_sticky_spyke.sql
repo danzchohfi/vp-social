@@ -1,0 +1,1 @@
+ALTER TABLE "approval_link" ADD COLUMN "conta" text;
