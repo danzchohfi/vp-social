@@ -9,10 +9,12 @@
 //      `client` table (manychatApprovalFlowNs + manychatApiKey).
 //
 // Per approval-request:
-//   1. We look up the subscriber by phone (POST /fb/subscriber/findByCustomField
-//      or by phone via /wa/subscriber/findByPhone).
-//   2. With the subscriber id, POST /fb/sending/sendFlow with the flow
-//      namespace + custom field values { approval_url: "..." }.
+//   1. Look up the subscriber by phone — GET (NOT POST) on
+//      /fb/subscriber/findByCustomField?field_name=phone&field_value=…
+//      and /wa/subscriber/findByPhone?phone=…
+//      ManyChat returns 405 "Wrong request method" for POST here.
+//   2. With the subscriber id, POST /fb/subscriber/setCustomFields then
+//      POST /fb/sending/sendFlow with the flow namespace.
 //
 // Returns ok=true on success. On any failure (subscriber not found, API
 // rejection, network), returns ok=false with reason — caller falls back
@@ -60,16 +62,18 @@ export async function sendApprovalRequest(args: SendApprovalArgs): Promise<SendR
   // a generic "subscriber not found" that didn't help debug.
   const lookupErrors: string[] = []
 
+  // IMPORTANT: ManyChat's findByPhone / findByCustomField endpoints are
+  // GET with query params, NOT POST with JSON body. The previous POST
+  // calls always returned 405 "Wrong request method" — the agency saw
+  // "subscriber não encontrado" but the real cause was our HTTP verb.
+  // Surfaced in 2026-05-12 trace logs.
   for (const candidate of phoneVariants) {
     if (subscriberId) break
     try {
-      const res = await fetch(`${MANYCHAT_BASE}/fb/subscriber/findByCustomField`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${args.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ field_id: "phone", field_value: candidate }),
+      const qs = new URLSearchParams({ field_name: "phone", field_value: candidate })
+      const res = await fetch(`${MANYCHAT_BASE}/fb/subscriber/findByCustomField?${qs}`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${args.apiKey}` },
       })
       const data: any = await res.json().catch(() => null)
       if (res.ok && data?.status === "success") {
@@ -84,13 +88,10 @@ export async function sendApprovalRequest(args: SendApprovalArgs): Promise<SendR
 
     if (subscriberId) break
     try {
-      const res = await fetch(`${MANYCHAT_BASE}/wa/subscriber/findByPhone`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${args.apiKey}`,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({ phone: candidate }),
+      const qs = new URLSearchParams({ phone: candidate })
+      const res = await fetch(`${MANYCHAT_BASE}/wa/subscriber/findByPhone?${qs}`, {
+        method: "GET",
+        headers: { Authorization: `Bearer ${args.apiKey}` },
       })
       const data: any = await res.json().catch(() => null)
       if (res.ok && data?.data?.id) {
