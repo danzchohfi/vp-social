@@ -198,6 +198,12 @@ export async function GET() {
             clientLogoUrl: owningClient?.logoUrl ?? null,
             targetChecks,
             belongsToClient,
+            // Tag posts owned by ANOTHER accessible client (the agency
+            // user can switch to that client to see them). Used to
+            // exclude them from the "ignorados" pile — those should
+            // only contain posts whose conta has no owner at all
+            // (real misconfig), not posts that simply live elsewhere.
+            ownedByOtherClient: explicitOwnerId != null && !clientIdSet.has(explicitOwnerId),
             contaConnected,
           }
         }
@@ -224,8 +230,11 @@ export async function GET() {
     // Capture posts that would have shown but were filtered out — surface
     // them in the UI as "ignorados" with a fuzzy-match suggestion. Helps
     // users catch typo/case mismatches that silently kill publishing.
+    // Skip posts that are explicitly owned by ANOTHER accessible client
+    // (the agency user can switch to that client to see them) — those
+    // aren't misconfig, they just belong somewhere else.
     ignored = flat
-      .filter((p) => !p.belongsToClient && p.conta)
+      .filter((p) => !p.belongsToClient && p.conta && !p.ownedByOtherClient)
       .map((p) => ({
         pageId: p.pageId,
         title: p.title,
