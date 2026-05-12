@@ -325,8 +325,23 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [calendarPath, setCalendarPath] = useState("")
+  // WhatsApp provider toggle: ManyChat (legacy) vs Meta Cloud (direct).
+  const [provider, setProvider] = useState<"manychat" | "meta_cloud">("manychat")
+  const [origProvider, setOrigProvider] = useState<"manychat" | "meta_cloud">("manychat")
   const [apiKey, setApiKey] = useState("")
   const [flowNs, setFlowNs] = useState("")
+  // Meta WA Cloud credentials.
+  const [metaToken, setMetaToken] = useState("")
+  const [origMetaToken, setOrigMetaToken] = useState("")
+  const [metaPhoneNumberId, setMetaPhoneNumberId] = useState("")
+  const [origMetaPhoneNumberId, setOrigMetaPhoneNumberId] = useState("")
+  const [metaTemplateName, setMetaTemplateName] = useState("")
+  const [origMetaTemplateName, setOrigMetaTemplateName] = useState("")
+  const [metaTemplateLanguage, setMetaTemplateLanguage] = useState("pt_BR")
+  const [origMetaTemplateLanguage, setOrigMetaTemplateLanguage] = useState("pt_BR")
+  // Validate-Meta state.
+  const [metaValidating, setMetaValidating] = useState(false)
+  const [metaValidateResult, setMetaValidateResult] = useState<any>(null)
   const [mode, setMode] = useState<"auto_manychat" | "manual_whatsapp">("auto_manychat")
   const [dispatchMode, setDispatchMode] = useState<"auto" | "manual">("auto")
   const [origDispatchMode, setOrigDispatchMode] = useState<"auto" | "manual">("auto")
@@ -360,10 +375,21 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
         return
       }
       setCalendarPath(data.calendarPath ?? "")
+      const nextProvider = (data.whatsappProvider === "meta_cloud" ? "meta_cloud" : "manychat") as "manychat" | "meta_cloud"
+      setProvider(nextProvider)
+      setOrigProvider(nextProvider)
       setApiKey(data.manychatApiKey ?? "")
       setFlowNs(data.manychatApprovalFlowNs ?? "")
       setOrigApiKey(data.manychatApiKey ?? "")
       setOrigFlowNs(data.manychatApprovalFlowNs ?? "")
+      setMetaToken(data.metaWaToken ?? "")
+      setOrigMetaToken(data.metaWaToken ?? "")
+      setMetaPhoneNumberId(data.metaPhoneNumberId ?? "")
+      setOrigMetaPhoneNumberId(data.metaPhoneNumberId ?? "")
+      setMetaTemplateName(data.metaTemplateName ?? "")
+      setOrigMetaTemplateName(data.metaTemplateName ?? "")
+      setMetaTemplateLanguage(data.metaTemplateLanguage ?? "pt_BR")
+      setOrigMetaTemplateLanguage(data.metaTemplateLanguage ?? "pt_BR")
       const nextMode = (data.approvalNotificationMode === "manual_whatsapp"
         ? "manual_whatsapp"
         : "auto_manychat") as "auto_manychat" | "manual_whatsapp"
@@ -401,8 +427,13 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          whatsappProvider: provider,
           manychatApiKey: apiKey.trim() || null,
           manychatApprovalFlowNs: flowNs.trim() || null,
+          metaWaToken: metaToken.trim() || null,
+          metaPhoneNumberId: metaPhoneNumberId.trim() || null,
+          metaTemplateName: metaTemplateName.trim() || null,
+          metaTemplateLanguage: metaTemplateLanguage.trim() || "pt_BR",
           approvalNotificationMode: mode,
           approvalDispatchMode: dispatchMode,
           manualWhatsappTemplate: waTemplate,
@@ -413,8 +444,13 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
         throw new Error(data.error ?? "Erro ao salvar")
       }
       toast.success("Configuração salva")
+      setOrigProvider(provider)
       setOrigApiKey(apiKey.trim())
       setOrigFlowNs(flowNs.trim())
+      setOrigMetaToken(metaToken.trim())
+      setOrigMetaPhoneNumberId(metaPhoneNumberId.trim())
+      setOrigMetaTemplateName(metaTemplateName.trim())
+      setOrigMetaTemplateLanguage(metaTemplateLanguage.trim() || "pt_BR")
       setOrigMode(mode)
       setOrigDispatchMode(dispatchMode)
       setOrigWaTemplate(waTemplate)
@@ -429,11 +465,38 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
   }
 
   const dirty =
+    provider !== origProvider ||
     apiKey.trim() !== origApiKey ||
     flowNs.trim() !== origFlowNs ||
+    metaToken.trim() !== origMetaToken ||
+    metaPhoneNumberId.trim() !== origMetaPhoneNumberId ||
+    metaTemplateName.trim() !== origMetaTemplateName ||
+    metaTemplateLanguage.trim() !== origMetaTemplateLanguage ||
     mode !== origMode ||
     dispatchMode !== origDispatchMode ||
     waTemplate !== origWaTemplate
+
+  async function validateMeta() {
+    if (!metaToken.trim() || !metaPhoneNumberId.trim()) {
+      toast.error("Cole token e phone_number_id primeiro")
+      return
+    }
+    setMetaValidating(true)
+    setMetaValidateResult(null)
+    try {
+      const res = await fetch(`/api/clients/${clientId}/meta-validate`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: metaToken.trim(), phoneNumberId: metaPhoneNumberId.trim() }),
+      })
+      const data = await res.json()
+      setMetaValidateResult(data)
+    } catch (e) {
+      setMetaValidateResult({ ok: false, reason: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setMetaValidating(false)
+    }
+  }
 
   async function validateToken() {
     if (!apiKey.trim()) {
@@ -713,6 +776,64 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
 
           {mode === "auto_manychat" && (
           <>
+          {/* Provider toggle: ManyChat (legacy) vs Meta Cloud (direct).
+              Meta Cloud avoids the unreliable wa/findByPhone lookup and
+              the opt-in subscriber requirement — pre-approved templates
+              work for any number with WhatsApp. */}
+          <div className="space-y-1.5">
+            <Label className="text-sm">Provedor de WhatsApp</Label>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <label
+                className={cn(
+                  "cursor-pointer rounded-lg border p-3 text-sm transition-colors",
+                  provider === "meta_cloud"
+                    ? "border-primary bg-primary/5"
+                    : "hover:bg-accent",
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name={`wa-provider-${clientId}`}
+                    value="meta_cloud"
+                    checked={provider === "meta_cloud"}
+                    onChange={() => setProvider("meta_cloud")}
+                    className="h-3.5 w-3.5"
+                  />
+                  <span className="font-medium">Meta WhatsApp Cloud API <span className="text-success">(recomendado)</span></span>
+                </div>
+                <p className="mt-1 ml-5 text-muted-foreground">
+                  Direto com a Meta. Template pré-aprovado dispara pra qualquer número com WhatsApp. Sem ManyChat no meio.
+                </p>
+              </label>
+              <label
+                className={cn(
+                  "cursor-pointer rounded-lg border p-3 text-sm transition-colors",
+                  provider === "manychat"
+                    ? "border-primary bg-primary/5"
+                    : "hover:bg-accent",
+                )}
+              >
+                <div className="flex items-center gap-2">
+                  <input
+                    type="radio"
+                    name={`wa-provider-${clientId}`}
+                    value="manychat"
+                    checked={provider === "manychat"}
+                    onChange={() => setProvider("manychat")}
+                    className="h-3.5 w-3.5"
+                  />
+                  <span className="font-medium">ManyChat (legado)</span>
+                </div>
+                <p className="mt-1 ml-5 text-muted-foreground">
+                  Via API do ManyChat. Requer que o contato já tenha mandado mensagem (opt-in).
+                </p>
+              </label>
+            </div>
+          </div>
+
+          {provider === "manychat" && (
+          <>
           <div className="space-y-1.5">
             <Label className="text-sm">ManyChat API Key (token da página)</Label>
             <p className="text-sm text-muted-foreground">
@@ -761,20 +882,102 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
             />
           </div>
 
+          </>
+          )}
+
+          {provider === "meta_cloud" && (
+          <>
+          <div className="space-y-1.5">
+            <Label className="text-sm">Token da API (System User permanente)</Label>
+            <p className="text-sm text-muted-foreground">
+              Meta Business Settings → Users → System Users. Crie um System User com permissões em <em>whatsapp_business_messaging</em> e <em>whatsapp_business_management</em>, depois gere um <strong>token permanente</strong> (NÃO use o token temporário de 24h que aparece em API Setup).
+            </p>
+            <Input
+              type="password"
+              placeholder="EAAxxxxx..."
+              value={metaToken}
+              onChange={(e) => { setMetaToken(e.target.value); setMetaValidateResult(null) }}
+            />
+          </div>
+
+          <div className="space-y-1.5">
+            <Label className="text-sm">Phone Number ID</Label>
+            <p className="text-sm text-muted-foreground">
+              ID numérico do seu número WhatsApp Business em Meta App → WhatsApp → API Setup. NÃO é o telefone — é o ID interno.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                placeholder="123456789012345"
+                value={metaPhoneNumberId}
+                onChange={(e) => { setMetaPhoneNumberId(e.target.value); setMetaValidateResult(null) }}
+                className="flex-1"
+              />
+              <Button variant="outline" size="sm" onClick={validateMeta} disabled={metaValidating || !metaToken.trim() || !metaPhoneNumberId.trim()}>
+                {metaValidating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Validar
+              </Button>
+            </div>
+            {metaValidateResult && (
+              <div className={cn(
+                "rounded border px-2 py-1.5 text-sm",
+                metaValidateResult.ok ? "border-success/30 bg-success/10 text-success" : "border-destructive/30 bg-destructive/10 text-destructive"
+              )}>
+                {metaValidateResult.ok ? (
+                  <span>
+                    ✓ Token válido — <strong>{metaValidateResult.displayPhoneNumber}</strong> ({metaValidateResult.verifiedName})
+                  </span>
+                ) : (
+                  <span>Falhou: {metaValidateResult.reason}</span>
+                )}
+              </div>
+            )}
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
+            <div className="space-y-1.5">
+              <Label className="text-sm">Template aprovado pela Meta</Label>
+              <p className="text-sm text-muted-foreground">
+                Nome EXATO do template aprovado em Meta Business Manager → WhatsApp Manager → Modelos de mensagem. Categoria <strong>Utilidade</strong>. Corpo precisa ter 3 variáveis: {"{{1}}"} contato, {"{{2}}"} título, {"{{3}}"} link de aprovação.
+              </p>
+              <Input
+                placeholder="approval_request"
+                value={metaTemplateName}
+                onChange={(e) => setMetaTemplateName(e.target.value)}
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm">Idioma</Label>
+              <p className="text-sm text-muted-foreground">Código do template (ex: pt_BR, en_US).</p>
+              <Input
+                placeholder="pt_BR"
+                value={metaTemplateLanguage}
+                onChange={(e) => setMetaTemplateLanguage(e.target.value)}
+              />
+            </div>
+          </div>
+
+          <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
+            <p className="font-medium text-warning">⏳ Lembrete sobre aprovação do template</p>
+            <p className="mt-1 text-foreground/80">
+              Meta revisa templates manualmente em 24-48h. Crie o template no Meta Business Manager primeiro, espere a aprovação, depois cole o nome aqui. O dispatch só funciona depois que o template está <em>Approved</em> no painel da Meta.
+            </p>
+          </div>
+          </>
+          )}
+
           <Button onClick={save} disabled={saving || !dirty} size="sm">
             {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-            Salvar ManyChat
+            Salvar
           </Button>
 
-          {/* Self-test dispatch — sends the configured Flow to a phone
-              the agency picks (typically their own) so they can confirm
-              the whole pipeline works before going live. Only useful
-              when the API key + Flow are saved and persisted. */}
-          {!dirty && origApiKey && origFlowNs && (
+          {/* Self-test dispatch — works for whichever provider is
+              configured. The endpoint detects from client row. */}
+          {!dirty && ((provider === "manychat" && origApiKey && origFlowNs) ||
+            (provider === "meta_cloud" && origMetaToken && origMetaPhoneNumberId && origMetaTemplateName)) && (
             <>
               <SelfTestPanel clientId={clientId} />
-              <ContactDebugButton clientId={clientId} />
-              <ManyChatDebugButton clientId={clientId} />
+              {provider === "manychat" && <ContactDebugButton clientId={clientId} />}
+              {provider === "manychat" && <ManyChatDebugButton clientId={clientId} />}
             </>
           )}
 
