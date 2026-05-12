@@ -44,6 +44,7 @@ export async function GET(
 
   const url = new URL(req.url)
   const rawPhone = url.searchParams.get("phone")?.trim() ?? ""
+  const rawName = url.searchParams.get("name")?.trim() ?? ""
 
   const trace: any = {}
 

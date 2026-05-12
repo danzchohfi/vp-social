@@ -15,6 +15,7 @@ import { AgencyClientCard } from "@/components/dashboard/agency-client-card"
 import { RecentActivityActions } from "@/components/dashboard/recent-activity-actions"
 import { NotifyPendingButton } from "@/components/dashboard/notify-pending-button"
 import { ExpireOrphansButton } from "@/components/dashboard/expire-orphans-button"
+import { PendingDetailsButton } from "@/components/dashboard/pending-details-button"
 import { DashboardPublishNow } from "@/components/dashboard/dashboard-publish-now"
 import { getActiveClientScope, listAccessibleClients } from "@/lib/active-client"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "@/lib/notion"
@@ -624,6 +625,7 @@ export default async function DashboardPage() {
                         </span>
                         {cid && <NotifyPendingButton clientId={cid} pendingCount={n} />}
                         {cid && <ExpireOrphansButton clientId={cid} />}
+                        {cid && <PendingDetailsButton clientId={cid} />}
                       </span>
                     )
                   })}
