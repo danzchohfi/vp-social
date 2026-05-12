@@ -24,6 +24,30 @@ function getDb() {
   return drizzle(sql, { schema })
 }
 
+// Broad heuristic over publish-error strings: are we looking at an
+// expired/revoked OAuth token? Pattern covers Meta (code 190, "OAuth"),
+// Google ("invalid_grant", "Token has been expired"), TikTok/LinkedIn
+// (401/403 status mentions). False positives just nudge the agency to
+// reconnect, false negatives let a real token failure stay silent — so
+// we err on the side of catching too much.
+function isAuthError(message: string): boolean {
+  const m = message.toLowerCase()
+  return (
+    m.includes("oauth") ||
+    m.includes("access token") ||
+    m.includes("token has expired") ||
+    m.includes("token expired") ||
+    m.includes("token is invalid") ||
+    m.includes("invalid_token") ||
+    m.includes("invalid_grant") ||
+    m.includes("code 190") ||
+    m.includes("status 401") ||
+    m.includes("status 403") ||
+    m.includes("session has expired") ||
+    m.includes("revoked")
+  )
+}
+
 // ─── Scheduled: roda a cada 5 minutos para todos os workspaces ──────
 
 export const publishScheduled = schedules.task({
@@ -348,6 +372,15 @@ export const publishForConnection = task({
           await completePublishSlot(db, claim.rowId, target.raw, "published", postId, postUrl, null)
           if (postUrl) publishedLinks.push({ platform: target.raw, url: postUrl })
           logger.info(`[${target.raw}/${post.conta}] ✓ "${post.title}" publicado! ID: ${postId}${postUrl ? ` URL: ${postUrl}` : ""}`)
+          // Successful publish proves the token works — clear any prior
+          // refresh-error flag so the dashboard banner stops nagging.
+          if (account.lastRefreshError) {
+            await db
+              .update(schema.instagramAccount)
+              .set({ lastRefreshError: null, lastRefreshErrorAt: null })
+              .where(eq(schema.instagramAccount.id, account.id))
+              .catch(() => {})
+          }
           results.published++
           anyPublished = true
         } catch (error) {
@@ -361,6 +394,18 @@ export const publishForConnection = task({
             platform: target.raw,
             error: message,
           })
+          // When the failure looks like an expired/revoked token, mark
+          // the account so the /dashboard banner can surface "reconectar"
+          // before the next publish cycle. Heuristic on common auth
+          // error shapes across IG/FB/YT/TT/LI — broad on purpose, false
+          // positives just nudge an unnecessary reconnect.
+          if (isAuthError(message)) {
+            await db
+              .update(schema.instagramAccount)
+              .set({ lastRefreshError: message.slice(0, 500), lastRefreshErrorAt: new Date() })
+              .where(eq(schema.instagramAccount.id, account.id))
+              .catch((e) => logger.warn(`[auth] não consegui marcar lastRefreshError em ${account.id}: ${e}`))
+          }
           results.failed++
           anyFailed = true
         }
@@ -760,6 +805,12 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       } else {
         lastError = result.provider ? `${result.provider}: ${result.reason}` : result.reason
         logger.warn(`[approval] ${result.provider ?? "dispatch"} falhou para "${post.title}": ${result.reason}`)
+        // Surface the dispatch failure in /history so the agency
+        // doesn't have to dig through Trigger.dev logs to see
+        // "template not approved" or "phone not in allowed list".
+        // platform="aprovação" disambiguates this row from real
+        // publish failures.
+        await saveLog(db, userId, connectionId, post, null, null, "aprovação", "failed", lastError, ownerClientId)
       }
     } else if (!contact.phone) {
       lastError = "Contato resolvido sem telefone — verifique a página Contato no Notion"
