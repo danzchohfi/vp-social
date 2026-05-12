@@ -1000,12 +1000,26 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
   }
 
   const isOtherClient = post.belongsToClient === false
+  // Left-border accent + soft background tint per workflow state.
+  // Cuts the sea-of-gray feel and lets the user scan status at a
+  // glance: amber=awaiting client, blue=scheduled to publish.
+  // hasIssues (warning border) still overrides — it's the higher
+  // priority signal.
+  const stateAccent = hasIssues
+    ? "border-l-4 border-l-warning/60 bg-warning/[0.04]"
+    : post.workflowState === "awaiting"
+      ? "border-l-4 border-l-warning/40 bg-warning/[0.02]"
+      : post.workflowState === "ready"
+        ? "border-l-4 border-l-primary/30"
+        : ""
+
   return (
     <div
       id={`post-${post.pageId}`}
       className={cn(
         "rounded-lg border bg-card p-4 transition-shadow",
-        hasIssues ? "border-warning/40 bg-warning/5" : hasIssue && "border-warning/40",
+        stateAccent,
+        hasIssue && !stateAccent && "border-warning/40",
         isOtherClient && "opacity-70"
       )}
     >
@@ -1349,17 +1363,45 @@ function ApprovalBanner({
             · {approval.contactPhone}
           </span>
         )}
+        {approval.sentVia === "manychat" && approval.state !== "decided" && approval.state !== "expired" && (
+          <span
+            className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[12px] font-medium text-success"
+            title={`Enviado via ManyChat${approval.sentAt ? ` em ${new Date(approval.sentAt).toLocaleString("pt-BR")}` : ""}`}
+          >
+            ✓ Enviado
+          </span>
+        )}
+        {approval.sentVia === "manual" && approval.state !== "decided" && approval.state !== "expired" && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[12px] font-medium text-muted-foreground">
+            ✋ Modo manual
+          </span>
+        )}
         {approval.sentVia === "none" && (approval.state === "pending" || approval.state === "stale") && (
           <span
-            className="rounded bg-warning/15 px-1.5 py-0.5 text-[13px] font-medium text-warning"
+            className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-[12px] font-medium text-warning"
             title={approval.lastError ?? "WhatsApp não foi enviado automaticamente"}
           >
-            ⚠ {approval.lastError ?? "WhatsApp não foi enviado automaticamente"}
+            ⚠ {approval.lastError ?? "Não enviado"}
           </span>
         )}
         {approval.sentVia === "invalid_phone" && (
-          <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-[13px] font-medium text-destructive">
-            ⚠ Telefone inválido na DB Contato — corrija no Notion
+          <span className="inline-flex items-center gap-1 rounded-full bg-destructive/15 px-2 py-0.5 text-[12px] font-medium text-destructive">
+            ⚠ Telefone inválido
+          </span>
+        )}
+        {approval.state === "decided" && approval.decision === "approved" && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[12px] font-medium text-success">
+            ✓ Aprovado
+          </span>
+        )}
+        {approval.state === "decided" && approval.decision === "revision" && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-[12px] font-medium text-warning">
+            🔁 Pediu alterações
+          </span>
+        )}
+        {approval.state === "expired" && (
+          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[12px] font-medium text-muted-foreground">
+            ⏱ Expirado
           </span>
         )}
         <div className="ml-auto flex items-center gap-1.5">
