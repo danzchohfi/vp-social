@@ -1,7 +1,7 @@
 import { schedules, task, logger } from "@trigger.dev/sdk"
 import { neon } from "@neondatabase/serverless"
 import { drizzle } from "drizzle-orm/neon-http"
-import { and, eq, isNull, lt } from "drizzle-orm"
+import { and, eq, inArray, isNull, lt } from "drizzle-orm"
 import * as schema from "../lib/db/schema"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "../lib/notion"
 import { publishToPlatform, saveLog, claimPublishSlot, completePublishSlot, hasPriorPublish, isVideo } from "../lib/publisher"
@@ -418,12 +418,52 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
   if (!connection?.databaseId) return
 
   const posts = await notion.getPostsByStatus(connection.databaseId, mapping, mapping.awaitingApprovalValue)
-  if (!posts.length) {
-    logger.info(`Nenhum post aguardando aprovação no workspace ${connection.workspaceName}.`)
-    return
+  logger.info(`${posts.length} post(s) aguardando aprovação no workspace ${connection.workspaceName}.`)
+
+  // Expire stale pending links: any approvalLink for this client+connection
+  // with decision IS NULL whose Notion post is no longer in the awaiting
+  // status. Reasons this happens:
+  //   - Agency moved the status back to "Rascunho" / "Aprovado" via Notion
+  //     directly (bypassing /approve)
+  //   - Approval was decided through the chain editor or admin tool
+  //   - Old test rows from when awaitingApprovalValue or contact resolution
+  //     was misconfigured
+  // Without this cleanup, /dashboard pendingByClient counted 10 when the
+  // user only saw 1 truly awaiting in Notion (2026-05-12 report).
+  // Note: we only flip rows where sentVia is null/'none' — any link we
+  // actually sent (sentVia='manychat'|'manual') keeps its WhatsApp URL
+  // valid so the recipient can still decide if they click it.
+  try {
+    const awaitingIds = new Set(posts.map((p) => p.pageId))
+    const existing = await db
+      .select({
+        id: schema.approvalLink.id,
+        notionPageId: schema.approvalLink.notionPageId,
+        sentVia: schema.approvalLink.sentVia,
+      })
+      .from(schema.approvalLink)
+      .where(and(
+        eq(schema.approvalLink.clientId, clientId),
+        eq(schema.approvalLink.connectionId, connectionId),
+        eq(schema.approvalLink.kind, "post"),
+        isNull(schema.approvalLink.decision),
+      ))
+    const orphanIds: string[] = existing
+      .filter((r) => r.notionPageId && !awaitingIds.has(r.notionPageId))
+      .filter((r) => r.sentVia === "none" || r.sentVia === "invalid_phone" || !r.sentVia)
+      .map((r) => r.id)
+    if (orphanIds.length > 0) {
+      await db
+        .update(schema.approvalLink)
+        .set({ decision: "expired", decidedAt: new Date() })
+        .where(inArray(schema.approvalLink.id, orphanIds))
+      logger.info(`[approval] expired ${orphanIds.length} órfão(s) — posts saíram do status de aprovação no Notion`)
+    }
+  } catch (e) {
+    logger.warn(`[approval] cleanup orphan links failed: ${e instanceof Error ? e.message : e}`)
   }
 
-  logger.info(`${posts.length} post(s) aguardando aprovação no workspace ${connection.workspaceName}.`)
+  if (!posts.length) return
 
   // First pass: release the partial unique index slot for any expired+pending
   // links. Without this, a post that aged past the 14-day TTL without a
