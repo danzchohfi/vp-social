@@ -106,6 +106,8 @@ export async function GET(req: Request) {
             pageAccessToken: page.access_token,
             pageName: page.name,
             updatedAt: new Date(),
+            lastRefreshError: null,
+            lastRefreshErrorAt: null,
           },
         })
 
@@ -134,6 +136,8 @@ export async function GET(req: Request) {
               instagramBusinessAccountId: ig.id,
               platformAccountId: ig.id,
               updatedAt: new Date(),
+              lastRefreshError: null,
+              lastRefreshErrorAt: null,
             },
           })
         connected++
