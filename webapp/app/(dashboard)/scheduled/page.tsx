@@ -41,6 +41,9 @@ type ApprovalState = {
   expiresAt?: string | null
   contactName?: string | null
   contactPhone?: string | null
+  // Human-readable cause when the auto-dispatch didn't fire / failed.
+  // Populated by the cron and by /api/clients/[id]/notify-pending.
+  lastError?: string | null
   approvalUrl?: string | null
   // Per-client wa.me message template — used by the "Enviar via WA"
   // button to fill in {{contact_name}} {{post_title}} {{approval_url}}
@@ -1322,7 +1325,12 @@ function ApprovalBanner({
           </span>
         )}
         {approval.sentVia === "none" && (approval.state === "pending" || approval.state === "stale") && (
-          <span className="text-[13px] opacity-80">· WhatsApp não foi enviado automaticamente</span>
+          <span
+            className="rounded bg-warning/15 px-1.5 py-0.5 text-[13px] font-medium text-warning"
+            title={approval.lastError ?? "WhatsApp não foi enviado automaticamente"}
+          >
+            ⚠ {approval.lastError ?? "WhatsApp não foi enviado automaticamente"}
+          </span>
         )}
         {approval.sentVia === "invalid_phone" && (
           <span className="rounded bg-destructive/15 px-1.5 py-0.5 text-[13px] font-medium text-destructive">

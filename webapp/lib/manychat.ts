@@ -41,30 +41,48 @@ export async function sendApprovalRequest(args: SendApprovalArgs): Promise<SendR
   const phone = normalizePhone(args.phone)
   if (!phone) return { ok: false, reason: "phone vazio" }
 
+  // Variants we try, in priority order. ManyChat stores WhatsApp
+  // subscribers under different formats depending on how they were
+  // imported — typically with + but sometimes digits-only. We attempt
+  // both before giving up so a single import-format quirk doesn't
+  // make the dispatch fail silently.
+  const phoneVariants = Array.from(new Set([
+    phone,                           // "+5511944459535"
+    phone.replace(/^\+/, ""),        // "5511944459535"
+    phone.replace(/[^\d]/g, ""),     // digits only (same as above for E.164)
+  ])).filter(Boolean)
+
   // Step 1 — find subscriber by phone. ManyChat's WA endpoint:
   //   POST /wa/subscriber/findByPhone   { phone }
   let subscriberId: number | null = null
-  try {
-    const res = await fetch(`${MANYCHAT_BASE}/fb/subscriber/findByCustomField`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${args.apiKey}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ field_id: "phone", field_value: phone }),
-    })
-    const data: any = await res.json().catch(() => null)
-    if (res.ok && data?.status === "success") {
-      const list = data.data?.subscribers ?? data.data ?? []
-      subscriberId = (Array.isArray(list) ? list[0]?.id : list?.id) ?? null
-    }
-  } catch (e) {
-    return { ok: false, reason: `findByCustomField falhou: ${e}` }
-  }
+  // Collect the responses so we can surface the actual cause if all
+  // lookups fail. Was being swallowed before, leaving the agency with
+  // a generic "subscriber not found" that didn't help debug.
+  const lookupErrors: string[] = []
 
-  if (!subscriberId) {
-    // Try the WhatsApp-specific endpoint as a second attempt. Some ManyChat
-    // accounts only expose this one for WA channels.
+  for (const candidate of phoneVariants) {
+    if (subscriberId) break
+    try {
+      const res = await fetch(`${MANYCHAT_BASE}/fb/subscriber/findByCustomField`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${args.apiKey}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ field_id: "phone", field_value: candidate }),
+      })
+      const data: any = await res.json().catch(() => null)
+      if (res.ok && data?.status === "success") {
+        const list = data.data?.subscribers ?? data.data ?? []
+        subscriberId = (Array.isArray(list) ? list[0]?.id : list?.id) ?? null
+      } else if (!res.ok) {
+        lookupErrors.push(`fb/findByCustomField "${candidate}" → ${res.status}: ${data?.message ?? data?.details ?? "no body"}`)
+      }
+    } catch (e) {
+      lookupErrors.push(`fb/findByCustomField "${candidate}" threw: ${e instanceof Error ? e.message : String(e)}`)
+    }
+
+    if (subscriberId) break
     try {
       const res = await fetch(`${MANYCHAT_BASE}/wa/subscriber/findByPhone`, {
         method: "POST",
@@ -72,17 +90,27 @@ export async function sendApprovalRequest(args: SendApprovalArgs): Promise<SendR
           Authorization: `Bearer ${args.apiKey}`,
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({ phone }),
+        body: JSON.stringify({ phone: candidate }),
       })
       const data: any = await res.json().catch(() => null)
-      if (res.ok && data?.data?.id) subscriberId = data.data.id
-    } catch {
-      // ignore — handled below
+      if (res.ok && data?.data?.id) {
+        subscriberId = data.data.id
+      } else if (!res.ok) {
+        lookupErrors.push(`wa/findByPhone "${candidate}" → ${res.status}: ${data?.message ?? data?.details ?? "no body"}`)
+      } else if (data && !data?.data?.id) {
+        lookupErrors.push(`wa/findByPhone "${candidate}" → 200 but no subscriber data`)
+      }
+    } catch (e) {
+      lookupErrors.push(`wa/findByPhone "${candidate}" threw: ${e instanceof Error ? e.message : String(e)}`)
     }
   }
 
   if (!subscriberId) {
-    return { ok: false, reason: "subscriber não encontrado no ManyChat (cliente precisa ter iniciado conversa antes)" }
+    const detail = lookupErrors.length > 0 ? ` Detalhes: ${lookupErrors.join(" | ")}` : ""
+    return {
+      ok: false,
+      reason: `subscriber não encontrado no ManyChat — tentei formatos: ${phoneVariants.join(", ")}. Verifique se o número existe na sua conta ManyChat com algum desses formatos.${detail}`,
+    }
   }
 
   // Step 2 — set custom fields and send the flow.

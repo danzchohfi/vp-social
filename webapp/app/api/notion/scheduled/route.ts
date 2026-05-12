@@ -298,6 +298,7 @@ export async function GET() {
             expiresAt: link.expiresAt,
             contactName: link.contactName,
             contactPhone: link.contactPhone,
+            lastError: link.lastError ?? null,
             approvalUrl: appUrl ? `${appUrl}/approve/${link.token}` : null,
             manualWaTemplate: owning?.manualWhatsappTemplate ?? null,
             ownerClientName: owning?.name ?? null,
