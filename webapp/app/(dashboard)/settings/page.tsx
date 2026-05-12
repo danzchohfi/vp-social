@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { useSession } from "@/lib/auth-client"
 import { toast } from "sonner"
-import { ArrowRight, ChevronDown, UserCheck } from "lucide-react"
+import { ArrowRight, ChevronDown, ListChecks, MessageCircle, Tag, UserCheck, Users, Database } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { RequiresSingleClient } from "@/components/dashboard/requires-single-client"
 import {
@@ -128,29 +128,60 @@ function StatusValueSelect({ label, value, options, onChange }: { label: string;
 // no JS state to manage. Default closed except for Setup (which is
 // the "what's broken" overview) so /settings reads as a clean menu
 // instead of a giant scrolling page.
+//
+// `accent`: semantic color identity per section. Renders a left border
+// stripe + tinted icon background so the page reads as a colored
+// roster instead of a sea of gray cards.
+type AccentTone = "success" | "primary" | "warning" | "purple" | "neutral"
+const ACCENT_STYLES: Record<AccentTone, { stripe: string; iconBg: string; iconColor: string }> = {
+  success: { stripe: "border-l-success/60", iconBg: "bg-success/10", iconColor: "text-success" },
+  primary: { stripe: "border-l-primary/60", iconBg: "bg-primary/10", iconColor: "text-primary" },
+  warning: { stripe: "border-l-warning/60", iconBg: "bg-warning/15", iconColor: "text-warning" },
+  purple: { stripe: "border-l-[hsl(280,60%,55%)]/60", iconBg: "bg-[hsl(280,60%,55%)]/10", iconColor: "text-[hsl(280,60%,45%)]" },
+  neutral: { stripe: "border-l-muted-foreground/30", iconBg: "bg-muted", iconColor: "text-muted-foreground" },
+}
+
 function CollapsibleSection({
   title,
   description,
   defaultOpen = false,
+  accent = "neutral",
+  icon: IconComponent,
   children,
 }: {
   title: string
   description?: string
   defaultOpen?: boolean
+  accent?: AccentTone
+  icon?: React.ComponentType<{ className?: string }>
   children: React.ReactNode
 }) {
+  const styles = ACCENT_STYLES[accent]
   return (
-    <details open={defaultOpen} className="group rounded-lg border bg-card transition-colors open:bg-background">
-      <summary className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3 hover:bg-accent/40 list-none [&::-webkit-details-marker]:hidden">
-        <div className="min-w-0 flex-1">
-          <p className="text-base font-semibold">{title}</p>
-          {description && (
-            <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
+    <details
+      open={defaultOpen}
+      className={cn(
+        "group rounded-lg border border-l-4 bg-card transition-colors open:bg-background",
+        styles.stripe,
+      )}
+    >
+      <summary className="flex cursor-pointer items-center justify-between gap-3 px-5 py-4 hover:bg-accent/40 list-none [&::-webkit-details-marker]:hidden">
+        <div className="flex min-w-0 flex-1 items-start gap-3">
+          {IconComponent && (
+            <div className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-md", styles.iconBg)}>
+              <IconComponent className={cn("h-4 w-4", styles.iconColor)} />
+            </div>
           )}
+          <div className="min-w-0 flex-1">
+            <p className="text-base font-semibold">{title}</p>
+            {description && (
+              <p className="mt-0.5 text-sm text-muted-foreground">{description}</p>
+            )}
+          </div>
         </div>
         <ChevronDown className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-open:rotate-180" />
       </summary>
-      <div className="border-t px-4 py-4">
+      <div className="border-t px-5 py-5">
         {children}
       </div>
     </details>
@@ -458,7 +489,7 @@ export default function SettingsPage() {
   if (!session) return null
 
   return (
-    <div className="max-w-2xl mx-auto space-y-8 py-8 px-4">
+    <div className="max-w-3xl mx-auto space-y-6 py-10 px-4">
       <RequiresSingleClient message="Configurações são por cliente. Selecione um cliente específico no menu lateral antes de mexer em conexões ou mapeamento." />
       <div>
         <h1 className="text-3xl tracking-tight sm:text-4xl">Configurações</h1>
@@ -470,8 +501,8 @@ export default function SettingsPage() {
           carries its own state via the imported panel component, so
           adding/removing sections doesn't risk cross-panel coupling. */}
       {activeClient && (
-        <div className="space-y-8">
-          <div className="flex items-center gap-3 border-b pb-4">
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 border-b pb-5 mb-3">
             {activeClient.logoUrl ? (
               // eslint-disable-next-line @next/next/no-img-element
               <img src={activeClient.logoUrl} alt="" className="h-10 w-10 rounded-lg object-cover" />
@@ -486,6 +517,8 @@ export default function SettingsPage() {
             title="Status de configuração"
             description="Checklist de tudo que falta pra publicar + pausa de publicações"
             defaultOpen
+            accent="success"
+            icon={ListChecks}
           >
             <SetupChecklistPanel clientId={activeClient.id} />
           </CollapsibleSection>
@@ -493,6 +526,8 @@ export default function SettingsPage() {
           <CollapsibleSection
             title="Aprovação cliente"
             description="ManyChat / WhatsApp, dispatch mode, template, diagnóstico de contato"
+            accent="primary"
+            icon={MessageCircle}
           >
             <ApprovalPanel clientId={activeClient.id} clientName={activeClient.name} />
           </CollapsibleSection>
@@ -500,6 +535,8 @@ export default function SettingsPage() {
           <CollapsibleSection
             title="Contas do Notion mapeadas"
             description="Quais valores do campo Conta pertencem a este cliente"
+            accent="warning"
+            icon={Tag}
           >
             <NotionContasPanel clientId={activeClient.id} clientName={activeClient.name} />
           </CollapsibleSection>
@@ -507,22 +544,26 @@ export default function SettingsPage() {
           <CollapsibleSection
             title="Membros e convites"
             description="Quem mais pode acessar este cliente"
+            accent="purple"
+            icon={Users}
           >
             <MembersPanel clientId={activeClient.id} canManage={true} />
           </CollapsibleSection>
 
           <Link
             href="/approvers"
-            className="flex items-center gap-3 rounded-lg border bg-card p-3 transition-colors hover:border-primary/40 hover:bg-primary/[0.03]"
+            className="flex items-center gap-3 rounded-lg border border-l-4 border-l-[hsl(200,75%,50%)]/60 bg-card p-5 transition-colors hover:bg-accent/40"
           >
-            <div className="text-muted-foreground"><UserCheck className="h-4 w-4" /></div>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md bg-[hsl(200,75%,50%)]/10">
+              <UserCheck className="h-4 w-4 text-[hsl(200,75%,40%)]" />
+            </div>
             <div className="min-w-0 flex-1">
-              <p className="text-base font-medium">Aprovadores (Magic Link / Chain de produção)</p>
-              <p className="text-sm text-muted-foreground truncate">
-                Cadastro reutilizável de aprovadores entre clientes — abre em página própria
+              <p className="text-base font-semibold">Aprovadores</p>
+              <p className="text-sm text-muted-foreground">
+                Cadastro reutilizável + Magic Link / Chain de produção · abre em página própria
               </p>
             </div>
-            <ArrowRight className="h-3.5 w-3.5 text-muted-foreground/60" />
+            <ArrowRight className="h-4 w-4 text-muted-foreground/60" />
           </Link>
         </div>
       )}
@@ -530,6 +571,8 @@ export default function SettingsPage() {
       <CollapsibleSection
         title="Notion: workspace, banco de dados e mapeamento"
         description="Conectar/desconectar workspace, escolher DB, mapear campos (status, plataforma, contato, analytics)"
+        accent="neutral"
+        icon={Database}
       >
       <div className="space-y-3">
         <Label>Workspace do Notion</Label>
