@@ -443,7 +443,9 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       })
       .from(schema.approvalLink)
       .where(and(
-        eq(schema.approvalLink.clientId, clientId),
+        // Scope by connectionId only — clientId now varies per conta
+        // (resolveOwnerClient), so locking to the cron's connection
+        // is the right boundary for this sweep's cleanup.
         eq(schema.approvalLink.connectionId, connectionId),
         eq(schema.approvalLink.kind, "post"),
         isNull(schema.approvalLink.decision),
@@ -465,6 +467,78 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
 
   if (!posts.length) return
 
+  // Build a conta → ownerClientId map across all clients accessible to
+  // this agency owner. Without this, every approvalLink gets the cron's
+  // connection.clientId regardless of which conta the post belongs to —
+  // so when the same Notion DB serves multiple client tenants (Conta
+  // "Marca A" → client A, "Marca B" → client B), all approvalLinks end
+  // up tagged with whichever client owns the notionConnection. User
+  // reported in 2026-05-12: dashboard "Detalhes" pulled posts from
+  // every conta with awaiting status, not just the active client's.
+  //
+  // Match priority (mirrors /api/notion/scheduled findExplicitOwner):
+  //   1. Client name (case-insensitive) === conta
+  //   2. Client.notionContaValues contains conta
+  // Posts whose conta matches no client → fall back to connection.clientId
+  // (legacy behavior; ensures we don't drop posts when an account is
+  // configured but not yet linked to its own client row).
+  const allClients = await db
+    .select({
+      id: schema.client.id,
+      name: schema.client.name,
+      notionContaValues: schema.client.notionContaValues,
+    })
+    .from(schema.client)
+    .where(eq(schema.client.userId, userId))
+  function resolveOwnerClient(contaRaw: string | null | undefined): string {
+    const conta = (contaRaw ?? "").trim().toLowerCase()
+    if (!conta) return clientId
+    const byName = allClients.find((c) => c.name.trim().toLowerCase() === conta)
+    if (byName) return byName.id
+    for (const c of allClients) {
+      const claims = c.notionContaValues ?? []
+      if (claims.some((v) => v.trim().toLowerCase() === conta)) return c.id
+    }
+    return clientId
+  }
+
+  // Re-route existing pending links that were created with the wrong
+  // clientId before this routing logic existed. Match each pending
+  // link's notionPageId against the current sweep's posts; if the
+  // post's conta resolves to a different owner, update the row's
+  // clientId. Idempotent: subsequent runs see clientId already matches
+  // and write nothing.
+  try {
+    const postsByPageId = new Map(posts.map((p) => [p.pageId, p]))
+    const existingForReroute = await db
+      .select({
+        id: schema.approvalLink.id,
+        clientId: schema.approvalLink.clientId,
+        notionPageId: schema.approvalLink.notionPageId,
+      })
+      .from(schema.approvalLink)
+      .where(and(
+        eq(schema.approvalLink.connectionId, connectionId),
+        eq(schema.approvalLink.kind, "post"),
+        isNull(schema.approvalLink.decision),
+      ))
+    for (const row of existingForReroute) {
+      if (!row.notionPageId) continue
+      const matchingPost = postsByPageId.get(row.notionPageId)
+      if (!matchingPost) continue
+      const correctOwner = resolveOwnerClient(matchingPost.conta)
+      if (correctOwner !== row.clientId) {
+        await db
+          .update(schema.approvalLink)
+          .set({ clientId: correctOwner })
+          .where(eq(schema.approvalLink.id, row.id))
+        logger.info(`[approval] re-routed approvalLink ${row.id} clientId ${row.clientId} → ${correctOwner} (conta="${matchingPost.conta}")`)
+      }
+    }
+  } catch (e) {
+    logger.warn(`[approval] reroute pass failed: ${e instanceof Error ? e.message : e}`)
+  }
+
   // First pass: release the partial unique index slot for any expired+pending
   // links. Without this, a post that aged past the 14-day TTL without a
   // decision would block all future approval cycles (the unique index keeps
@@ -477,7 +551,10 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
     .update(schema.approvalLink)
     .set({ decision: "expired", decidedAt: now })
     .where(and(
-      eq(schema.approvalLink.clientId, clientId),
+      // Scope by connectionId — see comment above resolveOwnerClient
+      // re: per-conta routing. clientId varies across links from one
+      // sweep now.
+      eq(schema.approvalLink.connectionId, connectionId),
       isNull(schema.approvalLink.decision),
       lt(schema.approvalLink.expiresAt, now),
     ))
@@ -531,10 +608,18 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       logger.info(`[approval] post "${post.title}" linked to approver ${matchedApprover.id} (${matchedApprover.name}) via phone match`)
     }
 
+    // Resolve the TRUE owner client by the post's conta. Without this,
+    // every link gets the cron's connection.clientId — see comment near
+    // resolveOwnerClient above.
+    const ownerClientId = resolveOwnerClient(post.conta)
+    if (ownerClientId !== clientId) {
+      logger.info(`[approval] post "${post.title}" (conta="${post.conta}") roteado pra cliente ${ownerClientId} (não ${clientId} do connection)`)
+    }
+
     const linkRow = {
       id: generateId(),
       token,
-      clientId,
+      clientId: ownerClientId,
       connectionId,
       notionPageId: post.pageId,
       postTitle: post.title || "Sem título",
