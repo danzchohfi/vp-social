@@ -560,36 +560,42 @@ export default async function DashboardPage() {
           </div>
 
           {/* Top-line counts. Stale highlights the chase signal — without
-              this people see "5 pendentes" and assume everything is fine. */}
-          <div className="mb-3 grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <div className="rounded-lg bg-muted/40 p-2.5">
-              <p className="text-2xl leading-none">{approvalsPending.length}</p>
-              <p className="mt-1 text-[12px] uppercase tracking-wider text-muted-foreground">Pendentes</p>
+              this people see "5 pendentes" and assume everything is fine.
+              Hero numbers bumped to text-4xl so a quick scan immediately
+              tells the agency what needs attention without reading
+              labels. */}
+          <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
+            <div className="rounded-lg border-l-4 border-l-primary/30 bg-card p-4">
+              <p className="text-4xl font-semibold leading-none tracking-tight">{approvalsPending.length}</p>
+              <p className="mt-2 text-[12px] uppercase tracking-wider text-muted-foreground">Pendentes</p>
             </div>
             <div className={cn(
-              "rounded-lg p-2.5",
-              approvalsStale.length > 0 ? "bg-warning/10" : "bg-muted/40"
+              "rounded-lg border-l-4 p-4",
+              approvalsStale.length > 0 ? "border-l-warning/60 bg-warning/[0.06]" : "border-l-muted bg-card"
             )}>
               <p className={cn(
-                "text-2xl leading-none",
-                approvalsStale.length > 0 ? "text-warning" : "",
+                "text-4xl font-semibold leading-none tracking-tight",
+                approvalsStale.length > 0 ? "text-warning" : "text-muted-foreground/60",
               )}>
                 {approvalsStale.length}
               </p>
-              <p className="mt-1 text-[12px] uppercase tracking-wider text-muted-foreground">Parados +3d</p>
+              <p className="mt-2 text-[12px] uppercase tracking-wider text-muted-foreground">Parados +3d</p>
             </div>
-            <div className="rounded-lg bg-muted/40 p-2.5">
-              <p className="text-2xl leading-none text-success">{approvalsApproved7d.length}</p>
-              <p className="mt-1 text-[12px] uppercase tracking-wider text-muted-foreground">Aprovados 7d</p>
+            <div className="rounded-lg border-l-4 border-l-success/40 bg-card p-4">
+              <p className="text-4xl font-semibold leading-none tracking-tight text-success">{approvalsApproved7d.length}</p>
+              <p className="mt-2 text-[12px] uppercase tracking-wider text-muted-foreground">Aprovados 7d</p>
             </div>
-            <div className="rounded-lg bg-muted/40 p-2.5">
+            <div className={cn(
+              "rounded-lg border-l-4 p-4",
+              approvalsExpired.length > 0 ? "border-l-destructive/40 bg-destructive/[0.04]" : "border-l-muted bg-card",
+            )}>
               <p className={cn(
-                "text-2xl leading-none",
-                approvalsExpired.length > 0 ? "text-destructive" : "",
+                "text-4xl font-semibold leading-none tracking-tight",
+                approvalsExpired.length > 0 ? "text-destructive" : "text-muted-foreground/60",
               )}>
                 {approvalsExpired.length}
               </p>
-              <p className="mt-1 text-[12px] uppercase tracking-wider text-muted-foreground">Expirados</p>
+              <p className="mt-2 text-[12px] uppercase tracking-wider text-muted-foreground">Expirados</p>
             </div>
           </div>
 
@@ -765,15 +771,15 @@ export default async function DashboardPage() {
                   ) : (
                     <>
                       <div className="grid grid-cols-2 gap-2 text-center">
-                        <div className="rounded-lg bg-muted/40 p-2">
-                          <p className="text-lg leading-none">{monthCount}</p>
-                          <p className="text-[12px] uppercase tracking-wider text-muted-foreground mt-1">
+                        <div className="rounded-lg border-l-2 border-l-success/40 bg-card p-2.5">
+                          <p className="text-2xl font-semibold leading-none tracking-tight">{monthCount}</p>
+                          <p className="text-[11px] uppercase tracking-wider text-muted-foreground mt-1.5">
                             Publ. mês
                           </p>
                         </div>
-                        <div className="rounded-lg bg-muted/40 p-2">
-                          <p className="text-lg leading-none">{upcomingForThisClient}</p>
-                          <p className="text-[12px] uppercase tracking-wider text-muted-foreground mt-1">
+                        <div className="rounded-lg border-l-2 border-l-primary/40 bg-card p-2.5">
+                          <p className="text-2xl font-semibold leading-none tracking-tight">{upcomingForThisClient}</p>
+                          <p className="text-[11px] uppercase tracking-wider text-muted-foreground mt-1.5">
                             Agendados
                           </p>
                         </div>
