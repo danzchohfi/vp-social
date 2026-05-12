@@ -230,18 +230,21 @@ export async function GET() {
     // Capture posts that would have shown but were filtered out — surface
     // them in the UI as "ignorados" with a fuzzy-match suggestion. Helps
     // users catch typo/case mismatches that silently kill publishing.
-    // Skip posts that are explicitly owned by ANOTHER accessible client
-    // (the agency user can switch to that client to see them) — those
-    // aren't misconfig, they just belong somewhere else.
-    ignored = flat
-      .filter((p) => !p.belongsToClient && p.conta && !p.ownedByOtherClient)
-      .map((p) => ({
-        pageId: p.pageId,
-        title: p.title,
-        conta: p.conta,
-        clientName: p.clientName ?? null,
-        suggestion: suggestMatch(p.conta, accounts.filter((a) => a.active).map((a) => a.conta)),
-      }))
+    // Only relevant in agency mode (when the user views the union of all
+    // accessible clients). Inside a single client's scope, the user just
+    // wants to see their own posts — orphan-conta noise belongs to the
+    // agency oversight view.
+    ignored = isAgency
+      ? flat
+        .filter((p) => !p.belongsToClient && p.conta && !p.ownedByOtherClient)
+        .map((p) => ({
+          pageId: p.pageId,
+          title: p.title,
+          conta: p.conta,
+          clientName: p.clientName ?? null,
+          suggestion: suggestMatch(p.conta, accounts.filter((a) => a.active).map((a) => a.conta)),
+        }))
+      : []
 
     // Merge approval-link state into each upcoming post. We pull the most
     // recent row per notionPageId scoped to the user's accessible clients
