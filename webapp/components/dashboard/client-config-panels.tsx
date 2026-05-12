@@ -2023,6 +2023,14 @@ export function NotionContasPanel({ clientId, clientName }: { clientId: string; 
         você pode marcar uma conta lida do banco de outro cliente.
       </p>
 
+      {!loading && selected.size === 0 && (
+        <div className="mb-3 rounded-md border border-warning/40 bg-warning/10 p-3 text-sm text-warning">
+          ⚠ <strong>Nenhuma conta mapeada.</strong> Sem isso o cron não roteia posts pra este cliente — posts do
+          Notion com qualquer conta vão pra OUTROS clientes (ou serão expirados). Marque pelo menos uma das opções
+          abaixo.
+        </div>
+      )}
+
       {loading ? (
         <div className="flex justify-center py-6">
           <Loader2 className="h-4 w-4 animate-spin text-muted-foreground" />

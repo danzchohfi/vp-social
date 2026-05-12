@@ -501,8 +501,11 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
   function resolveOwnerClient(contaRaw: string | null | undefined): string | null {
     const conta = (contaRaw ?? "").trim().toLowerCase()
     if (!conta) return null
-    const byName = allClients.find((c) => c.name.trim().toLowerCase() === conta)
-    if (byName) return byName.id
+    // Single source of truth: explicit notionContaValues claim. Name-based
+    // matching was removed in #91 — the agency must explicitly tell the
+    // app "this client handles these contas" in /settings → Contas do
+    // Notion mapeadas. Avoids the ambiguity of "Vitamina" (client) vs
+    // "vitamina" (conta) vs "Vitamina Publicitária" (client name).
     for (const c of allClients) {
       const claims = c.notionContaValues ?? []
       if (claims.some((v) => v.trim().toLowerCase() === conta)) return c.id

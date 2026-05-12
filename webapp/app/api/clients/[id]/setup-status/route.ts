@@ -34,7 +34,7 @@ import { userHasClientAccess } from "@/lib/active-client"
 // status from a sibling client otherwise.
 
 export type SetupStep = {
-  key: "notion" | "mapping" | "accounts" | "approval" | "first_publish"
+  key: "notion" | "mapping" | "contas" | "accounts" | "approval" | "first_publish"
   label: string
   status: "done" | "partial" | "missing"
   action: { label: string; href: string }
@@ -159,6 +159,21 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     }
   })()
 
+  // Step 2.5 — Notion contas mapeadas. Required since #91: the cron
+  // routes posts to clients exclusively by client.notionContaValues
+  // (name-based fallback removed). Without at least one claim here,
+  // the cron skips every post for this client.
+  const contaValues = c.notionContaValues ?? []
+  const contasStep: SetupStep = {
+    key: "contas",
+    label: "Mapear contas do Notion",
+    status: contaValues.length > 0 ? "done" : "missing",
+    action: { label: "Mapear", href: "/settings" },
+    detail: contaValues.length > 0
+      ? `${contaValues.length} conta(s): ${contaValues.join(", ")}`
+      : "Sem isso, posts do Notion não roteiam pra este cliente — vá em /settings → Contas do Notion mapeadas",
+  }
+
   // Step 3 — Social accounts
   const activeAccounts = accounts.filter((a) => a.active)
   const accountsStep: SetupStep = (() => {
@@ -242,7 +257,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     }
   })()
 
-  const steps: SetupStep[] = [notionStep, mappingStep, accountsStep, approvalStep, firstPublishStep]
+  const steps: SetupStep[] = [notionStep, mappingStep, contasStep, accountsStep, approvalStep, firstPublishStep]
   const doneCount = steps.filter((s) => s.status === "done").length
   const percentComplete = Math.round((doneCount / steps.length) * 100)
 
