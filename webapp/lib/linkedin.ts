@@ -1,8 +1,10 @@
+import { fetchWithRetry } from "./fetch-with-retry"
+
 const LI_API = "https://api.linkedin.com/v2"
 const TOKEN_URL = "https://www.linkedin.com/oauth/v2/accessToken"
 
 async function refreshAccessToken(refreshToken: string): Promise<string> {
-  const res = await fetch(TOKEN_URL, {
+  const res = await fetchWithRetry(TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
     body: new URLSearchParams({
@@ -11,6 +13,7 @@ async function refreshAccessToken(refreshToken: string): Promise<string> {
       client_id: process.env.LINKEDIN_CLIENT_ID!,
       client_secret: process.env.LINKEDIN_CLIENT_SECRET!,
     }),
+    logContext: { platform: "linkedin", op: "refresh_token" },
   })
   const data = await res.json()
   if (!data.access_token) throw new Error(data.error_description ?? "LinkedIn token refresh failed")
@@ -18,7 +21,7 @@ async function refreshAccessToken(refreshToken: string): Promise<string> {
 }
 
 async function registerImageUpload(token: string, ownerUrn: string): Promise<{ uploadUrl: string; asset: string }> {
-  const res = await fetch(`${LI_API}/assets?action=registerUpload`, {
+  const res = await fetchWithRetry(`${LI_API}/assets?action=registerUpload`, {
     method: "POST",
     headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
     body: JSON.stringify({
@@ -28,6 +31,7 @@ async function registerImageUpload(token: string, ownerUrn: string): Promise<{ u
         serviceRelationships: [{ relationshipType: "OWNER", identifier: "urn:li:userGeneratedContent" }],
       },
     }),
+    logContext: { platform: "linkedin", op: "register_upload" },
   })
   const data = await res.json()
   return {
