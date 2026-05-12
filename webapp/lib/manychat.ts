@@ -45,13 +45,16 @@ export async function sendApprovalRequest(args: SendApprovalArgs): Promise<SendR
 
   // Variants we try, in priority order. ManyChat stores WhatsApp
   // subscribers under different formats depending on how they were
-  // imported — typically with + but sometimes digits-only. We attempt
-  // both before giving up so a single import-format quirk doesn't
-  // make the dispatch fail silently.
+  // imported — typically with + but sometimes digits-only. We also
+  // try without the country code in case the subscriber was imported
+  // with local format (Brazilian 11-digit cell instead of 13-digit
+  // E.164).
+  const digits = phone.replace(/[^\d]/g, "")
   const phoneVariants = Array.from(new Set([
-    phone,                           // "+5511944459535"
-    phone.replace(/^\+/, ""),        // "5511944459535"
-    phone.replace(/[^\d]/g, ""),     // digits only (same as above for E.164)
+    phone,                                                  // "+5511944459535"
+    digits,                                                 // "5511944459535"
+    digits.length > 11 ? digits.slice(2) : digits,           // "11944459535" (no CC)
+    digits.length > 11 ? `+${digits.slice(2)}` : `+${digits}`, // "+11944459535"
   ])).filter(Boolean)
 
   // Subscriber lookup. We only use ManyChat's WhatsApp endpoint here —
@@ -80,6 +83,35 @@ export async function sendApprovalRequest(args: SendApprovalArgs): Promise<SendR
       }
     } catch (e) {
       lookupErrors.push(`wa/findByPhone "${candidate}" threw: ${e instanceof Error ? e.message : String(e)}`)
+    }
+  }
+
+  // Fallback: search by system field "phone" — finds subscribers on
+  // ANY channel of this ManyChat page (Messenger, Instagram, etc).
+  // Useful when the contact has the page but only via Messenger and
+  // not yet via WA — we'd then send the flow which fails downstream
+  // but the find succeeds, so we know subscriber EXISTS just on
+  // wrong channel. Improves the error message ("subscriber on
+  // wrong channel" vs "doesn't exist anywhere").
+  if (!subscriberId) {
+    for (const candidate of phoneVariants) {
+      if (subscriberId) break
+      try {
+        const qs = new URLSearchParams({ field_name: "phone", field_value: candidate })
+        const res = await fetch(`${MANYCHAT_BASE}/fb/subscriber/findBySystemField?${qs}`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${args.apiKey}` },
+        })
+        const data: any = await res.json().catch(() => null)
+        if (res.ok && data?.status === "success") {
+          const list = data.data?.subscribers ?? data.data ?? []
+          subscriberId = (Array.isArray(list) ? list[0]?.id : list?.id) ?? null
+        } else if (!res.ok) {
+          lookupErrors.push(`fb/findBySystemField "${candidate}" → ${res.status}: ${data?.message ?? data?.details ?? "no body"}`)
+        }
+      } catch (e) {
+        lookupErrors.push(`fb/findBySystemField "${candidate}" threw: ${e instanceof Error ? e.message : String(e)}`)
+      }
     }
   }
 

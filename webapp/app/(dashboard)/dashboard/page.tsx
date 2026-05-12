@@ -14,7 +14,6 @@ import { SwitchClientButton } from "@/components/dashboard/switch-client-button"
 import { AgencyClientCard } from "@/components/dashboard/agency-client-card"
 import { RecentActivityActions } from "@/components/dashboard/recent-activity-actions"
 import { NotifyPendingButton } from "@/components/dashboard/notify-pending-button"
-import { ExpireOrphansButton } from "@/components/dashboard/expire-orphans-button"
 import { PendingDetailsButton } from "@/components/dashboard/pending-details-button"
 import { DashboardPublishNow } from "@/components/dashboard/dashboard-publish-now"
 import { getActiveClientScope, listAccessibleClients } from "@/lib/active-client"
@@ -630,7 +629,6 @@ export default async function DashboardPage() {
                           {n}{stale > 0 ? ` (${stale} parado)` : ""}
                         </span>
                         {cid && <NotifyPendingButton clientId={cid} pendingCount={n} />}
-                        {cid && <ExpireOrphansButton clientId={cid} />}
                         {cid && <PendingDetailsButton clientId={cid} />}
                       </span>
                     )

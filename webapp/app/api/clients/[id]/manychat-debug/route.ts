@@ -80,7 +80,12 @@ export async function GET(
       digits.length > 11 ? `+${digits.slice(2)}` : digits,
     ])).filter(Boolean)
 
-    const attempts: Array<{ variant: string; status: number; body: any }> = []
+    const attempts: Array<{ variant: string; endpoint: string; status: number; body: any }> = []
+    // Try both WhatsApp-specific and system-field-on-any-channel
+    // endpoints per variant. If the subscriber exists on the FB
+    // Messenger channel (not WhatsApp) with phone set as a system
+    // field, findBySystemField finds them — surfaces "wrong channel"
+    // as a distinct failure mode from "doesn't exist".
     for (const v of variants) {
       try {
         const qs = new URLSearchParams({ phone: v })
@@ -89,17 +94,26 @@ export async function GET(
           headers: { Authorization: `Bearer ${c.manychatApiKey}` },
         })
         const body: any = await res.json().catch(() => null)
-        attempts.push({ variant: v, status: res.status, body })
+        attempts.push({ variant: v, endpoint: "wa/findByPhone", status: res.status, body })
       } catch (e) {
-        attempts.push({ variant: v, status: 0, body: { error: e instanceof Error ? e.message : String(e) } })
+        attempts.push({ variant: v, endpoint: "wa/findByPhone", status: 0, body: { error: e instanceof Error ? e.message : String(e) } })
+      }
+      // findBySystemField — works across channels (FB Messenger, IG,
+      // WhatsApp). If this returns 200 + a subscriber but wa/findByPhone
+      // returned 404, the subscriber exists on a non-WA channel.
+      try {
+        const qs = new URLSearchParams({ field_name: "phone", field_value: v })
+        const res = await fetch(`${MANYCHAT_BASE}/fb/subscriber/findBySystemField?${qs}`, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${c.manychatApiKey}` },
+        })
+        const body: any = await res.json().catch(() => null)
+        attempts.push({ variant: v, endpoint: "fb/findBySystemField", status: res.status, body })
+      } catch (e) {
+        attempts.push({ variant: v, endpoint: "fb/findBySystemField", status: 0, body: { error: e instanceof Error ? e.message : String(e) } })
       }
     }
     trace.phoneProbes = attempts
-
-    // Also try fb/findByName as a last-ditch — maybe the subscriber
-    // exists on FB Messenger channel and the user is mistaking that
-    // for WhatsApp. Searching by name needs a name, so skip if we
-    // don't have one. (Future: pass name in query.)
   }
 
   trace.flowConfigured = !!c.manychatApprovalFlowNs
@@ -107,9 +121,22 @@ export async function GET(
     if (!trace.pageInfo?.ok) {
       return "API key inválida ou expirou. Vá em ManyChat → Settings → API → gera nova key e cola em /settings → Aprovação cliente."
     }
-    if (trace.phoneProbes?.every((p: any) => p.status === 404)) {
-      const pageName = trace.pageInfo?.name ?? "(?)"
-      return `Conta ManyChat confirmada: "${pageName}". Mas o telefone ${rawPhone} não existe como subscriber em NENHUM formato testado. Possíveis causas: (1) o subscriber está em OUTRA conta ManyChat (verifique se a API key é da página correta) ou (2) ele existe em outro canal (FB Messenger / Instagram) e não no WhatsApp dessa página.`
+    const probes = trace.phoneProbes ?? []
+    const waProbes = probes.filter((p: any) => p.endpoint === "wa/findByPhone")
+    const sysProbes = probes.filter((p: any) => p.endpoint === "fb/findBySystemField")
+    const waFound = waProbes.find((p: any) => p.status === 200 && p.body?.data?.id)
+    const sysFound = sysProbes.find((p: any) => p.status === 200 && (p.body?.data?.subscribers?.length || p.body?.data?.id))
+    const pageName = trace.pageInfo?.name ?? "(?)"
+
+    if (!waFound && sysFound) {
+      const subId = sysFound.body?.data?.subscribers?.[0]?.id ?? sysFound.body?.data?.id
+      return `Subscriber EXISTE em "${pageName}" (id ${subId}) mas NÃO no canal WhatsApp — apenas em outro canal (Messenger ou Instagram). Pra mensagens WA do ManyChat funcionarem, o contato precisa mandar pelo menos uma mensagem direto pro seu número WhatsApp Business, virando subscriber do canal WA. Hoje só está cadastrado em outro canal da mesma página.`
+    }
+    if (!waFound && !sysFound && probes.every((p: any) => p.status === 404 || (p.status === 200 && !p.body?.data?.id))) {
+      return `Conta ManyChat confirmada: "${pageName}". Mas o telefone ${rawPhone} não existe como subscriber em NENHUM canal e em NENHUM formato testado. Possíveis causas: (1) o subscriber está em OUTRA conta ManyChat (a API key é da página correta?) ou (2) o contato nunca mandou mensagem em qualquer canal desta página — precisa fazer opt-in primeiro.`
+    }
+    if (waFound) {
+      return `Subscriber encontrado no canal WhatsApp! Disparo automático deveria funcionar a partir da próxima tentativa.`
     }
     return null
   })()
