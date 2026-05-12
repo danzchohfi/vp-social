@@ -8,6 +8,8 @@ import { CalendarClock, Loader2, RefreshCw, Zap, Clock, CheckCircle2, AlertTrian
 import Link from "next/link"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { PostRowSkeleton } from "@/components/ui/skeleton"
+import { EmptyState } from "@/components/ui/empty-state"
 import {
   DndContext,
   PointerSensor,
@@ -514,26 +516,23 @@ export default function ScheduledPage() {
       )}
 
       {loading ? (
-        <div className="flex justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
-        </div>
+        <PostRowSkeleton count={4} />
       ) : configured && !error && allVisible.length === 0 ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <CalendarClock className="mb-3 h-10 w-10 text-muted-foreground/40" />
-            <p className="font-medium">
-              {filter === "all" && "Nenhuma publicação ainda"}
-              {filter === "upcoming" && "Nenhum post agendado"}
-              {filter === "published" && "Nenhuma publicação concluída"}
-              {filter === "errors" && "Nenhum erro recente — tudo certo!"}
-            </p>
-            <p className="mt-1 text-base text-muted-foreground">
-              {filter === "upcoming" || filter === "all"
-                ? <>Mude o status de um post para &quot;<span className="font-mono">Agendamento</span>&quot; no Notion para ele aparecer aqui.</>
-                : "Histórico mostra os últimos 90 dias."}
-            </p>
-          </CardContent>
-        </Card>
+        <EmptyState
+          icon={CalendarClock}
+          tone={filter === "errors" ? "success" : "neutral"}
+          title={
+            filter === "all" ? "Nenhuma publicação ainda"
+            : filter === "upcoming" ? "Nenhum post agendado"
+            : filter === "published" ? "Nenhuma publicação concluída"
+            : "Nenhum erro recente — tudo certo!"
+          }
+          description={
+            filter === "upcoming" || filter === "all"
+              ? "Mude o status de um post para \"Agendamento\" no Notion para ele aparecer aqui."
+              : "Histórico mostra os últimos 90 dias."
+          }
+        />
       ) : view === "calendar" ? (
         <CalendarView upcoming={visibleUpcoming} past={visiblePast} willPublish={willPublish} onPublished={load} />
       ) : (
