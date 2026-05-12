@@ -423,10 +423,25 @@ export async function GET() {
     })
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
+  // Breakdown of upcoming posts by their Notion status value. Lets
+  // the UI render a chip strip "Status produção: Briefing (3) ·
+  // Aguardando aprovação (5) · Em revisão (2) · …" with quick filter
+  // by clicking a status. Empty statuses excluded.
+  const statusCounts = new Map<string, number>()
+  for (const p of upcoming) {
+    const s = (p.notionStatus ?? "").trim()
+    if (!s) continue
+    statusCounts.set(s, (statusCounts.get(s) ?? 0) + 1)
+  }
+  const statusBreakdown = Array.from(statusCounts.entries())
+    .map(([value, count]) => ({ value, count }))
+    .sort((a, b) => b.count - a.count)
+
   return NextResponse.json({
     upcoming,
     past,
     ignored,
+    statusBreakdown,
     // Backward-compat: existing /scheduled callers that read `posts` keep working.
     posts: upcoming,
     configured: configured.length > 0,

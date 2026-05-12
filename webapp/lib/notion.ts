@@ -50,6 +50,11 @@ export interface NotionPost {
   fullCaption: string
   notionUrl: string
   socialVpUrl: string | null
+  // Notion status value at fetch time. Reads from approvalStatusField
+  // when set (workspaces that split production from publishing), else
+  // statusField. Exposed in /scheduled so the agency can see WHICH
+  // approval-related state each post is in without clicking through.
+  notionStatus: string | null
 }
 
 export interface FieldMapping {
@@ -732,6 +737,14 @@ async function parsePage(page: any, m: FieldMapping, client: Client): Promise<No
     .map(parsePublishTarget)
     .filter((t): t is PublishTarget => t !== null)
 
+  // Read status from approvalStatusField when set, fall back to
+  // statusField. Both can be status type or select type, so try
+  // both shapes.
+  const statusFieldName = m.approvalStatusField?.trim() || m.statusField
+  const statusProp = statusFieldName ? p[statusFieldName] : null
+  const notionStatus: string | null =
+    statusProp?.status?.name ?? statusProp?.select?.name ?? null
+
   return {
     pageId: page.id,
     title: getRichText(p[m.titleField], "title"),
@@ -746,6 +759,7 @@ async function parsePage(page: any, m: FieldMapping, client: Client): Promise<No
     fullCaption: caption,
     notionUrl: page.url,
     socialVpUrl: m.socialVpField ? getUrl(p[m.socialVpField]) : null,
+    notionStatus,
   }
 }
 

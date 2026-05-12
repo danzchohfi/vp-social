@@ -67,6 +67,10 @@ type ScheduledPost = {
   // mapping.awaitingApprovalValue (Aguardando aprovação). The cron creates
   // an approval link instead and publishes only after the client approves.
   workflowState?: "ready" | "awaiting"
+  // Raw status value from Notion (from approvalStatusField when set,
+  // else statusField). Lets the row display the exact stage label
+  // configured in the agency's workspace.
+  notionStatus?: string | null
   approval?: ApprovalState | null
   // Agency-view metadata (only present when /api/notion/scheduled is in
   // mode: "all"). Used to render a small client badge per row.
@@ -178,6 +182,8 @@ export default function ScheduledPage() {
   const [upcomingAll, setUpcomingAll] = useState<ScheduledPost[]>([])
   const [pastAll, setPastAll] = useState<PastPost[]>([])
   const [ignored, setIgnored] = useState<Array<{ pageId: string; title: string; conta: string; clientName: string | null; suggestion: string | null }>>([])
+  const [statusBreakdown, setStatusBreakdown] = useState<Array<{ value: string; count: number }>>([])
+  const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const [configured, setConfigured] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -195,6 +201,7 @@ export default function ScheduledPage() {
       setUpcomingAll((data.upcoming ?? data.posts ?? []).map((p: any) => ({ ...p, kind: "upcoming" as const })))
       setPastAll((data.past ?? []).map((p: any) => ({ ...p, kind: "past" as const })))
       setIgnored(Array.isArray(data.ignored) ? data.ignored : [])
+      setStatusBreakdown(Array.isArray(data.statusBreakdown) ? data.statusBreakdown : [])
       setConfigured(data.configured ?? true)
       setAgencyMode(!!data.agencyMode)
     } catch (e) {
@@ -304,7 +311,7 @@ export default function ScheduledPage() {
 
   // Apply status filter. "errors" pulls from BOTH buckets: posts still in
   // upcoming with failed prior attempts AND standalone past with failures.
-  const visibleUpcoming =
+  const baseUpcoming =
     filter === "published"
       ? []
       : filter === "errors"
@@ -312,6 +319,10 @@ export default function ScheduledPage() {
       : filter === "approval"
       ? awaitingApproval
       : upcomingMerged
+  // Then apply the optional Notion-status chip filter on top.
+  const visibleUpcoming = statusFilter
+    ? baseUpcoming.filter((p) => (p.notionStatus ?? "").trim() === statusFilter)
+    : baseUpcoming
   const visiblePast =
     filter === "upcoming" || filter === "approval"
       ? []
@@ -439,6 +450,37 @@ export default function ScheduledPage() {
           </button>
         ))}
       </div>
+
+      {/* Notion status breakdown — chips showing each distinct status
+          value (read from approvalStatusField || statusField) with
+          counts. Click to filter the list. Visible only when there's
+          status data to surface. */}
+      {statusBreakdown.length > 0 && (
+        <div className="mb-4 flex flex-wrap items-center gap-1.5">
+          <span className="mr-1 text-sm text-muted-foreground">Status no Notion:</span>
+          {statusFilter && (
+            <button
+              onClick={() => setStatusFilter(null)}
+              className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary hover:bg-primary/20"
+              title="Limpar filtro por status"
+            >
+              <X className="h-3 w-3" />
+              {statusFilter}
+            </button>
+          )}
+          {!statusFilter && statusBreakdown.map((s) => (
+            <button
+              key={s.value}
+              onClick={() => setStatusFilter(s.value)}
+              className="inline-flex items-center gap-1 rounded-full border bg-card px-2 py-0.5 text-sm hover:bg-accent"
+              title={`Filtrar por "${s.value}"`}
+            >
+              <span>{s.value}</span>
+              <span className="rounded-full bg-muted px-1.5 text-[12px] font-medium text-muted-foreground">{s.count}</span>
+            </button>
+          ))}
+        </div>
+      )}
 
       {!configured && (
         <div className="mb-6 rounded-xl border border-primary/20 bg-primary/5 p-6 text-center">
@@ -1046,6 +1088,18 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
                   <img src={post.clientLogoUrl} alt="" className="h-3 w-3 rounded-full object-cover" />
                 ) : null}
                 {post.clientName}
+              </span>
+            )}
+            {/* Notion status pill — shows the exact stage value from the
+                agency's Notion workspace (approvalStatusField || statusField).
+                Distinct from approval state (decided/pending) — this is the
+                production-side label. */}
+            {post.notionStatus && (
+              <span
+                className="inline-flex items-center rounded-full border bg-muted/40 px-2 py-0.5 text-[12px] font-medium text-muted-foreground"
+                title="Status no Notion"
+              >
+                {post.notionStatus}
               </span>
             )}
             {isOtherClient && (
