@@ -98,8 +98,8 @@ export async function GET() {
   const allAccessible = await listAccessibleClients(session.user.id)
   function findExplicitOwner(contaKey: string): string | null {
     if (!contaKey) return null
-    const byName = allAccessible.find((c) => c.name.trim().toLowerCase() === contaKey)
-    if (byName) return byName.id
+    // Single source of truth: notionContaValues (#91). Name-based
+    // matching removed — agency claims contas explicitly in /settings.
     for (const c of allAccessible) {
       const claims = c.notionContaValues ?? []
       if (claims.some((v) => v.trim().toLowerCase() === contaKey)) return c.id
