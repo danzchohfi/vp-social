@@ -774,6 +774,7 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
             <>
               <SelfTestPanel clientId={clientId} />
               <ContactDebugButton clientId={clientId} />
+              <ManyChatDebugButton clientId={clientId} />
             </>
           )}
 
@@ -1528,6 +1529,125 @@ function ContactDebugButton({ clientId }: { clientId: string }) {
               <summary className="cursor-pointer text-muted-foreground">Trace completo (JSON)</summary>
               <pre className="mt-1.5 max-h-96 overflow-auto rounded bg-muted p-2 font-mono">{JSON.stringify(result.trace, null, 2)}</pre>
             </details>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Probes the ManyChat connection: page name, phone format variants.
+// Used when "Subscriber não encontrado" persists despite the agency
+// being sure the contact is in ManyChat — confirms which account the
+// API key targets and which phone variants ManyChat refuses.
+function ManyChatDebugButton({ clientId }: { clientId: string }) {
+  const [loading, setLoading] = useState(false)
+  const [phone, setPhone] = useState("")
+  const [result, setResult] = useState<any>(null)
+  const [open, setOpen] = useState(false)
+
+  async function run() {
+    setLoading(true)
+    setResult(null)
+    try {
+      const qs = phone.trim() ? `?phone=${encodeURIComponent(phone.trim())}` : ""
+      const res = await fetch(`/api/clients/${clientId}/manychat-debug${qs}`)
+      const data = await res.json()
+      setResult(data)
+    } catch (e) {
+      setResult({ error: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        type="button"
+        onClick={() => setOpen(true)}
+        className="rounded-md border bg-card px-3 py-2 text-left text-sm hover:bg-accent"
+      >
+        <p className="font-semibold">Diagnosticar conexão ManyChat</p>
+        <p className="mt-0.5 text-muted-foreground">
+          Confirma em qual conta ManyChat a API key está conectada + testa formatos de telefone (útil quando dá &quot;subscriber não encontrado&quot;).
+        </p>
+      </button>
+    )
+  }
+
+  return (
+    <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
+      <div className="flex items-baseline justify-between gap-3">
+        <div>
+          <p className="text-base font-semibold">Diagnosticar conexão ManyChat</p>
+          <p className="text-sm text-muted-foreground">
+            Confirma qual conta ManyChat a API key acessa + testa variantes do telefone.
+          </p>
+        </div>
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+          <X className="h-3.5 w-3.5" />
+        </Button>
+      </div>
+      <div className="flex flex-wrap gap-2">
+        <Input
+          value={phone}
+          onChange={(e) => setPhone(e.target.value)}
+          placeholder="Telefone (E.164 ou só dígitos) — opcional"
+          className="flex-1"
+        />
+        <Button size="sm" variant="outline" onClick={run} disabled={loading}>
+          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+          Testar
+        </Button>
+      </div>
+
+      {result && (
+        <div className="space-y-2 rounded-md border bg-card p-3 text-sm">
+          {result.error && <p className="text-destructive">⚠ {result.error}</p>}
+
+          {result.pageInfo && (
+            <div
+              className={cn(
+                "rounded p-2 text-[13px]",
+                result.pageInfo.ok ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive",
+              )}
+            >
+              <p className="font-medium">
+                {result.pageInfo.ok ? "✓" : "⚠"} {result.pageInfo.ok ? `Conta ManyChat: ${result.pageInfo.name ?? "(sem nome)"}` : "Falha em autenticar"}
+              </p>
+              <p className="opacity-80">Page ID: {result.pageInfo.id ?? "—"}{result.pageInfo.timezone ? ` · ${result.pageInfo.timezone}` : ""}</p>
+              <p className="opacity-70 text-[12px]">Status HTTP: {result.pageInfo.status}</p>
+            </div>
+          )}
+
+          {Array.isArray(result.phoneProbes) && (
+            <details>
+              <summary className="cursor-pointer text-[13px] font-medium text-muted-foreground">
+                {result.phoneProbes.length} variantes testadas
+              </summary>
+              <ul className="mt-1.5 space-y-1 font-mono text-[12px]">
+                {result.phoneProbes.map((p: any, i: number) => (
+                  <li
+                    key={i}
+                    className={cn(
+                      "rounded px-2 py-1",
+                      p.status === 200 && p.body?.data?.id
+                        ? "bg-success/10 text-success"
+                        : "bg-muted/40",
+                    )}
+                  >
+                    <strong>{p.variant}</strong> → {p.status} {p.body?.data?.id ? `· subscriber ${p.body.data.id}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </details>
+          )}
+
+          {result.advice && (
+            <div className="rounded bg-warning/10 p-2 text-[13px] text-warning">
+              💡 {result.advice}
+            </div>
           )}
         </div>
       )}
