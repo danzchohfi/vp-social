@@ -1193,6 +1193,31 @@ function ApprovalBanner({
 }) {
   const [resending, setResending] = useState(false)
   const [triggering, setTriggering] = useState(false)
+  const [dispatching, setDispatching] = useState(false)
+
+  // Dispatch ManyChat for this SPECIFIC approval link. Different from
+  // triggerNow (which creates the link first via the admin sweep) —
+  // this assumes the link exists and just re-runs the WA send. Useful
+  // when notify-pending picked a different post and the agency wants
+  // to target THIS one specifically. /api/approve/[token]/dispatch.
+  async function dispatchThisPost() {
+    if (!approval?.token || dispatching) return
+    setDispatching(true)
+    try {
+      const res = await fetch(`/api/approve/${approval.token}/dispatch`, { method: "POST" })
+      const data = await res.json()
+      if (data?.ok) {
+        toast.success(`WhatsApp enviado pra ${data.contactName ?? data.phone}`)
+        if (typeof onAction === "function") onAction()
+      } else {
+        toast.error(data?.reason ?? "Falha no disparo")
+      }
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : String(e))
+    } finally {
+      setDispatching(false)
+    }
+  }
 
   // Force-create the approvalLink + dispatch ManyChat for this one post,
   // bypassing the 5-min cron wait. Used when the post just transitioned
@@ -1357,6 +1382,17 @@ function ApprovalBanner({
             >
               <Copy className="h-3 w-3" />
               Copiar
+            </button>
+          )}
+          {approval.contactPhone && approval.state !== "decided" && approval.state !== "expired" && (
+            <button
+              onClick={dispatchThisPost}
+              disabled={dispatching}
+              className="inline-flex items-center gap-1 rounded border border-success/40 bg-success/10 px-1.5 py-0.5 text-[13px] font-medium text-success hover:bg-success/15 disabled:opacity-50"
+              title={`Disparar SÓ este post via ManyChat para ${approval.contactPhone}`}
+            >
+              {dispatching ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
+              Disparar este
             </button>
           )}
           {approval.contactPhone && approval.state !== "decided" && approval.state !== "expired" && approval.approvalUrl && (
