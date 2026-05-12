@@ -92,6 +92,10 @@ export async function POST(
         hint = `Seu número não está na lista de telefones de teste do app Meta. Adicione em Meta App → WhatsApp → API Setup → "To" → Manage phone number list, verifique via SMS, e tente de novo.`
       } else if (result.reason.includes("code 190")) {
         hint = `Token expirou ou foi revogado. Gere um novo System User token (Expiration: Never) e cole em /settings.`
+      } else if (result.reason.includes("code 200") || reasonLower.includes("necessary permissions")) {
+        hint = `O System User tem acesso à WABA mas falta a permissão de envio. Vá em Meta Business Settings → Usuários do sistema → seu System User → Atribuir ativos → Contas do WhatsApp → marque "Enviar mensagens" (além de "Gerenciar conta"). Depois GERE UM NOVO TOKEN (tokens antigos não pegam permissões novas) e cole em /settings.`
+      } else if (result.reason.includes("code 100") && result.reason.includes("subcode 33")) {
+        hint = `O phone_number_id em /settings não bate com o número que o token consegue acessar. Confira em Meta for Developers → seu app → WhatsApp → API Setup: o dropdown "De" mostra o número, e logo abaixo aparece "Identificação do número de telefone" — esse é o ID que vai em /settings.`
       }
     } else if (result.reason.includes("not found") || reasonLower.includes("subscriber")) {
       hint = `O ManyChat não encontrou um subscriber com o telefone ${phone}. Solução: pelo menos uma vez, mande qualquer mensagem do seu WhatsApp pra página do ManyChat — isso registra você como subscriber. Depois tente o teste de novo.`
