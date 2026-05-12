@@ -7,6 +7,7 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Loader2, Save } from "lucide-react"
 import { useSession } from "@/lib/auth-client"
 import { toast } from "sonner"
+import { PageHeader } from "@/components/ui/page-header"
 
 export default function AccountPage() {
   const { data: session, refetch } = useSession()
@@ -77,10 +78,7 @@ export default function AccountPage() {
 
   return (
     <div className="max-w-2xl mx-auto p-8 space-y-6">
-      <div>
-        <h1 className="text-3xl tracking-tight sm:text-4xl">Minha conta</h1>
-        <p className="text-muted-foreground">Atualize seus dados pessoais e senha.</p>
-      </div>
+      <PageHeader title="Minha conta" subtitle="Atualize seus dados pessoais e senha." className="mb-0" />
 
       <Card>
         <CardHeader>
