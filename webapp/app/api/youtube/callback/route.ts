@@ -68,6 +68,8 @@ export async function GET(req: Request) {
           refreshToken: tokenData.refresh_token ?? null,
           pageName: channelTitle,
           updatedAt: new Date(),
+          lastRefreshError: null,
+          lastRefreshErrorAt: null,
         },
       })
 
