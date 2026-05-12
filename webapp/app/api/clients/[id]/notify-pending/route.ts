@@ -132,6 +132,13 @@ export async function POST(
       for (const l of links) dispatchedIds.push(l.id)
     } else {
       errors.push({ phone, reason: result.reason })
+      // Persist the failure on every link that we just tried for
+      // this phone group, so /scheduled can show "ManyChat: <reason>"
+      // instead of the generic "WhatsApp não foi enviado automaticamente".
+      await db
+        .update(approvalLink)
+        .set({ lastError: `ManyChat: ${result.reason}` })
+        .where(inArray(approvalLink.id, links.map((l) => l.id)))
     }
   }
 
@@ -141,7 +148,7 @@ export async function POST(
     const now = new Date()
     await db
       .update(approvalLink)
-      .set({ sentVia: "manychat", sentAt: now })
+      .set({ sentVia: "manychat", sentAt: now, lastError: null })
       .where(inArray(approvalLink.id, dispatchedIds))
 
     // Audit trail in Notion: leave a comment on each post that just

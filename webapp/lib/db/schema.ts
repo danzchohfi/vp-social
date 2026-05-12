@@ -325,6 +325,11 @@ export const approvalLink = pgTable("approval_link", {
   // for "client approved by phone, mark it done in the system".
   sentVia: text("sent_via").notNull().default("none"),
   sentAt: timestamp("sent_at"),
+  // When dispatch fails (ManyChat subscriber not found, invalid phone,
+  // API key revoked, etc.), the human-readable cause is stored here so
+  // /scheduled can surface "porquê não foi enviado" without the agency
+  // having to dig through Trigger.dev worker logs. Cleared on success.
+  lastError: text("last_error"),
   // Set when productionApprovalReminders cron has fired a follow-up
   // ManyChat dispatch for a stale pending link (sent > 3d ago, no
   // decision, not expired). Capped at 1 reminder per link — once set,

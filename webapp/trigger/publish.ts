@@ -529,6 +529,10 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
     // number. UI surfaces this clearly in /scheduled so the agency
     // knows to fix the Contato page (vs. silent ManyChat 'not found').
     let sentVia: "manychat" | "manual" | "invalid_phone" | "none" = "none"
+    // Captures why the dispatch didn't fire (or did, but failed).
+    // Surfaces in /scheduled so the agency sees the actual cause
+    // without having to open Trigger.dev worker logs.
+    let lastError: string | null = null
 
     // Pre-flight phone validation. We only call this when there's
     // actually a phone — when phone is null, the existing "no phone"
@@ -540,15 +544,14 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
     }
 
     if (approvalDispatchMode === "manual") {
-      // Cron just creates the link; agency triggers dispatch later via
-      // /api/clients/[id]/notify-pending. Leaves sentVia='none' (default)
-      // so the manual-notify endpoint knows this is not-yet-sent.
+      lastError = "Modo manual ativo — clique 'Notificar pendentes' no /dashboard pra disparar"
       logger.info(`[approval] dispatch manual: link criado para "${post.title}", aguardando agência clicar "Notificar pendentes"`)
     } else if (approvalMode === "manual_whatsapp") {
       sentVia = "manual"
       logger.info(`[approval] modo manual: link gerado para "${post.title}" — agência envia via wa.me em /scheduled`)
     } else if (phoneIssue) {
       sentVia = "invalid_phone"
+      lastError = `Telefone inválido (${contact.phone}): ${phoneIssue}`
       logger.warn(`[approval] telefone inválido pra "${post.title}" (${contact.phone}): ${phoneIssue}. Agência precisa corrigir a página Contato no Notion.`)
     } else if (contact.phone && manychatApiKey && manychatFlowNs) {
       const result = await sendApprovalRequest({
@@ -569,13 +572,17 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       })
       if (result.ok) {
         sentVia = "manychat"
+        lastError = null
         logger.info(`[approval] ManyChat enviado para ${contact.phone} (${post.title})`)
       } else {
+        lastError = `ManyChat: ${result.reason}`
         logger.warn(`[approval] ManyChat falhou para "${post.title}": ${result.reason}`)
       }
     } else if (!manychatApiKey || !manychatFlowNs) {
+      lastError = "ManyChat não configurado pra este cliente (API key + Flow em /settings)"
       logger.warn(`[approval] ManyChat não configurado para este cliente — agência precisa enviar manualmente via /scheduled (ou trocar pra modo manual em /clients)`)
     } else if (!contact.phone) {
+      lastError = "Contato resolvido sem telefone — verifique a página Contato no Notion"
       logger.warn(`[approval] Contato sem telefone — agência precisa enviar manualmente via /scheduled`)
     }
 
@@ -591,11 +598,8 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       .update(schema.approvalLink)
       .set({
         sentVia,
-        // 'manual' counts as "we generated the link" for sentAt — the
-        // agency-side dispatch happens via wa.me click-to-chat which we
-        // don't track separately. 'none' / 'invalid_phone' = dispatch
-        // never fired at all (wait state OR config error).
         sentAt: (sentVia === "none" || sentVia === "invalid_phone") ? null : new Date(),
+        lastError,
       })
       .where(eq(schema.approvalLink.token, token))
 
