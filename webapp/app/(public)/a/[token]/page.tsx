@@ -195,6 +195,9 @@ export default function ApproverPortalPage() {
           <div className="min-w-0 flex-1">
             <p className="text-sm uppercase tracking-wider text-muted-foreground">Portal do aprovador</p>
             <h1 className="truncate text-lg">Olá, {approver.name}</h1>
+            <p className="mt-0.5 text-[13px] text-muted-foreground">
+              Aprovação de <strong>roteiros de produção</strong> (vídeos, podcasts) e <strong>posts agendados</strong>.
+            </p>
           </div>
         </header>
 
@@ -288,7 +291,7 @@ export default function ApproverPortalPage() {
                         )}
                       </div>
                       <Badge variant="outline" className="shrink-0 text-[12px]">
-                        Aprovação {p.stepOrder}/{p.totalSteps} · revisão {p.round}
+                        Roteiro · etapa {p.stepOrder}/{p.totalSteps} · revisão {p.round}
                       </Badge>
                     </div>
                   </CardHeader>

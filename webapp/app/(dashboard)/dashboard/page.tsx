@@ -8,7 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/ui/page-header"
-import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, Zap, ArrowRight, Facebook, Youtube, Linkedin, CalendarClock, LayoutGrid, Building2, AlertTriangle, MoonStar, ExternalLink, MessageCircle, ThumbsUp, Heart, Tag } from "lucide-react"
+import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, Zap, ArrowRight, Facebook, Youtube, Linkedin, CalendarClock, LayoutGrid, Building2, AlertTriangle, MoonStar, ExternalLink, MessageCircle, ThumbsUp, Heart, Tag, Film, Image as ImageIcon } from "lucide-react"
 import Link from "next/link"
 import { PublishButton } from "@/components/dashboard/publish-button"
 import { SwitchClientButton } from "@/components/dashboard/switch-client-button"
@@ -263,6 +263,8 @@ export default async function DashboardPage() {
         contactPhone: approvalLink.contactPhone,
         token: approvalLink.token,
         notionPageId: approvalLink.notionPageId,
+        kind: approvalLink.kind,
+        productionId: approvalLink.productionId,
       })
       .from(approvalLink)
       .where(and(approvalFilter, gte(approvalLink.createdAt, fourteenDaysAgo))),
@@ -339,6 +341,10 @@ export default async function DashboardPage() {
       staleByClient.set(r.clientId ?? "", (staleByClient.get(r.clientId ?? "") ?? 0) + 1)
     }
   }
+  // Split pending by kind so the dashboard card can show "X posts · Y produções"
+  // — schema discriminates via approvalLink.kind ('post' vs 'production_script').
+  const pendingPosts = approvalsPending.filter((r) => r.kind !== "production_script").length
+  const pendingProductions = approvalsPending.filter((r) => r.kind === "production_script").length
   // Show the widget only when there's something to act on or recently
   // decided activity worth surfacing — keeps the dashboard quiet for
   // clients that don't use the approval flow.
@@ -580,7 +586,16 @@ export default async function DashboardPage() {
               labels. */}
           <div className="mb-4 grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div className="rounded-lg border-l-4 border-l-primary/30 bg-card p-4">
-              <p className="text-4xl font-semibold leading-none tracking-tight">{approvalsPending.length}</p>
+              <div className="flex items-baseline gap-3">
+                <div>
+                  <p className="text-3xl font-semibold leading-none tracking-tight">{pendingPosts}</p>
+                  <p className="mt-1 text-[11px] uppercase tracking-wider text-muted-foreground">Posts</p>
+                </div>
+                <div>
+                  <p className="text-3xl font-semibold leading-none tracking-tight">{pendingProductions}</p>
+                  <p className="mt-1 text-[11px] uppercase tracking-wider text-muted-foreground">Produções</p>
+                </div>
+              </div>
               <p className="mt-2 text-[12px] uppercase tracking-wider text-muted-foreground">Pendentes</p>
             </div>
             <div className={cn(
@@ -665,11 +680,27 @@ export default async function DashboardPage() {
                   const sentAgo = r.sentAt
                     ? Math.floor((nowMs - new Date(r.sentAt).getTime()) / (24 * 60 * 60 * 1000))
                     : Math.floor((nowMs - new Date(r.createdAt).getTime()) / (24 * 60 * 60 * 1000))
+                  const isProduction = r.kind === "production_script"
+                  // Roteiros vão pra /productions/<id>; posts pra /scheduled?postId=…
+                  // Sem isso, click num roteiro caía em /scheduled e quebrava.
+                  const targetHref = isProduction && r.productionId
+                    ? `/productions/${r.productionId}`
+                    : `/scheduled?postId=${encodeURIComponent(r.notionPageId)}`
                   return (
                     <li key={r.token} className="flex items-start gap-2 text-base">
                       <Clock className="mt-0.5 h-3.5 w-3.5 shrink-0 text-warning" />
                       <div className="min-w-0 flex-1">
-                        <span className="truncate">{r.postTitle || "Post sem título"}</span>
+                        <span
+                          className={cn(
+                            "mr-1.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider",
+                            isProduction ? "bg-info/15 text-info" : "bg-primary/15 text-primary",
+                          )}
+                          title={isProduction ? "Aprovação de roteiro de produção" : "Aprovação de post agendado"}
+                        >
+                          {isProduction ? <Film className="h-2.5 w-2.5" /> : <ImageIcon className="h-2.5 w-2.5" />}
+                          {isProduction ? "Produção" : "Post"}
+                        </span>
+                        <span className="truncate">{r.postTitle || "Sem título"}</span>
                         {scope.mode === "all" && owning && (
                           <span className="ml-1.5 text-sm text-muted-foreground">· {owning.name}</span>
                         )}
@@ -681,7 +712,7 @@ export default async function DashboardPage() {
                       <div className="flex shrink-0 items-center gap-1">
                         {r.contactPhone && (
                           <a
-                            href={`https://wa.me/${r.contactPhone.replace(/\D/g, "")}?text=${encodeURIComponent(`Olá${r.contactName ? ` ${r.contactName}` : ""}! Lembrete pra aprovar o post "${r.postTitle ?? ""}":`)}`}
+                            href={`https://wa.me/${r.contactPhone.replace(/\D/g, "")}?text=${encodeURIComponent(`Olá${r.contactName ? ` ${r.contactName}` : ""}! Lembrete pra aprovar ${isProduction ? "o roteiro" : "o post"} "${r.postTitle ?? ""}":`)}`}
                             target="_blank"
                             rel="noopener noreferrer"
                             title="Abrir WhatsApp"
@@ -692,8 +723,8 @@ export default async function DashboardPage() {
                           </a>
                         )}
                         <Link
-                          href={`/scheduled?postId=${encodeURIComponent(r.notionPageId)}`}
-                          title="Abrir no calendário"
+                          href={targetHref}
+                          title={isProduction ? "Abrir produção" : "Abrir no calendário"}
                           className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md text-warning hover:bg-warning/15"
                         >
                           <ArrowRight className="h-3.5 w-3.5" />
@@ -727,11 +758,21 @@ export default async function DashboardPage() {
                   const Icon = r.decision === "approved" ? ThumbsUp : XCircle
                   const tone = r.decision === "approved" ? "text-success" : "text-warning"
                   const decidedDate = r.decidedAt ? new Date(r.decidedAt).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" }) : ""
+                  const isProduction = r.kind === "production_script"
                   return (
                     <li key={r.token} className="flex items-start gap-2">
                       <Icon className={cn("mt-0.5 h-3.5 w-3.5 shrink-0", tone)} />
                       <div className="min-w-0 flex-1">
-                        <span className="truncate">{r.postTitle || "Post sem título"}</span>
+                        <span
+                          className={cn(
+                            "mr-1.5 inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wider",
+                            isProduction ? "bg-info/15 text-info" : "bg-primary/15 text-primary",
+                          )}
+                        >
+                          {isProduction ? <Film className="h-2.5 w-2.5" /> : <ImageIcon className="h-2.5 w-2.5" />}
+                          {isProduction ? "Produção" : "Post"}
+                        </span>
+                        <span className="truncate">{r.postTitle || "Sem título"}</span>
                         {scope.mode === "all" && owning && (
                           <span className="ml-1.5 text-sm text-muted-foreground">· {owning.name}</span>
                         )}
