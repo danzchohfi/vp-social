@@ -177,9 +177,9 @@ export default function ClientCalendarPage() {
             <p className="truncate text-base">{data.client.name}</p>
           </div>
           {data.pending.length > 0 && (
-            <span className="ml-auto inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-1 text-sm font-medium text-warning">
+            <Badge variant="warning" size="sm" className="ml-auto py-1">
               {data.pending.length} aguardando você
-            </span>
+            </Badge>
           )}
         </div>
       </div>

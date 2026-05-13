@@ -1424,45 +1424,37 @@ function ApprovalBanner({
           </span>
         )}
         {approval.sentVia === "meta_cloud" && approval.state !== "decided" && approval.state !== "expired" && (
-          <span
-            className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[12px] font-medium text-success"
+          <Badge
+            variant="success"
+            size="sm"
             title={`Enviado via WhatsApp${approval.sentAt ? ` em ${new Date(approval.sentAt).toLocaleString("pt-BR")}` : ""}`}
           >
             ✓ Enviado
-          </span>
+          </Badge>
         )}
         {approval.sentVia === "manual" && approval.state !== "decided" && approval.state !== "expired" && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[12px] font-medium text-muted-foreground">
-            ✋ Modo manual
-          </span>
+          <Badge variant="muted" size="sm">✋ Modo manual</Badge>
         )}
         {approval.sentVia === "none" && (approval.state === "pending" || approval.state === "stale") && (
-          <span
-            className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-[12px] font-medium text-warning"
+          <Badge
+            variant="warning"
+            size="sm"
             title={approval.lastError ?? "WhatsApp não foi enviado automaticamente"}
           >
             ⚠ {approval.lastError ?? "Não enviado"}
-          </span>
+          </Badge>
         )}
         {approval.sentVia === "invalid_phone" && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-destructive/15 px-2 py-0.5 text-[12px] font-medium text-destructive">
-            ⚠ Telefone inválido
-          </span>
+          <Badge variant="destructive" size="sm">⚠ Telefone inválido</Badge>
         )}
         {approval.state === "decided" && approval.decision === "approved" && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[12px] font-medium text-success">
-            ✓ Aprovado
-          </span>
+          <Badge variant="success" size="sm">✓ Aprovado</Badge>
         )}
         {approval.state === "decided" && approval.decision === "revision" && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-warning/15 px-2 py-0.5 text-[12px] font-medium text-warning">
-            🔁 Pediu alterações
-          </span>
+          <Badge variant="warning" size="sm">🔁 Pediu alterações</Badge>
         )}
         {approval.state === "expired" && (
-          <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 text-[12px] font-medium text-muted-foreground">
-            ⏱ Expirado
-          </span>
+          <Badge variant="muted" size="sm">⏱ Expirado</Badge>
         )}
         <div className="ml-auto flex items-center gap-1.5">
           {approval.state === "no_link" && (
