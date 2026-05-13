@@ -3,6 +3,7 @@ import { useEffect, useMemo, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/ui/page-header"
 import { Loader2, Plus, RefreshCw, Film } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { StatusPill } from "@/components/productions/status-pill"
@@ -73,31 +74,33 @@ export default function ProductionsListPage() {
 
   return (
     <div className="p-4 sm:p-8">
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-3xl tracking-tight sm:text-4xl">Produções</h1>
-          {agencyMode && (
-            <span className="mt-1 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
-              Visão agência · todos os clientes
-            </span>
-          )}
-          <p className="mt-1 text-base text-muted-foreground">
-            Vídeos e podcasts no fluxo de roteiro → aprovação → entrega.
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-            Atualizar
-          </Button>
-          <Button asChild size="sm">
-            <Link href="/productions/new">
-              <Plus className="h-4 w-4" />
-              Nova produção
-            </Link>
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title={
+          <span className="flex flex-wrap items-baseline gap-2">
+            Produções
+            {agencyMode && (
+              <span className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
+                Visão agência · todos os clientes
+              </span>
+            )}
+          </span>
+        }
+        subtitle="Vídeos e podcasts no fluxo de roteiro → aprovação → entrega."
+        action={
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+              Atualizar
+            </Button>
+            <Button asChild size="sm">
+              <Link href="/productions/new">
+                <Plus className="h-4 w-4" />
+                Nova produção
+              </Link>
+            </Button>
+          </div>
+        }
+      />
 
       <div className="mb-6 inline-flex flex-wrap gap-1 rounded-lg border bg-card p-0.5">
         {FILTERS.map((f) => (
