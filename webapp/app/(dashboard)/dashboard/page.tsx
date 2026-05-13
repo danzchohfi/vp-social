@@ -255,6 +255,7 @@ export default async function DashboardPage() {
       .select({
         clientId: approvalLink.clientId,
         decision: approvalLink.decision,
+        tacit: approvalLink.tacit,
         expiresAt: approvalLink.expiresAt,
         sentAt: approvalLink.sentAt,
         createdAt: approvalLink.createdAt,
@@ -308,31 +309,29 @@ export default async function DashboardPage() {
   const nowMs = Date.now()
   const approvalsPending: typeof approvalRows = []
   const approvalsStale: typeof approvalRows = []
-  const approvalsExpired: typeof approvalRows = []
+  // Aprovação tácita (silêncio = sim em 30d): decision='approved' && tacit=true.
+  // Widget mostra como métrica positiva mas com tom amber (distingue de explícita).
+  const approvalsTacit7d: typeof approvalRows = []
   const approvalsDecided7d: typeof approvalRows = []
   const approvalsApproved7d: typeof approvalRows = []
   const pendingByClient = new Map<string, number>()
   const staleByClient = new Map<string, number>()
   for (const r of approvalRows) {
-    const expiresMs = new Date(r.expiresAt).getTime()
     const decidedMs = r.decidedAt ? new Date(r.decidedAt).getTime() : 0
     const sentMs = r.sentAt ? new Date(r.sentAt).getTime() : new Date(r.createdAt).getTime()
-    // decision='expired' is the cron's synthetic marker for aged-out
-    // pending links. Count it in `expired`, not in the recent-decisions
-    // feed (it wasn't a real client decision).
+    // decision='expired' = orphan/cancelado pelo cron. NÃO conta como
+    // decisão (não foi cliente nem tácito) — apenas sai do pending.
     if (r.decision === "expired") {
-      approvalsExpired.push(r)
       continue
     }
     if (r.decision !== null) {
       if (decidedMs >= sevenDaysAgo.getTime()) {
         approvalsDecided7d.push(r)
-        if (r.decision === "approved") approvalsApproved7d.push(r)
+        if (r.decision === "approved") {
+          approvalsApproved7d.push(r)
+          if (r.tacit) approvalsTacit7d.push(r)
+        }
       }
-      continue
-    }
-    if (expiresMs <= nowMs) {
-      approvalsExpired.push(r)
       continue
     }
     approvalsPending.push(r)
@@ -350,7 +349,7 @@ export default async function DashboardPage() {
   // decided activity worth surfacing — keeps the dashboard quiet for
   // clients that don't use the approval flow.
   const showApprovalsWidget =
-    approvalsPending.length > 0 || approvalsExpired.length > 0 || approvalsDecided7d.length > 0
+    approvalsPending.length > 0 || approvalsTacit7d.length > 0 || approvalsDecided7d.length > 0
 
   const lastByClient = new Map(lastPerClient.map((r) => [r.clientId, r.lastAt ? new Date(r.lastAt) : null]))
   const monthCountByClient = new Map(monthByClient.map((r) => [r.clientId, Number(r.total)]))
@@ -617,15 +616,17 @@ export default async function DashboardPage() {
             </div>
             <div className={cn(
               "rounded-lg border-l-4 p-4",
-              approvalsExpired.length > 0 ? "border-l-destructive/40 bg-destructive/[0.04]" : "border-l-muted bg-card",
-            )}>
+              approvalsTacit7d.length > 0 ? "border-l-warning/40 bg-warning/[0.04]" : "border-l-muted bg-card",
+            )}
+              title="Aprovados automaticamente por silêncio (30 dias sem resposta do cliente)"
+            >
               <p className={cn(
                 "text-4xl font-semibold leading-none tracking-tight",
-                approvalsExpired.length > 0 ? "text-destructive" : "text-muted-foreground/60",
+                approvalsTacit7d.length > 0 ? "text-warning" : "text-muted-foreground/60",
               )}>
-                {approvalsExpired.length}
+                {approvalsTacit7d.length}
               </p>
-              <p className="mt-2 text-[12px] uppercase tracking-wider text-muted-foreground">Expirados</p>
+              <p className="mt-2 text-[12px] uppercase tracking-wider text-muted-foreground">Aprovações tácitas</p>
             </div>
           </div>
 

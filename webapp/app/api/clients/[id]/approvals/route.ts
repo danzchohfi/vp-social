@@ -11,11 +11,13 @@ import { userIsClientOwner } from "@/lib/active-client"
 // status that we don't want admins/members to see.
 //
 // Buckets:
-//   pending  — decision IS NULL, NOT expired
-//   stale    — decision IS NULL, NOT expired, sentAt > 3 days ago
-//                (subset of pending — agency should re-send)
+//   pending  — decision IS NULL
+//   stale    — decision IS NULL, sentAt > 3 days ago (subset of pending)
 //   decided  — decision IS NOT NULL, decidedAt within last 30 days
-//   expired  — decision IS NULL, expiresAt < now
+//                (inclui aprovação tácita: decision='approved' tacit=true)
+//   tacit    — subset de decided onde tacit=true (silêncio aprovou)
+//   expired  — decision='expired' (synthetic: orphan/cancelado pelo cron
+//                quando Notion saiu do "aguardando")
 //
 // Sorting: each bucket newest-first by createdAt (or decidedAt for decided).
 // Limits: pending+stale uncapped (usually < 50), decided+expired capped at
@@ -56,26 +58,21 @@ export async function GET(
   const pending: typeof rows = []
   const stale: typeof rows = []
   const decided: typeof rows = []
+  const tacit: typeof rows = []
   const expired: typeof rows = []
 
   for (const r of rows) {
-    const expiresAt = r.expiresAt instanceof Date ? r.expiresAt : new Date(r.expiresAt)
-    const isExpired = expiresAt.getTime() <= now
-
-    // decision='expired' is a synthetic marker the cron sets on links that
-    // aged out without a real decision (so it could release the partial
-    // unique index slot and create a fresh link). Treat as expired, not
-    // decided — the agency cares about *real* approve/reject decisions.
+    // decision='expired' = orphan/cancelado pelo cron (Notion saiu do
+    // "aguardando"). Distinto de aprovação tácita, que tem decision='approved'.
     if (r.decision === "expired") {
       expired.push(r)
       continue
     }
     if (r.decision !== null) {
       decided.push(r)
-      continue
-    }
-    if (isExpired) {
-      expired.push(r)
+      // Tacit é subset de decided. Agency vê total decidido + breakdown
+      // de quantos foram tácitos (silêncio aprovou) vs explícitos.
+      if (r.tacit) tacit.push(r)
       continue
     }
     pending.push(r)
@@ -102,6 +99,7 @@ export async function GET(
       sentAt: r.sentAt,
       decision: r.decision,
       decidedAt: r.decidedAt,
+      tacit: r.tacit,
       comment: r.comment,
       expiresAt: r.expiresAt,
       createdAt: r.createdAt,
@@ -112,11 +110,13 @@ export async function GET(
     pending: pending.map(shape),
     stale: stale.map(shape),
     decided: decided.slice(0, 50).map(shape),
+    tacit: tacit.slice(0, 50).map(shape),
     expired: expired.slice(0, 50).map(shape),
     counts: {
       pending: pending.length,
       stale: stale.length,
       decided: decided.length,
+      tacit: tacit.length,
       expired: expired.length,
     },
   })
