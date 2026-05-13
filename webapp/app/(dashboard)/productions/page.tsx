@@ -167,7 +167,7 @@ export default function ProductionsListPage() {
             <Link
               key={p.id}
               href={`/productions/${p.id}`}
-              className="block rounded-lg border bg-card p-4 transition-colors hover:bg-accent/40"
+              className="block rounded-lg border bg-card p-4 transition-colors hover:border-primary/30 hover:bg-accent/60"
             >
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
