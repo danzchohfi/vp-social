@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Toaster } from "sonner"
 import NextTopLoader from "nextjs-toploader"
+import { ViewTransitions } from "next-view-transitions"
 import "./globals.css"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
@@ -35,26 +36,28 @@ export const viewport: Viewport = {
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html lang="pt-BR" className="dark" suppressHydrationWarning>
-      <head>
-        <meta name="tiktok-developers-site-verification" content="eiekVsERmEwyEjPJ4DNBxmDXYZrilQ3Q" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap"
-          rel="stylesheet"
-        />
-      </head>
-      <body className={`${geist.variable} ${geistMono.variable} font-[family-name:var(--font-geist)] antialiased`}>
-        <NextTopLoader
-          color="oklch(0.72 0.18 285)"
-          height={3}
-          showSpinner={false}
-          shadow="0 0 10px oklch(0.72 0.18 285 / 0.6), 0 0 5px oklch(0.72 0.18 285 / 0.6)"
-        />
-        {children}
-        <Toaster richColors position="top-right" />
-      </body>
-    </html>
+    <ViewTransitions>
+      <html lang="pt-BR" className="dark" suppressHydrationWarning>
+        <head>
+          <meta name="tiktok-developers-site-verification" content="eiekVsERmEwyEjPJ4DNBxmDXYZrilQ3Q" />
+          <link rel="preconnect" href="https://fonts.googleapis.com" />
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
+          <link
+            href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap"
+            rel="stylesheet"
+          />
+        </head>
+        <body className={`${geist.variable} ${geistMono.variable} font-[family-name:var(--font-geist)] antialiased`}>
+          <NextTopLoader
+            color="oklch(0.72 0.18 285)"
+            height={3}
+            showSpinner={false}
+            shadow="0 0 10px oklch(0.72 0.18 285 / 0.6), 0 0 5px oklch(0.72 0.18 285 / 0.6)"
+          />
+          {children}
+          <Toaster richColors position="top-right" />
+        </body>
+      </html>
+    </ViewTransitions>
   )
 }

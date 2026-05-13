@@ -32,7 +32,7 @@ export function Sidebar() {
   return (
     <aside className="max-md:hidden flex h-full w-60 shrink-0 flex-col overflow-hidden border-r bg-card">
       <div className="flex h-16 items-center gap-2 border-b px-5">
-        <img src="/icon.png" alt="VP Social" className="h-7 w-7 shrink-0 rounded-md" />
+        <img src="/icon.png" alt="VP Social" className="h-7 w-7 shrink-0 rounded-md [view-transition-name:app-logo]" />
         <span className="truncate text-lg tracking-tight">
           <span className="font-semibold">VP</span>
           <span className="ml-1 italic">Social</span>

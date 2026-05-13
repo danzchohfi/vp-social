@@ -19,7 +19,7 @@ export function PageHeader({
   return (
     <div className={cn("mb-8 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between", className)}>
       <div className="min-w-0">
-        <h1 className="text-3xl tracking-tight sm:text-4xl">{title}</h1>
+        <h1 className="text-3xl tracking-tight sm:text-4xl [view-transition-name:page-title]">{title}</h1>
         {subtitle && (
           <p className="mt-1 text-base text-muted-foreground">{subtitle}</p>
         )}
