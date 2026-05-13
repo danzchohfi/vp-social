@@ -66,6 +66,113 @@ export const publishScheduled = schedules.task({
     const ok = results.filter((r) => r.status === "fulfilled").length
     const err = results.filter((r) => r.status === "rejected").length
     logger.info(`Finalizado: ${ok} workspaces OK, ${err} com erro.`)
+
+    // Fase 10 — sweep de entrega de arquivo. Produções ativas (não
+    // archived/published) com notionPageId setado ganham um sync que lê
+    // os campos de mídia vertical/horizontal do Notion e atualiza os
+    // flags `hasVerticalMedia` / `hasHorizontalMedia` na produção. Isso
+    // alimenta o card "📦 Arquivo pronto pra entrega" no portal /a/[token]
+    // sem precisar de storage próprio — o download em si resolve URL
+    // fresca on-demand via /api/productions/[id]/deliverable.
+    try {
+      await syncProductionDeliverables.trigger()
+    } catch (e) {
+      logger.warn(`Sweep de entrega falhou: ${e instanceof Error ? e.message : e}`)
+    }
+  },
+})
+
+// Fase 10 — sweep de produções pra atualizar flags de entrega de arquivo.
+// Disparado pelo cron `publishScheduled`. Cada produção ativa com
+// notionPageId gera 1 read do Notion (pesa pouco — é 1 req por produção
+// por 5min, e só roda em produções não-arquivadas/publicadas).
+const ACTIVE_DELIVERABLE_STATUSES = [
+  "awaiting_approval",
+  "approved",
+  "recording",
+  "editing",
+  "delivered",
+] as const
+
+export const syncProductionDeliverables = task({
+  id: "sync-production-deliverables",
+  retry: { maxAttempts: 2 },
+  run: async () => {
+    const db = getDb()
+    const targets = await db
+      .select()
+      .from(schema.production)
+      .where(
+        and(
+          inArray(
+            schema.production.status,
+            ACTIVE_DELIVERABLE_STATUSES as unknown as string[],
+          ),
+        ),
+      )
+    const withPage = targets.filter((p) => !!p.notionPageId)
+    if (withPage.length === 0) {
+      logger.info("Sweep de entrega: nenhuma produção ativa com Notion page.")
+      return { synced: 0 }
+    }
+
+    // Group por clientId pra reusar a mesma conexão Notion por cliente.
+    const byClient = new Map<string, typeof withPage>()
+    for (const p of withPage) {
+      const list = byClient.get(p.clientId) ?? []
+      list.push(p)
+      byClient.set(p.clientId, list)
+    }
+
+    let synced = 0
+    for (const [clientId, prods] of byClient.entries()) {
+      const conns = await db
+        .select()
+        .from(schema.notionConnection)
+        .where(eq(schema.notionConnection.clientId, clientId))
+      const conn = conns.find((c) => c.databaseId) ?? conns[0]
+      if (!conn) continue
+      const [mappingRow] = await db
+        .select()
+        .from(schema.fieldMapping)
+        .where(eq(schema.fieldMapping.connectionId, conn.id))
+      const mapping = (mappingRow ?? DEFAULT_MAPPING) as FieldMapping
+
+      const notion = createNotionClient(conn.accessToken)
+      for (const prod of prods) {
+        try {
+          const post = await notion.getPostById(prod.notionPageId!, mapping)
+          if (!post) continue
+          const hasVertical = post.verticalUrls.length > 0
+          const hasHorizontal = post.horizontalUrls.length > 0
+          if (
+            hasVertical === prod.hasVerticalMedia &&
+            hasHorizontal === prod.hasHorizontalMedia &&
+            prod.deliverableSyncedAt &&
+            Date.now() - new Date(prod.deliverableSyncedAt).getTime() < 60 * 60 * 1000
+          ) {
+            // Estado igual + sync recente (< 1h): pula update pra reduzir writes.
+            continue
+          }
+          await db
+            .update(schema.production)
+            .set({
+              hasVerticalMedia: hasVertical,
+              hasHorizontalMedia: hasHorizontal,
+              deliverableSyncedAt: new Date(),
+              updatedAt: new Date(),
+            })
+            .where(eq(schema.production.id, prod.id))
+          synced++
+        } catch (e) {
+          logger.warn(
+            `Sync deliverable falhou para produção ${prod.id}: ${e instanceof Error ? e.message : e}`,
+          )
+        }
+      }
+    }
+    logger.info(`Sweep de entrega: ${synced} produções atualizadas.`)
+    return { synced }
   },
 })
 
