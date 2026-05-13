@@ -40,7 +40,7 @@ export function DensityToggle() {
       title={label}
       aria-label={label}
       className={cn(
-        "flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground",
+        "flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
       )}
     >
       <Icon className="h-3.5 w-3.5" />

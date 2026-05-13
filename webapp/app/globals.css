@@ -109,15 +109,53 @@
   color: var(--color-muted-foreground);
 }
 
+/* Reduced motion: kill global de toda animação/transition. Padrão WCAG
+   AA — usuário com "Reduzir animação" no SO espera 0 motion fora de
+   feedback essencial. .stagger-children precisa também resetar opacity
+   e transform pra não ficar invisível com animação cancelada. */
 @media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
   .aurora-bg {
     animation: none;
+  }
+  .stagger-children > * {
+    animation: none !important;
+    opacity: 1 !important;
+    transform: none !important;
   }
   ::view-transition-group(*),
   ::view-transition-old(*),
   ::view-transition-new(*) {
     animation-duration: 0.01ms !important;
   }
+}
+
+/* Skip-link: hidden por default, aparece em foco quando Tab vem do
+   início da página. Pula pro main content evitando re-tab via nav.
+   WCAG 2.4.1 (Bypass Blocks). */
+.skip-to-content {
+  position: fixed;
+  top: 0.5rem;
+  left: 0.5rem;
+  z-index: 100;
+  padding: 0.5rem 0.75rem;
+  border-radius: var(--radius-md);
+  background: var(--color-primary);
+  color: var(--color-primary-foreground);
+  font-size: 0.875rem;
+  font-weight: 500;
+  transform: translateY(-200%);
+  transition: transform 0.15s ease-out;
+}
+.skip-to-content:focus {
+  transform: translateY(0);
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
 }
 
 :root {
