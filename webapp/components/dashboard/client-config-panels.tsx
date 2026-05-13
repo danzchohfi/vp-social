@@ -353,6 +353,11 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
   // Validate-Meta state.
   const [metaValidating, setMetaValidating] = useState(false)
   const [metaValidateResult, setMetaValidateResult] = useState<any>(null)
+  // Diagnose-Meta state: deeper introspection (token scopes + WABA
+  // ownership of phone_number_id) than the basic validate. Catches the
+  // "test phone vs. real WABA mismatch" trap that surfaces at send time.
+  const [metaDiagnosing, setMetaDiagnosing] = useState(false)
+  const [metaDiagnoseResult, setMetaDiagnoseResult] = useState<any>(null)
   const [mode, setMode] = useState<"auto_manychat" | "manual_whatsapp">("auto_manychat")
   const [dispatchMode, setDispatchMode] = useState<"auto" | "manual">("auto")
   const [origDispatchMode, setOrigDispatchMode] = useState<"auto" | "manual">("auto")
@@ -494,6 +499,7 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
     }
     setMetaValidating(true)
     setMetaValidateResult(null)
+    setMetaDiagnoseResult(null)
     try {
       const res = await fetch(`/api/clients/${clientId}/meta-validate`, {
         method: "POST",
@@ -506,6 +512,29 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
       setMetaValidateResult({ ok: false, reason: e instanceof Error ? e.message : String(e) })
     } finally {
       setMetaValidating(false)
+    }
+  }
+
+  async function diagnoseMeta() {
+    if (!metaToken.trim() || !metaPhoneNumberId.trim()) {
+      toast.error("Cole token e phone_number_id primeiro")
+      return
+    }
+    setMetaDiagnosing(true)
+    setMetaValidateResult(null)
+    setMetaDiagnoseResult(null)
+    try {
+      const res = await fetch(`/api/clients/${clientId}/meta-diagnose`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ token: metaToken.trim(), phoneNumberId: metaPhoneNumberId.trim() }),
+      })
+      const data = await res.json()
+      setMetaDiagnoseResult(data)
+    } catch (e) {
+      setMetaDiagnoseResult({ ok: false, summary: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setMetaDiagnosing(false)
     }
   }
 
@@ -836,9 +865,13 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
                 onChange={(e) => { setMetaPhoneNumberId(e.target.value); setMetaValidateResult(null) }}
                 className="flex-1"
               />
-              <Button variant="outline" size="sm" onClick={validateMeta} disabled={metaValidating || !metaToken.trim() || !metaPhoneNumberId.trim()}>
+              <Button variant="outline" size="sm" onClick={validateMeta} disabled={metaValidating || metaDiagnosing || !metaToken.trim() || !metaPhoneNumberId.trim()}>
                 {metaValidating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
                 Validar
+              </Button>
+              <Button variant="outline" size="sm" onClick={diagnoseMeta} disabled={metaValidating || metaDiagnosing || !metaToken.trim() || !metaPhoneNumberId.trim()} title="Introspecciona o token + checa se o phone_number_id pertence a uma WABA que o token pode usar. Use quando 'Validar' passa mas o envio dá code 200.">
+                {metaDiagnosing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Diagnosticar
               </Button>
             </div>
             {metaValidateResult && (
@@ -855,6 +888,7 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
                 )}
               </div>
             )}
+            {metaDiagnoseResult && <MetaDiagnoseResult result={metaDiagnoseResult} />}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
@@ -2295,6 +2329,116 @@ export function NotionContasPanel({ clientId, clientName }: { clientId: string; 
           </div>
         </>
       )}
+    </div>
+  )
+}
+
+// Renders the structured diagnosis returned by /api/.../meta-diagnose.
+// Three rows (token / phone / match), each with a ✓ or ✗, plus a top
+// summary line. Designed so the agency can read it from across the room
+// and immediately know which gate failed and what to fix.
+type DiagnoseResult = {
+  ok?: boolean
+  summary?: string
+  token?: {
+    ok: boolean
+    appId: string | null
+    expiresLabel: string
+    scopes: string[]
+    hasMessagingScope: boolean
+    hasManagementScope: boolean
+    messagingTargetWabaIds: string[]
+    reason: string | null
+  }
+  phone?: {
+    ok: boolean
+    displayPhoneNumber: string | null
+    verifiedName: string | null
+    wabaId: string | null
+    isMetaTestNumber: boolean
+    reason: string | null
+  }
+  match?: {
+    ok: boolean | null
+    reason: string
+  }
+}
+
+function MetaDiagnoseResult({ result }: { result: DiagnoseResult }) {
+  if (!result?.token && !result?.phone) {
+    return (
+      <div className="rounded border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-sm text-destructive">
+        {result?.summary ?? "Diagnóstico falhou"}
+      </div>
+    )
+  }
+  const t = result.token
+  const p = result.phone
+  const m = result.match
+  const topClass = result.ok
+    ? "border-success/30 bg-success/10 text-success"
+    : "border-destructive/30 bg-destructive/10 text-destructive"
+  return (
+    <div className="space-y-1.5">
+      <div className={cn("rounded border px-2 py-1.5 text-sm font-medium", topClass)}>
+        {result.ok ? "✓ " : "✗ "}{result.summary}
+      </div>
+      <div className="rounded border bg-muted/30 px-2 py-1.5 text-[13px] text-foreground/90 space-y-1">
+        <DiagnoseRow ok={t?.ok ?? false}>
+          <strong>Token</strong>
+          {t?.appId && <> · app <code className="font-mono">{t.appId}</code></>}
+          {t?.expiresLabel && <> · {t.expiresLabel}</>}
+          <div className="mt-0.5 text-muted-foreground">
+            scopes: {t?.scopes?.length ? t.scopes.join(", ") : "(nenhum)"}
+          </div>
+          {t && !t.hasMessagingScope && (
+            <div className="text-destructive">falta whatsapp_business_messaging — gere novo token marcando essa checkbox</div>
+          )}
+          {t && t.hasMessagingScope && (
+            <div className="text-muted-foreground">
+              WABAs do token: {t.messagingTargetWabaIds.length > 0
+                ? t.messagingTargetWabaIds.map((id) => <code key={id} className="ml-1 font-mono">{id}</code>)
+                : <span className="text-destructive">(nenhuma — atribua a WABA ao System User e gere novo token)</span>}
+            </div>
+          )}
+          {t?.reason && !t.ok && <div className="text-destructive">{t.reason}</div>}
+        </DiagnoseRow>
+
+        <DiagnoseRow ok={p?.ok ?? false}>
+          <strong>Phone Number ID</strong>
+          {p?.displayPhoneNumber && <> · {p.displayPhoneNumber}</>}
+          {p?.verifiedName && <> ({p.verifiedName})</>}
+          {p?.wabaId && (
+            <div className="mt-0.5 text-muted-foreground">
+              WABA do número: <code className="font-mono">{p.wabaId}</code>
+            </div>
+          )}
+          {p?.isMetaTestNumber && (
+            <div className="text-warning">
+              ⚠ Este é o NÚMERO DE TESTE da Meta (+1 555…) — pertence à WABA da Meta, não à sua. Use o ID do seu número real.
+            </div>
+          )}
+          {p?.reason && !p.ok && <div className="text-destructive">{p.reason}</div>}
+        </DiagnoseRow>
+
+        <DiagnoseRow ok={m?.ok === true}>
+          <strong>WABA do número ↔ WABAs do token</strong>
+          <div className={cn("mt-0.5", m?.ok === false ? "text-destructive" : "text-muted-foreground")}>
+            {m?.reason ?? "—"}
+          </div>
+        </DiagnoseRow>
+      </div>
+    </div>
+  )
+}
+
+function DiagnoseRow({ ok, children }: { ok: boolean; children: React.ReactNode }) {
+  return (
+    <div className="flex gap-2">
+      <span className={cn("mt-0.5 shrink-0", ok ? "text-success" : "text-destructive")}>
+        {ok ? "✓" : "✗"}
+      </span>
+      <div className="min-w-0 flex-1 break-words">{children}</div>
     </div>
   )
 }
