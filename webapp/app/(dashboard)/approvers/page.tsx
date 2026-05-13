@@ -20,6 +20,7 @@ import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
 import { PostRowSkeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
+import { PageHeader } from "@/components/ui/page-header"
 import {
   Loader2,
   Plus,
@@ -184,20 +185,22 @@ export default function ApproversPage() {
 
   return (
     <div className="mx-auto max-w-4xl p-8">
-      <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl tracking-tight sm:text-4xl">Aprovadores</h1>
-          <p className="text-muted-foreground">
+      <PageHeader
+        title="Aprovadores"
+        subtitle={
+          <>
             Pessoas que aprovam <strong>posts</strong> e <strong>roteiros de produções</strong>. Cada uma tem um portal pessoal{" "}
             <code className="rounded bg-muted px-1 py-0.5 font-mono text-[13px]">/a/&#123;token&#125;</code> com tudo
             que está aguardando decisão — produções entram pela chain editada na produção; posts entram automaticamente quando o telefone bate com o contato resolvido do Notion.
-          </p>
-        </div>
-        <Button onClick={() => setShowNew(true)} disabled={showNew}>
-          <Plus className="h-4 w-4" />
-          Novo aprovador
-        </Button>
-      </div>
+          </>
+        }
+        action={
+          <Button onClick={() => setShowNew(true)} disabled={showNew}>
+            <Plus className="h-4 w-4" />
+            Novo aprovador
+          </Button>
+        }
+      />
 
       {showNew && (
         <Card className="mb-4">
