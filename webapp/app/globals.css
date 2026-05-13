@@ -3,6 +3,70 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* View Transitions opt-in pra hard navigations (form submits, full reloads).
+   Client-side navigations do App Router são morphadas via <ViewTransition>
+   wrapper (next/view-transition, experimental flag em next.config.ts). */
+@view-transition {
+  navigation: auto;
+}
+
+/* Custom property registrada pra permitir animação interpolada do hue do
+   conic-gradient (aurora). Sem @property o browser não anima ângulos. */
+@property --aurora-hue {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+
+@keyframes aurora-rotate {
+  to { --aurora-hue: 360deg; }
+}
+
+/* Aurora gradient sutil — opt-in via .aurora-bg em divs absolute atrás de
+   hero sections (landing, /a, /c, /approve, /login). Blur grande + opacity
+   baixa = glow ambiente, nunca distrai do conteúdo. */
+.aurora-bg {
+  background: conic-gradient(
+    from var(--aurora-hue),
+    oklch(0.72 0.18 285),
+    oklch(0.65 0.22 200),
+    oklch(0.78 0.16 320),
+    oklch(0.72 0.18 285)
+  );
+  animation: aurora-rotate 20s linear infinite;
+  filter: blur(80px);
+  opacity: 0.22;
+  will-change: transform;
+}
+
+/* Glassmorphism utility. Usar em cards/headers/modais que se beneficiam
+   de profundidade. Fallback em browsers sem backdrop-filter: solid bg. */
+.glass {
+  background-color: oklch(0.16 0 0 / 0.6);
+  backdrop-filter: blur(16px) saturate(150%);
+  -webkit-backdrop-filter: blur(16px) saturate(150%);
+  border: 1px solid oklch(1 0 0 / 0.08);
+}
+
+@supports not (backdrop-filter: blur(16px)) {
+  .glass {
+    background-color: oklch(0.16 0 0 / 0.95);
+  }
+}
+
+/* Respeita preferência de menos animação: pausa aurora, transições
+   instantâneas. Acessibilidade básica. */
+@media (prefers-reduced-motion: reduce) {
+  .aurora-bg {
+    animation: none;
+  }
+  ::view-transition-group(*),
+  ::view-transition-old(*),
+  ::view-transition-new(*) {
+    animation-duration: 0.01ms !important;
+  }
+}
+
 :root {
   --background: oklch(1 0 0);
   --foreground: oklch(0.09 0 0);
@@ -107,4 +171,22 @@ body {
   background-color: var(--color-background);
   color: var(--color-foreground);
   font-feature-settings: "rlig" 1, "calt" 1;
+  position: relative;
+  min-height: 100vh;
+}
+
+/* Film-grain overlay sutil — 2.5% opacity sobre tudo, mix-blend-mode
+   overlay pra escurecer/clarear conforme bg. SVG inline (~250 bytes,
+   zero requests, escala em qualquer resolução). Pointer-events:none
+   pra não interceptar cliques. */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
+  background-size: 200px 200px;
+  opacity: 0.025;
+  pointer-events: none;
+  z-index: 9999;
+  mix-blend-mode: overlay;
 }
