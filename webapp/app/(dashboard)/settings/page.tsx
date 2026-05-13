@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/ui/page-header"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -492,10 +493,11 @@ export default function SettingsPage() {
   return (
     <div className="max-w-3xl mx-auto space-y-6 py-10 px-4">
       <RequiresSingleClient message="Configurações são por cliente. Selecione um cliente específico no menu lateral antes de mexer em conexões ou mapeamento." />
-      <div>
-        <h1 className="text-3xl tracking-tight sm:text-4xl">Configurações</h1>
-        <p className="text-muted-foreground mt-1">Configure seus workspaces do Notion e o mapeamento de campos.</p>
-      </div>
+      <PageHeader
+        title="Configurações"
+        subtitle="Configure seus workspaces do Notion e o mapeamento de campos."
+        className="mb-0"
+      />
 
       {/* All per-client configuration rendered inline here — moved
           from /clients in PR #65 ("juntar tudo em uma"). Each section
