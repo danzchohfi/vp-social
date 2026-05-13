@@ -962,7 +962,7 @@ export default function SettingsPage() {
                     </div>
                     {props.length > 0 && (
                       <details className="rounded-md border bg-muted/30 p-2 text-sm">
-                        <summary className="cursor-pointer font-medium text-muted-foreground">
+                        <summary className="cursor-pointer rounded px-1 py-0.5 font-medium text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground">
                           Diagnóstico: ver todas as {props.length} propriedades detectadas
                         </summary>
                         <div className="mt-2 space-y-1">
