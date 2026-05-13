@@ -53,11 +53,17 @@ type ApiResponse = {
   state: "ok" | "decided" | "expired"
   decision: "approved" | "changes_requested" | null
   decidedAt: string | null
-  // sentAt = when WhatsApp (auto or manual wa.me) actually delivered the link.
-  // expiresAt = 14d from creation. Both shown in the meta-line so the
-  // client knows when it was sent and how long they have to respond.
+  // sentAt = when WhatsApp foi entregue (Meta Cloud) ou cron marcou link
+  // como manual_wame. expiresAt = sentAt + 30d (TTL pra aprovação tácita).
+  // Pra sentVia='meta_cloud': após 30d sem resposta vira aprovação tácita
+  // (cron tacitApprovalSweep). Outros sentVia: link fica pendente até
+  // alguém decidir ou agency expirar manualmente.
   sentAt: string | null
+  sentVia: string | null
   expiresAt: string | null
+  // True quando aprovação foi automática (silêncio em 30d) em vez de
+  // explícita. UI mostra texto e ícone diferentes nesse caso.
+  tacit: boolean
   contactName: string | null
   // Other pending approvals for the same client. When >0, we show a
   // sibling banner so the client knows there's more in the queue.
@@ -213,19 +219,34 @@ export default function ApprovalPage() {
 
   if (data.state === "decided") {
     const isApproved = data.decision === "approved"
+    const isTacit = isApproved && data.tacit
     return (
       <div className="min-h-screen flex items-center justify-center bg-background p-4">
         <Card className="w-full max-w-md">
           <CardContent className="py-10 text-center">
-            {isApproved ? (
+            {isTacit ? (
+              <Clock className="mx-auto mb-4 h-12 w-12 text-muted-foreground" />
+            ) : isApproved ? (
               <CheckCircle2 className="mx-auto mb-4 h-12 w-12 text-success" />
             ) : (
               <MessageCircle className="mx-auto mb-4 h-12 w-12 text-warning" />
             )}
             <p className="text-lg font-medium">
-              {isApproved ? "Você já aprovou esse post" : "Você já pediu alterações"}
+              {isTacit
+                ? "Aprovação automática registrada"
+                : isApproved
+                  ? "Você já aprovou esse post"
+                  : "Você já pediu alterações"}
             </p>
-            {data.decidedAt && (
+            {isTacit && data.sentAt && data.decidedAt && (
+              <p className="mt-3 text-sm text-muted-foreground">
+                Esse post foi aprovado automaticamente em{" "}
+                <strong>{new Date(data.decidedAt).toLocaleDateString("pt-BR")}</strong>
+                {" "}porque ficou 30 dias sem resposta desde o envio em{" "}
+                <strong>{new Date(data.sentAt).toLocaleDateString("pt-BR")}</strong>.
+              </p>
+            )}
+            {!isTacit && data.decidedAt && (
               <p className="mt-2 text-base text-muted-foreground">
                 {new Date(data.decidedAt).toLocaleString("pt-BR")}
               </p>
@@ -329,13 +350,21 @@ export default function ApprovalPage() {
           </p>
         )}
 
-        {/* Meta-line: when sent + when expires. Helps the client gauge urgency. */}
-        {(data.sentAt || data.expiresAt) && (
-          <p className="mb-6 text-sm text-muted-foreground">
-            {data.sentAt && <>Enviado {formatRelative(data.sentAt)}</>}
-            {data.sentAt && data.expiresAt && " · "}
-            {data.expiresAt && <>Link expira {formatRelative(data.expiresAt)}</>}
+        {/* Meta-line: when sent. */}
+        {data.sentAt && (
+          <p className="mb-2 text-sm text-muted-foreground">
+            Enviado {formatRelative(data.sentAt)}
           </p>
+        )}
+
+        {/* Aprovação tácita: avisa o cliente que silêncio = aprovado em 30d.
+            Só pra links enviados via Meta Cloud (sentVia='meta_cloud') porque
+            é o caso onde o cron tacitApprovalSweep vai disparar. */}
+        {data.sentAt && data.sentVia === "meta_cloud" && data.expiresAt && (
+          <div className="mb-6 rounded-md border border-amber-700/30 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+            <Clock className="mr-1.5 inline h-3.5 w-3.5 align-text-bottom" />
+            Sem resposta até <strong>{new Date(data.expiresAt).toLocaleDateString("pt-BR")}</strong> = aprovação automática.
+          </div>
         )}
 
         {/* Post preview */}
@@ -632,12 +661,17 @@ function ProductionScriptApprovalView({
           </p>
         )}
 
-        {(data.sentAt || data.expiresAt) && (
-          <p className="mb-6 text-sm text-muted-foreground">
-            {data.sentAt && <>Enviado {formatRelative(data.sentAt)}</>}
-            {data.sentAt && data.expiresAt && " · "}
-            {data.expiresAt && <>Link expira {formatRelative(data.expiresAt)}</>}
+        {data.sentAt && (
+          <p className="mb-2 text-sm text-muted-foreground">
+            Enviado {formatRelative(data.sentAt)}
           </p>
+        )}
+
+        {data.sentAt && data.sentVia === "meta_cloud" && data.expiresAt && (
+          <div className="mb-6 rounded-md border border-amber-700/30 bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-100">
+            <Clock className="mr-1.5 inline h-3.5 w-3.5 align-text-bottom" />
+            Sem resposta até <strong>{new Date(data.expiresAt).toLocaleDateString("pt-BR")}</strong> = aprovação automática.
+          </div>
         )}
 
         {/* Production card */}
