@@ -1625,7 +1625,7 @@ function ContactDebugButton({ clientId }: { clientId: string }) {
           )}
           {Array.isArray(result.contacts) && result.contacts.length > 0 && (
             <details className="text-[13px]">
-              <summary className="cursor-pointer font-medium text-muted-foreground">
+              <summary className="cursor-pointer rounded px-1 py-0.5 font-medium text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground">
                 {result.contacts.length} contato(s) encontrado(s) — ver detalhes
               </summary>
               <ul className="mt-1.5 space-y-1.5">
@@ -1653,7 +1653,7 @@ function ContactDebugButton({ clientId }: { clientId: string }) {
           )}
           {Array.isArray(result.trace) && result.trace.length > 0 && (
             <details className="text-[12px]">
-              <summary className="cursor-pointer text-muted-foreground">Trace completo (JSON)</summary>
+              <summary className="cursor-pointer rounded px-1 py-0.5 text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground">Trace completo (JSON)</summary>
               <pre className="mt-1.5 max-h-96 overflow-auto rounded bg-muted p-2 font-mono">{JSON.stringify(result.trace, null, 2)}</pre>
             </details>
           )}
@@ -1750,7 +1750,7 @@ function ManyChatDebugButton({ clientId }: { clientId: string }) {
 
           {Array.isArray(result.phoneProbes) && (
             <details>
-              <summary className="cursor-pointer text-[13px] font-medium text-muted-foreground">
+              <summary className="cursor-pointer rounded px-1 py-0.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground">
                 {result.phoneProbes.length} variantes testadas
               </summary>
               <ul className="mt-1.5 space-y-1 font-mono text-[12px]">
@@ -2072,7 +2072,7 @@ export function NotionContasPanel({ clientId, clientName }: { clientId: string; 
   const [available, setAvailable] = useState<string[]>([])
   const [selected, setSelected] = useState<Set<string>>(new Set())
   const [original, setOriginal] = useState<Set<string>>(new Set())
-  const [customValue, setCustomValue] = useState("")
+  const [query, setQuery] = useState("")
   const [sources, setSources] = useState<ContaSource[]>([])
 
   async function load() {
@@ -2104,21 +2104,22 @@ export function NotionContasPanel({ clientId, clientName }: { clientId: string; 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [clientId])
 
-  function toggle(value: string) {
-    const next = new Set(selected)
-    if (next.has(value)) next.delete(value)
-    else next.add(value)
-    setSelected(next)
-  }
-
-  function addCustom() {
-    const trimmed = customValue.trim()
+  function addValue(value: string) {
+    const trimmed = value.trim()
     if (!trimmed) return
     if (!available.includes(trimmed)) {
       setAvailable((prev) => [...prev, trimmed].sort((a, b) => a.localeCompare(b, "pt-BR")))
     }
     setSelected((prev) => new Set([...prev, trimmed]))
-    setCustomValue("")
+    setQuery("")
+  }
+
+  function removeValue(value: string) {
+    setSelected((prev) => {
+      const next = new Set(prev)
+      next.delete(value)
+      return next
+    })
   }
 
   const dirty =
@@ -2183,63 +2184,103 @@ export function NotionContasPanel({ clientId, clientName }: { clientId: string; 
                 .join(", ")}
             </p>
           )}
-          {available.length === 0 ? (
-            <p className="rounded-md border border-dashed bg-muted/20 px-3 py-3 text-sm text-muted-foreground">
-              Nenhuma opção encontrada nas conexões Notion da agência. Conecte um workspace e selecione
-              um banco de dados em Configurações → Notion antes. Você ainda pode digitar valores manualmente
-              abaixo.
-            </p>
-          ) : (
-            <ul className="grid gap-1.5 sm:grid-cols-2">
-              {available.map((conta) => (
-                <li
-                  key={conta}
-                  className="flex items-center gap-2 rounded border bg-card px-2 py-1.5 text-base"
-                >
-                  <input
-                    type="checkbox"
-                    id={`conta-${clientId}-${conta}`}
-                    checked={selected.has(conta)}
-                    onChange={() => toggle(conta)}
-                    className="h-4 w-4 cursor-pointer"
-                  />
-                  <label
-                    htmlFor={`conta-${clientId}-${conta}`}
-                    className="flex-1 cursor-pointer truncate"
+          {/* Chips das contas já mapeadas — clique no X remove. Substitui
+              o checkbox grid (que ficava enorme com muitas contas) por uma
+              lista compacta de "o que está aplicado". */}
+          {selected.size > 0 && (
+            <div className="mb-3 flex flex-wrap gap-1.5">
+              {Array.from(selected)
+                .sort((a, b) => a.localeCompare(b, "pt-BR"))
+                .map((conta) => (
+                  <span
+                    key={conta}
+                    className="inline-flex items-center gap-1 rounded-full border border-primary/30 bg-primary/10 px-2 py-0.5 text-sm text-primary"
                   >
                     {conta}
-                  </label>
-                </li>
-              ))}
-            </ul>
+                    <button
+                      type="button"
+                      onClick={() => removeValue(conta)}
+                      className="text-primary/70 hover:text-primary"
+                      aria-label={`Remover ${conta}`}
+                    >
+                      ×
+                    </button>
+                  </span>
+                ))}
+            </div>
           )}
 
-          <div className="mt-3">
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                placeholder="Digite o nome exato como aparece no Notion"
-                value={customValue}
-                onChange={(e) => setCustomValue(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") {
-                    e.preventDefault()
-                    addCustom()
-                  }
-                }}
-                className="flex-1 rounded border bg-background px-2 py-1 text-base"
-              />
-              <Button size="sm" variant="outline" onClick={addCustom} disabled={!customValue.trim()}>
-                <Plus className="h-3.5 w-3.5" />
-                Adicionar
-              </Button>
-            </div>
-            <p className="mt-1.5 text-[13px] text-muted-foreground">
-              Salva só o vínculo aqui no VP Social — <strong>não cria nem altera nada no Notion</strong>.
-              Se a conta já existe no Notion, é seguro adicionar: o app usa esse valor pra reconhecer
-              os posts dela e atribuir a <strong>{clientName}</strong>. Diferenças de maiúsculas/acentos não importam.
-            </p>
+          {/* Search + select. Filtra `available` pelo que o usuário digita
+              (case + acento-insensitive). Mostra até 8 sugestões. Enter ou
+              clique adiciona; se o texto exato não existe na lista mas tem
+              algo digitado, oferece "Adicionar '<texto>'". */}
+          <div className="rounded-md border bg-card">
+            <input
+              type="text"
+              placeholder="Buscar conta do Notion (ou digitar nova)..."
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter" && query.trim()) {
+                  e.preventDefault()
+                  addValue(query)
+                }
+              }}
+              className="w-full rounded-t-md border-b bg-transparent px-3 py-2 text-base focus:outline-none"
+            />
+            {(() => {
+              const norm = (s: string) =>
+                s.normalize("NFD").replace(/\p{Diacritic}/gu, "").toLowerCase()
+              const q = norm(query.trim())
+              const candidates = q
+                ? available.filter((c) => norm(c).includes(q))
+                : available
+              const visible = candidates
+                .filter((c) => !selected.has(c))
+                .slice(0, 8)
+              const exactExists = available.some((c) => norm(c) === q)
+              return (
+                <div className="max-h-64 overflow-auto">
+                  {visible.length === 0 && !query.trim() && (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">
+                      {available.length === 0
+                        ? "Nenhuma conta encontrada nas conexões Notion."
+                        : "Todas as contas disponíveis já estão mapeadas."}
+                    </p>
+                  )}
+                  {visible.length === 0 && query.trim() && (
+                    <p className="px-3 py-2 text-sm text-muted-foreground">
+                      Nenhum resultado. Pressione Enter pra adicionar &quot;{query.trim()}&quot;.
+                    </p>
+                  )}
+                  {visible.map((conta) => (
+                    <button
+                      key={conta}
+                      type="button"
+                      onClick={() => addValue(conta)}
+                      className="block w-full px-3 py-1.5 text-left text-base hover:bg-accent/60"
+                    >
+                      {conta}
+                    </button>
+                  ))}
+                  {query.trim() && !exactExists && visible.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => addValue(query)}
+                      className="block w-full border-t px-3 py-1.5 text-left text-sm italic text-muted-foreground hover:bg-accent/60"
+                    >
+                      Adicionar nova: &quot;{query.trim()}&quot;
+                    </button>
+                  )}
+                </div>
+              )
+            })()}
           </div>
+          <p className="mt-1.5 text-[13px] text-muted-foreground">
+            Salva só o vínculo aqui no VP Social — <strong>não cria nem altera nada no Notion</strong>.
+            Se a conta já existe no Notion, é seguro adicionar: o app usa esse valor pra reconhecer
+            os posts dela e atribuir a <strong>{clientName}</strong>. Diferenças de maiúsculas/acentos não importam.
+          </p>
 
           <div className="mt-4 flex items-center justify-between">
             <p className="text-sm text-muted-foreground">
