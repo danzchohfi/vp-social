@@ -1,16 +1,14 @@
-// Provider-agnostic WhatsApp approval dispatcher. Reads
-// client.whatsappProvider and routes to either the ManyChat flow or
-// the Meta WhatsApp Cloud API direct path. Keeps every call site thin:
-// the caller passes the per-dispatch fields + the client config row,
-// and we figure out which provider to invoke.
+// Meta WhatsApp Cloud dispatcher. Agency-level config (one WABA per
+// user) lives in userWhatsappConfig. Caller loads the config + passes
+// it in — keeps this layer dumb so callers can decide what to do
+// when the user hasn't configured WhatsApp (skip vs. surface error).
 
-import { sendApprovalRequest } from "./manychat"
+import { eq } from "drizzle-orm"
+import { db } from "./db"
+import { userWhatsappConfig } from "./db/schema"
 import { sendApprovalRequestMeta } from "./whatsapp-meta"
 
-export type DispatchClient = {
-  whatsappProvider: string  // 'manychat' | 'meta_cloud'
-  manychatApiKey: string | null
-  manychatApprovalFlowNs: string | null
+export type UserWhatsappConfig = {
   metaWaToken: string | null
   metaPhoneNumberId: string | null
   metaTemplateName: string | null
@@ -18,81 +16,62 @@ export type DispatchClient = {
 }
 
 export type DispatchArgs = {
-  client: DispatchClient
+  config: UserWhatsappConfig
   phone: string
   contactName?: string | null
   postTitle: string
   approvalUrl: string
-  // ManyChat-only extras: passed straight as customFields when the
-  // provider is ManyChat. Meta uses templateParams (positional) so
-  // these are ignored on that path.
-  postUrl?: string | null
 }
 
 export type DispatchResult =
-  | { ok: true; provider: "manychat" | "meta_cloud"; messageId?: string | null }
-  | { ok: false; provider: "manychat" | "meta_cloud" | null; reason: string }
+  | { ok: true; messageId: string | null }
+  | { ok: false; reason: string }
 
 export async function dispatchApprovalRequest(args: DispatchArgs): Promise<DispatchResult> {
-  const provider = args.client.whatsappProvider === "meta_cloud" ? "meta_cloud" : "manychat"
-
-  if (provider === "meta_cloud") {
-    const { metaWaToken, metaPhoneNumberId, metaTemplateName, metaTemplateLanguage } = args.client
-    if (!metaWaToken || !metaPhoneNumberId || !metaTemplateName) {
-      return {
-        ok: false,
-        provider: "meta_cloud",
-        reason: "Meta WhatsApp não configurado pra este cliente (token + phone_number_id + template_name em /settings → Aprovação cliente).",
-      }
-    }
-    // Template params map by position: {{1}} contactName, {{2}}
-    // postTitle, {{3}} approvalUrl. The agency creates the template
-    // with these placeholders. Empty contactName is fine — Meta
-    // renders empty text without erroring.
-    const result = await sendApprovalRequestMeta({
-      token: metaWaToken,
-      phoneNumberId: metaPhoneNumberId,
-      templateName: metaTemplateName,
-      templateLanguage: metaTemplateLanguage,
-      phone: args.phone,
-      templateParams: [
-        args.contactName ?? "",
-        args.postTitle,
-        args.approvalUrl,
-      ],
-    })
-    return result.ok
-      ? { ok: true, provider: "meta_cloud", messageId: result.messageId ?? null }
-      : { ok: false, provider: "meta_cloud", reason: result.reason }
-  }
-
-  // Default: ManyChat path
-  const { manychatApiKey, manychatApprovalFlowNs } = args.client
-  if (!manychatApiKey || !manychatApprovalFlowNs) {
+  const { metaWaToken, metaPhoneNumberId, metaTemplateName, metaTemplateLanguage } = args.config
+  if (!metaWaToken || !metaPhoneNumberId || !metaTemplateName) {
     return {
       ok: false,
-      provider: "manychat",
-      reason: "ManyChat não configurado pra este cliente (API key + Flow em /settings → Aprovação cliente).",
+      reason: "WhatsApp não configurado em /settings → WhatsApp da agência (faltam token, phone_number_id ou template).",
     }
   }
-  const result = await sendApprovalRequest({
-    apiKey: manychatApiKey,
-    flowNs: manychatApprovalFlowNs,
+  const result = await sendApprovalRequestMeta({
+    token: metaWaToken,
+    phoneNumberId: metaPhoneNumberId,
+    templateName: metaTemplateName,
+    templateLanguage: metaTemplateLanguage,
     phone: args.phone,
-    customFields: {
-      approval_url: args.approvalUrl,
-      post_title: args.postTitle,
-      post_url: args.postUrl ?? "",
-    },
+    // Template params by position: {{1}} contactName, {{2}} postTitle,
+    // {{3}} approvalUrl. Empty contactName renders blank without error.
+    templateParams: [args.contactName ?? "", args.postTitle, args.approvalUrl],
   })
   return result.ok
-    ? { ok: true, provider: "manychat" }
-    : { ok: false, provider: "manychat", reason: result.reason }
+    ? { ok: true, messageId: result.messageId ?? null }
+    : { ok: false, reason: result.reason }
 }
 
-// Maps dispatch result to approvalLink.sentVia value. Used by call
-// sites to update the row after dispatch succeeds/fails.
-export function sentViaForResult(result: DispatchResult): "manychat" | "meta_cloud" | "none" {
-  if (!result.ok) return "none"
-  return result.provider
+// Loads the WhatsApp config for an agency owner. Returns a row with
+// nulls when the user hasn't configured anything yet — callers should
+// check isConfigured() (or pass directly to dispatch which surfaces
+// the friendly error).
+export async function getUserWhatsappConfig(userId: string): Promise<UserWhatsappConfig> {
+  const [row] = await db
+    .select({
+      metaWaToken: userWhatsappConfig.metaWaToken,
+      metaPhoneNumberId: userWhatsappConfig.metaPhoneNumberId,
+      metaTemplateName: userWhatsappConfig.metaTemplateName,
+      metaTemplateLanguage: userWhatsappConfig.metaTemplateLanguage,
+    })
+    .from(userWhatsappConfig)
+    .where(eq(userWhatsappConfig.userId, userId))
+  return row ?? {
+    metaWaToken: null,
+    metaPhoneNumberId: null,
+    metaTemplateName: null,
+    metaTemplateLanguage: "pt_BR",
+  }
+}
+
+export function isConfigured(config: UserWhatsappConfig): boolean {
+  return !!config.metaWaToken && !!config.metaPhoneNumberId && !!config.metaTemplateName
 }

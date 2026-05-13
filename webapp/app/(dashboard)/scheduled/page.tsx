@@ -38,7 +38,7 @@ type ApprovalState = {
   token?: string | null
   decision?: "approved" | "rejected" | "revision" | null
   comment?: string | null
-  sentVia?: "manychat" | "manual" | "invalid_phone" | "none" | null
+  sentVia?: "meta_cloud" | "manual" | "invalid_phone" | "none" | null
   sentAt?: string | null
   decidedAt?: string | null
   expiresAt?: string | null
@@ -1253,8 +1253,8 @@ function PostRow({ post, canPublishNow, onPublished, issues }: { post: Scheduled
 // to know whether they need to chase the client (stale, expired, no_link)
 // or just wait. Click "Reenviar WA" → wa.me deep-link with pre-filled msg
 // referencing the original token. Click "Copiar link" → puts the approval
-// URL on the clipboard (handy when ManyChat failed but they have another
-// channel to send it).
+// URL on the clipboard (handy when the auto dispatch failed but they have
+// another channel to send it).
 
 function ApprovalBanner({
   post,
@@ -1269,9 +1269,9 @@ function ApprovalBanner({
   const [triggering, setTriggering] = useState(false)
   const [dispatching, setDispatching] = useState(false)
 
-  // Dispatch ManyChat for this SPECIFIC approval link. Different from
+  // Dispatch WhatsApp for this SPECIFIC approval link. Different from
   // triggerNow (which creates the link first via the admin sweep) —
-  // this assumes the link exists and just re-runs the WA send. Useful
+  // this assumes the link exists and just re-runs the send. Useful
   // when notify-pending picked a different post and the agency wants
   // to target THIS one specifically. /api/approve/[token]/dispatch.
   async function dispatchThisPost() {
@@ -1293,7 +1293,7 @@ function ApprovalBanner({
     }
   }
 
-  // Force-create the approvalLink + dispatch ManyChat for this one post,
+  // Force-create the approvalLink + dispatch WhatsApp for this one post,
   // bypassing the 5-min cron wait. Used when the post just transitioned
   // to "aguardando aprovação" and the agency wants the link out NOW.
   // Reuses the admin test-approval-sweep endpoint with dispatch=true.
@@ -1311,7 +1311,7 @@ function ApprovalBanner({
       })
       const data = await res.json().catch(() => null)
       if (!res.ok) throw new Error(data?.error ?? "Falha ao disparar")
-      if (data?.manychat?.ok) toast.success("ManyChat disparado")
+      if (data?.dispatch?.ok) toast.success("WhatsApp disparado")
       else if (data?.approvalLink?.approvalUrl) toast.success("Link criado — use o botão WA pra enviar")
       else toast.warning("Link criado mas o WA falhou — veja o painel do cliente")
       onAction?.()
@@ -1378,7 +1378,7 @@ function ApprovalBanner({
       return
     }
     setResending(true)
-    // Open wa.me with a pre-filled message. We don't go through ManyChat
+    // Open wa.me with a pre-filled message. We don't go through Meta Cloud
     // here because if it failed once, it'll fail again — manual deep-link
     // bypasses that and lets the agency owner send from their phone.
     //
@@ -1423,10 +1423,10 @@ function ApprovalBanner({
             · {approval.contactPhone}
           </span>
         )}
-        {approval.sentVia === "manychat" && approval.state !== "decided" && approval.state !== "expired" && (
+        {approval.sentVia === "meta_cloud" && approval.state !== "decided" && approval.state !== "expired" && (
           <span
             className="inline-flex items-center gap-1 rounded-full bg-success/15 px-2 py-0.5 text-[12px] font-medium text-success"
-            title={`Enviado via ManyChat${approval.sentAt ? ` em ${new Date(approval.sentAt).toLocaleString("pt-BR")}` : ""}`}
+            title={`Enviado via WhatsApp${approval.sentAt ? ` em ${new Date(approval.sentAt).toLocaleString("pt-BR")}` : ""}`}
           >
             ✓ Enviado
           </span>
@@ -1491,7 +1491,7 @@ function ApprovalBanner({
               onClick={dispatchThisPost}
               disabled={dispatching}
               className="inline-flex items-center gap-1 rounded border border-success/40 bg-success/10 px-1.5 py-0.5 text-[13px] font-medium text-success hover:bg-success/15 disabled:opacity-50"
-              title={`Disparar SÓ este post via ManyChat para ${approval.contactPhone}`}
+              title={`Disparar SÓ este post via WhatsApp para ${approval.contactPhone}`}
             >
               {dispatching ? <Loader2 className="h-3 w-3 animate-spin" /> : <Zap className="h-3 w-3" />}
               Disparar este

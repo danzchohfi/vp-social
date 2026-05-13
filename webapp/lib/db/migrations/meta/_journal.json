@@ -127,6 +127,13 @@
       "when": 1778675405063,
       "tag": "0017_slimy_starfox",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1778684360053,
+      "tag": "0018_curvy_shatterstar",
+      "breakpoints": true
     }
   ]
 }

@@ -1,5 +1,5 @@
 // Landing page for the "Testar com meu WhatsApp" dry-run dispatch
-// (POST /api/clients/[id]/test-approval-self). The ManyChat flow uses
+// (POST /api/me/test-approval-self). The Meta Cloud template uses
 // {{approval_url}} = ${APP_URL}/test-approval so when the recipient
 // taps the link in WhatsApp they don't hit a 404 — instead they see a
 // friendly "this is what your client will see" preview that mirrors

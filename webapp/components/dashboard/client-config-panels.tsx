@@ -4,10 +4,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Card, CardContent } from "@/components/ui/card"
-import { Building2, Check, Loader2, Plus, Trash2, Pencil, X, Users, Mail, Copy, MessageCircle, Tag, RefreshCw, ListChecks, Pause, Play } from "lucide-react"
+import { Building2, Check, Loader2, Plus, Trash2, Pencil, X, Users, Mail, Copy, Tag, RefreshCw, ListChecks, Pause, Play } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
-import { MetaSetupGuide } from "@/components/setup-guides/meta-setup-guide"
 
 // Per-client config panels rendered inline on /settings (extracted
 // from /clients in #67 because Next.js 15 page files cannot have
@@ -289,31 +288,6 @@ export function MembersPanel({ clientId, canManage }: { clientId: string; canMan
   )
 }
 
-// Notion accepts a page ID as either a 32-char hex blob or a UUID with
-// dashes. The "Copy link" UI gives a URL like
-// .../Some-Title-{32hex}?v=… — we extract the 32hex (and dash-format
-// it for clarity, since both work with the API).
-function extractNotionPageId(input: string): string {
-  const trimmed = input.trim()
-  // 32-hex no dashes
-  const hexMatch = trimmed.match(/[0-9a-f]{32}/i)
-  if (hexMatch) {
-    const h = hexMatch[0].toLowerCase()
-    return `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
-  }
-  // UUID with dashes
-  const uuidMatch = trimmed.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i)
-  if (uuidMatch) return uuidMatch[0].toLowerCase()
-  return trimmed
-}
-
-const STARTER_TEMPLATE = `Olá {{1}}, você tem 1 post aguardando sua aprovação:
-
-📝 *{{2}}*
-
-Aprovar ou pedir alterações:
-{{3}}`
-
 type ConnectionStatus = {
   id: string
   workspaceName: string
@@ -326,66 +300,21 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [calendarPath, setCalendarPath] = useState("")
-  // WhatsApp provider. ManyChat support was kept on the schema for
-  // backward compat (existing rows in DB) but the UI no longer offers
-  // it — Meta Cloud is the only path. New clients default to meta_cloud
-  // immediately; legacy clients still on "manychat" see the old form
-  // (gated by `provider === "manychat"` below) so they don't lose
-  // their saved creds, but they can't switch back to it.
-  const [provider, setProvider] = useState<"manychat" | "meta_cloud">("meta_cloud")
-  // setProvider remains exported via `setProvider` references in the
-  // panel — currently only used by the load() effect when reading
-  // existing client data. Kept to avoid silently losing legacy DB
-  // values; the provider selector itself is gone.
-  void setProvider
-  const [origProvider, setOrigProvider] = useState<"manychat" | "meta_cloud">("manychat")
-  const [apiKey, setApiKey] = useState("")
-  const [flowNs, setFlowNs] = useState("")
-  // Meta WA Cloud credentials.
-  const [metaToken, setMetaToken] = useState("")
-  const [origMetaToken, setOrigMetaToken] = useState("")
-  const [metaPhoneNumberId, setMetaPhoneNumberId] = useState("")
-  const [origMetaPhoneNumberId, setOrigMetaPhoneNumberId] = useState("")
-  const [metaTemplateName, setMetaTemplateName] = useState("")
-  const [origMetaTemplateName, setOrigMetaTemplateName] = useState("")
-  const [metaTemplateLanguage, setMetaTemplateLanguage] = useState("pt_BR")
-  const [origMetaTemplateLanguage, setOrigMetaTemplateLanguage] = useState("pt_BR")
-  // Validate-Meta state.
-  const [metaValidating, setMetaValidating] = useState(false)
-  const [metaValidateResult, setMetaValidateResult] = useState<any>(null)
-  // Diagnose-Meta state: deeper introspection (token scopes + WABA
-  // ownership of phone_number_id) than the basic validate. Catches the
-  // "test phone vs. real WABA mismatch" trap that surfaces at send time.
-  const [metaDiagnosing, setMetaDiagnosing] = useState(false)
-  const [metaDiagnoseResult, setMetaDiagnoseResult] = useState<any>(null)
-  // Register-Meta state: one-time Cloud API onboarding for the phone
-  // number. Sets the 2FA PIN to whatever the agency picks (first time)
-  // or asks for the existing one. Until this runs, /messages → 133010.
-  const [metaPin, setMetaPin] = useState("")
-  const [metaRegistering, setMetaRegistering] = useState(false)
-  const [metaRegisterResult, setMetaRegisterResult] = useState<any>(null)
-  const [mode, setMode] = useState<"auto_manychat" | "manual_whatsapp">("auto_manychat")
+  // Per-client routing only — the actual WhatsApp credentials (token,
+  // phone_id, template) are agency-level now and live in /settings →
+  // WhatsApp da agência (one WABA per user, shared across all clients).
+  const [whatsappConfigured, setWhatsappConfigured] = useState(false)
+  // 'auto' = cron dispatches via Meta Cloud per pending post.
+  // 'manual_wame' = cron skips dispatch; agency uses wa.me button on /scheduled.
+  const [mode, setMode] = useState<"auto" | "manual_wame">("auto")
+  const [origMode, setOrigMode] = useState<"auto" | "manual_wame">("auto")
   const [dispatchMode, setDispatchMode] = useState<"auto" | "manual">("auto")
   const [origDispatchMode, setOrigDispatchMode] = useState<"auto" | "manual">("auto")
   const [waTemplate, setWaTemplate] = useState("")
   const [origWaTemplate, setOrigWaTemplate] = useState("")
-  // Track originals to know if anything is dirty.
-  const [origApiKey, setOrigApiKey] = useState("")
-  const [origFlowNs, setOrigFlowNs] = useState("")
-  const [origMode, setOrigMode] = useState<"auto_manychat" | "manual_whatsapp">("auto_manychat")
-  // Test-dispatch panel state.
-  const [testPageId, setTestPageId] = useState("")
-  const [testConnectionId, setTestConnectionId] = useState("")
-  const [testing, setTesting] = useState(false)
-  const [testResult, setTestResult] = useState<any>(null)
   const [connections, setConnections] = useState<ConnectionStatus[]>([])
   const [status, setStatus] = useState<"configured" | "partial" | "missing" | null>(null)
   const [nextStepHint, setNextStepHint] = useState<string | null>(null)
-  // Validate-token state.
-  const [validating, setValidating] = useState(false)
-  const [validateResult, setValidateResult] = useState<any>(null)
-  // Toggle for the Meta template + Flow setup instructions block.
-  const [showFlowGuide, setShowFlowGuide] = useState(false)
 
   async function load() {
     setLoading(true)
@@ -397,27 +326,11 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
         return
       }
       setCalendarPath(data.calendarPath ?? "")
-      const nextProvider = (data.whatsappProvider === "meta_cloud" ? "meta_cloud" : "manychat") as "manychat" | "meta_cloud"
-      setProvider(nextProvider)
-      setOrigProvider(nextProvider)
-      setApiKey(data.manychatApiKey ?? "")
-      setFlowNs(data.manychatApprovalFlowNs ?? "")
-      setOrigApiKey(data.manychatApiKey ?? "")
-      setOrigFlowNs(data.manychatApprovalFlowNs ?? "")
-      setMetaToken(data.metaWaToken ?? "")
-      setOrigMetaToken(data.metaWaToken ?? "")
-      setMetaPhoneNumberId(data.metaPhoneNumberId ?? "")
-      setOrigMetaPhoneNumberId(data.metaPhoneNumberId ?? "")
-      setMetaTemplateName(data.metaTemplateName ?? "")
-      setOrigMetaTemplateName(data.metaTemplateName ?? "")
-      setMetaTemplateLanguage(data.metaTemplateLanguage ?? "pt_BR")
-      setOrigMetaTemplateLanguage(data.metaTemplateLanguage ?? "pt_BR")
-      const nextMode = (data.approvalNotificationMode === "manual_whatsapp"
-        ? "manual_whatsapp"
-        : "auto_manychat") as "auto_manychat" | "manual_whatsapp"
+      setWhatsappConfigured(!!data.whatsappConfigured)
+      const nextMode = data.approvalNotificationMode === "manual_wame" ? "manual_wame" : "auto"
       setMode(nextMode)
       setOrigMode(nextMode)
-      const nextDispatch = (data.approvalDispatchMode === "manual" ? "manual" : "auto") as "auto" | "manual"
+      const nextDispatch = data.approvalDispatchMode === "manual" ? "manual" : "auto"
       setDispatchMode(nextDispatch)
       setOrigDispatchMode(nextDispatch)
       const tpl = typeof data.manualWhatsappTemplate === "string" ? data.manualWhatsappTemplate : ""
@@ -427,8 +340,6 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
       setConnections(conns)
       setStatus(typeof data.status === "string" ? data.status : null)
       setNextStepHint(typeof data.nextStepHint === "string" ? data.nextStepHint : null)
-      // Pre-select the only connection if there's just one — saves a click.
-      if (conns.length === 1) setTestConnectionId(conns[0].id)
     } finally {
       setLoading(false)
     }
@@ -449,13 +360,6 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          whatsappProvider: provider,
-          manychatApiKey: apiKey.trim() || null,
-          manychatApprovalFlowNs: flowNs.trim() || null,
-          metaWaToken: metaToken.trim() || null,
-          metaPhoneNumberId: metaPhoneNumberId.trim() || null,
-          metaTemplateName: metaTemplateName.trim() || null,
-          metaTemplateLanguage: metaTemplateLanguage.trim() || "pt_BR",
           approvalNotificationMode: mode,
           approvalDispatchMode: dispatchMode,
           manualWhatsappTemplate: waTemplate,
@@ -466,18 +370,9 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
         throw new Error(data.error ?? "Erro ao salvar")
       }
       toast.success("Configuração salva")
-      setOrigProvider(provider)
-      setOrigApiKey(apiKey.trim())
-      setOrigFlowNs(flowNs.trim())
-      setOrigMetaToken(metaToken.trim())
-      setOrigMetaPhoneNumberId(metaPhoneNumberId.trim())
-      setOrigMetaTemplateName(metaTemplateName.trim())
-      setOrigMetaTemplateLanguage(metaTemplateLanguage.trim() || "pt_BR")
       setOrigMode(mode)
       setOrigDispatchMode(dispatchMode)
       setOrigWaTemplate(waTemplate)
-      // Re-fetch so the status pill + hints reflect the saved state
-      // without a full page reload.
       await load()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro")
@@ -487,153 +382,16 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
   }
 
   const dirty =
-    provider !== origProvider ||
-    apiKey.trim() !== origApiKey ||
-    flowNs.trim() !== origFlowNs ||
-    metaToken.trim() !== origMetaToken ||
-    metaPhoneNumberId.trim() !== origMetaPhoneNumberId ||
-    metaTemplateName.trim() !== origMetaTemplateName ||
-    metaTemplateLanguage.trim() !== origMetaTemplateLanguage ||
     mode !== origMode ||
     dispatchMode !== origDispatchMode ||
     waTemplate !== origWaTemplate
-
-  async function validateMeta() {
-    if (!metaToken.trim() || !metaPhoneNumberId.trim()) {
-      toast.error("Cole token e phone_number_id primeiro")
-      return
-    }
-    setMetaValidating(true)
-    setMetaValidateResult(null)
-    setMetaDiagnoseResult(null)
-    try {
-      const res = await fetch(`/api/clients/${clientId}/meta-validate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: metaToken.trim(), phoneNumberId: metaPhoneNumberId.trim() }),
-      })
-      const data = await res.json()
-      setMetaValidateResult(data)
-    } catch (e) {
-      setMetaValidateResult({ ok: false, reason: e instanceof Error ? e.message : String(e) })
-    } finally {
-      setMetaValidating(false)
-    }
-  }
-
-  async function diagnoseMeta() {
-    if (!metaToken.trim() || !metaPhoneNumberId.trim()) {
-      toast.error("Cole token e phone_number_id primeiro")
-      return
-    }
-    setMetaDiagnosing(true)
-    setMetaValidateResult(null)
-    setMetaDiagnoseResult(null)
-    try {
-      const res = await fetch(`/api/clients/${clientId}/meta-diagnose`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ token: metaToken.trim(), phoneNumberId: metaPhoneNumberId.trim() }),
-      })
-      const data = await res.json()
-      setMetaDiagnoseResult(data)
-    } catch (e) {
-      setMetaDiagnoseResult({ ok: false, summary: e instanceof Error ? e.message : String(e) })
-    } finally {
-      setMetaDiagnosing(false)
-    }
-  }
-
-  async function registerMetaPhone() {
-    if (!/^\d{6}$/.test(metaPin.trim())) {
-      toast.error("PIN deve ter exatamente 6 dígitos")
-      return
-    }
-    if (dirty) {
-      toast.error("Salve o token e Phone Number ID primeiro")
-      return
-    }
-    setMetaRegistering(true)
-    setMetaRegisterResult(null)
-    try {
-      const res = await fetch(`/api/clients/${clientId}/meta-register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ pin: metaPin.trim() }),
-      })
-      const data = await res.json()
-      setMetaRegisterResult(data)
-      if (data.ok) {
-        toast.success("Número registrado no Cloud API ✓")
-        setMetaPin("")
-      }
-    } catch (e) {
-      setMetaRegisterResult({ ok: false, reason: e instanceof Error ? e.message : String(e) })
-    } finally {
-      setMetaRegistering(false)
-    }
-  }
-
-  async function validateToken() {
-    if (!apiKey.trim()) {
-      toast.error("Cole a API key primeiro")
-      return
-    }
-    setValidating(true)
-    setValidateResult(null)
-    try {
-      const res = await fetch(`/api/clients/${clientId}/manychat-validate`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: apiKey.trim() }),
-      })
-      const data = await res.json()
-      setValidateResult(data)
-      if (data.ok) toast.success(`Conectado: ${data.page?.name ?? "página ManyChat"}`)
-      else toast.error(`ManyChat rejeitou: ${data.reason}`)
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro de rede")
-    } finally {
-      setValidating(false)
-    }
-  }
-
-  async function runTest(dispatch: boolean) {
-    const pageId = extractNotionPageId(testPageId)
-    if (!pageId || !testConnectionId) {
-      toast.error("Preencha pageId + escolha o workspace")
-      return
-    }
-    setTesting(true)
-    setTestResult(null)
-    try {
-      const res = await fetch("/api/admin/test-approval-sweep", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          pageId,
-          connectionId: testConnectionId,
-          dispatch,
-        }),
-      })
-      const data = await res.json()
-      setTestResult(data)
-      if (!res.ok) toast.error(data.error ?? "Teste falhou — veja o resultado abaixo")
-      else if (dispatch && !data.ok) toast.warning("Token criado, mas ManyChat falhou — veja resultado")
-      else toast.success(dispatch ? "ManyChat disparado" : "Token criado — abra wa.me abaixo")
-    } catch (e) {
-      toast.error(e instanceof Error ? e.message : "Erro de rede")
-    } finally {
-      setTesting(false)
-    }
-  }
 
   return (
     <div className="space-y-4">
       <div>
         <p className="text-base font-semibold">Aprovação do cliente</p>
         <p className="text-sm text-muted-foreground">
-          Toda vez que um post entrar no status &quot;aguardando aprovação&quot; (configurado em <a href="/settings" className="underline">/settings</a>), o app gera um link <code className="rounded bg-muted px-1 font-mono text-[12px]">/approve/&lt;token&gt;</code> e avisa o cliente conforme o modo escolhido abaixo.
+          Toda vez que um post entrar no status &quot;aguardando aprovação&quot; (configurado em <a href="/settings" className="underline">/settings</a>), o app gera um link <code className="rounded bg-muted px-1 font-mono text-[12px]">/approve/&lt;token&gt;</code> e avisa o cliente conforme o modo escolhido abaixo. O WhatsApp da agência é compartilhado entre todos os clientes — configurado uma vez em <a href="/settings" className="underline">/settings → WhatsApp da agência</a>.
         </p>
       </div>
 
@@ -710,30 +468,25 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
             </div>
           </div>
 
-          {/* Modo de envio — UMA pergunta só. Antes era "Como avisar"
-              + "Quando enviar" em radios separados, mas só geravam 3
-              combinações reais (as outras eram contraditórias / não
-              faziam sentido). Pra UI ficar mais clara, consolidamos
-              tudo aqui e mapeamos pros 2 campos do schema
-              (approvalNotificationMode + approvalDispatchMode) de
-              modo derivado. */}
+          {/* Modo de envio — UMA pergunta só. As 3 opções mapeiam pros 2
+              campos do schema (approvalNotificationMode + approvalDispatchMode). */}
           <div className="space-y-1.5">
             <Label className="text-sm">Modo de envio do WhatsApp</Label>
             {(() => {
               type SendMode = "auto" | "manual_batch" | "wa_me"
               const sendMode: SendMode =
-                mode === "manual_whatsapp" ? "wa_me"
+                mode === "manual_wame" ? "wa_me"
                   : dispatchMode === "manual" ? "manual_batch"
                     : "auto"
               function pick(next: SendMode) {
                 if (next === "auto") {
-                  setMode("auto_manychat")
+                  setMode("auto")
                   setDispatchMode("auto")
                 } else if (next === "manual_batch") {
-                  setMode("auto_manychat")
+                  setMode("auto")
                   setDispatchMode("manual")
                 } else {
-                  setMode("manual_whatsapp")
+                  setMode("manual_wame")
                   setDispatchMode("auto")
                 }
               }
@@ -741,17 +494,17 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
                 {
                   value: "auto",
                   label: "Automático por post",
-                  desc: <>O cron dispara um WhatsApp pra cada post que entrar em &quot;aguardando&quot;, usando o provedor configurado acima (ManyChat ou Meta Cloud).</>,
+                  desc: <>Cron dispara um WhatsApp pra cada post que entrar em &quot;aguardando&quot;, usando o WhatsApp da agência.</>,
                 },
                 {
                   value: "manual_batch",
                   label: "Manual em lote",
-                  desc: <>Cron prepara os links mas não envia. Você clica <strong>&quot;Notificar pendentes&quot;</strong> no /dashboard pra mandar tudo de uma vez (também pelo provedor configurado).</>,
+                  desc: <>Cron prepara os links mas não envia. Você clica <strong>&quot;Notificar pendentes&quot;</strong> no /dashboard pra mandar tudo de uma vez.</>,
                 },
                 {
                   value: "wa_me",
                   label: "Manual por post (wa.me)",
-                  desc: <>Sem API. App gera só o link pra cada post; você abre o WhatsApp pelo botão <strong>&quot;Enviar via WA&quot;</strong> em /scheduled, um por um.</>,
+                  desc: <>Sem API. App gera só o link; você abre o WhatsApp pelo botão <strong>&quot;Enviar via WA&quot;</strong> em /scheduled, um por um.</>,
                 },
               ]
               return (
@@ -787,216 +540,29 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
             })()}
           </div>
 
-          {mode === "manual_whatsapp" && (
-            <>
-              <div className="rounded-md border border-success/30 bg-success/5 p-3 text-sm">
-                <p className="font-medium text-success">Modo manual ativo</p>
-                <p className="mt-1 text-foreground/80">
-                  Configure só os campos do Notion em <a href="/settings" className="underline">/settings</a>. Quando um post entrar em &quot;aguardando aprovação&quot;, ele aparece em <a href="/scheduled" className="underline">/scheduled</a> com um botão <strong>Enviar via WA</strong> que abre o wa.me com a mensagem pronta.
-                </p>
-              </div>
-
-              <div className="space-y-1.5">
-                <Label className="text-sm">Mensagem padrão do WhatsApp (opcional)</Label>
-                <p className="text-sm text-muted-foreground">
-                  Texto que aparece pré-preenchido no botão &quot;Enviar via WA&quot;. Suporta os placeholders <code className="rounded bg-muted px-1 font-mono text-[12px]">{"{{contact_name}}"}</code>, <code className="rounded bg-muted px-1 font-mono text-[12px]">{"{{post_title}}"}</code>, <code className="rounded bg-muted px-1 font-mono text-[12px]">{"{{approval_url}}"}</code>, <code className="rounded bg-muted px-1 font-mono text-[12px]">{"{{client_name}}"}</code>. Em branco = mensagem padrão simples.
-                </p>
-                <textarea
-                  value={waTemplate}
-                  onChange={(e) => setWaTemplate(e.target.value)}
-                  placeholder={`Olá {{contact_name}}!\n\nA ${clientName} preparou um post pra você revisar:\n*{{post_title}}*\n\nClique aqui pra aprovar ou pedir alterações:\n{{approval_url}}`}
-                  rows={6}
-                  className="w-full rounded border bg-background p-2 text-base focus:outline-none focus:ring-2 focus:ring-primary/30"
-                />
-              </div>
-
-              <Button onClick={save} disabled={saving || !dirty} size="sm">
-                {saving ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Check className="h-3.5 w-3.5" />}
-                Salvar mensagem
-              </Button>
-            </>
-          )}
-
-          {mode === "auto_manychat" && (
-          <>
-
-          {provider === "manychat" && (
-          <>
-          <div className="space-y-1.5">
-            <Label className="text-sm">ManyChat API Key (token da página)</Label>
-            <p className="text-sm text-muted-foreground">
-              Settings → API → Your API Key na conta ManyChat de {clientName}. ManyChat não suporta OAuth — é um token por página.
-            </p>
-            <div className="flex gap-2">
-              <Input
-                type="password"
-                placeholder="123456:abcdef..."
-                value={apiKey}
-                onChange={(e) => { setApiKey(e.target.value); setValidateResult(null) }}
-                className="flex-1"
-              />
-              <Button variant="outline" size="sm" onClick={validateToken} disabled={validating || !apiKey.trim()}>
-                {validating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                Validar
-              </Button>
-            </div>
-            {validateResult && (
-              <div className={cn(
-                "rounded border px-2 py-1.5 text-sm",
-                validateResult.ok ? "border-success/30 bg-success/10 text-success" : "border-destructive/30 bg-destructive/10 text-destructive"
-              )}>
-                {validateResult.ok ? (
-                  <span>
-                    Token válido — conectado a <strong>{validateResult.page?.name ?? "página"}</strong>
-                    {validateResult.page?.timezone ? ` (${validateResult.page.timezone})` : ""}
-                  </span>
-                ) : (
-                  <span>Falhou: {validateResult.reason}</span>
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-sm">Flow de aprovação</Label>
-            <p className="text-sm text-muted-foreground">
-              No ManyChat, crie um Flow que use o template do WhatsApp aprovado pela Meta (criado na sua Meta Business Manager → WhatsApp Manager). O Flow injeta as variáveis dinâmicas — inclua <code className="rounded bg-muted px-1 font-mono text-[12px]">approval_url</code> e <code className="rounded bg-muted px-1 font-mono text-[12px]">post_title</code> como custom fields. Depois clique em <em>Carregar Flows</em> abaixo pra escolher.
-            </p>
-            <FlowPicker
-              clientId={clientId}
-              apiKey={apiKey}
-              value={flowNs}
-              onChange={setFlowNs}
-            />
-          </div>
-
-          </>
-          )}
-
-          {provider === "meta_cloud" && (
-          <>
-          <MetaSetupGuide clientId={clientId} hasCredentials={!!origMetaToken && !!origMetaPhoneNumberId && !!origMetaTemplateName} />
-          <div className="space-y-1.5">
-            <Label className="text-sm">Token da API (System User permanente)</Label>
-            <p className="text-sm text-muted-foreground">
-              Meta Business Settings → Users → System Users. Crie um System User com permissões em <em>whatsapp_business_messaging</em> e <em>whatsapp_business_management</em>, depois gere um <strong>token permanente</strong> (NÃO use o token temporário de 24h que aparece em API Setup).
-            </p>
-            <Input
-              type="password"
-              placeholder="EAAxxxxx..."
-              value={metaToken}
-              onChange={(e) => { setMetaToken(e.target.value); setMetaValidateResult(null) }}
-            />
-          </div>
-
-          <div className="space-y-1.5">
-            <Label className="text-sm">Phone Number ID</Label>
-            <p className="text-sm text-muted-foreground">
-              ID numérico do seu número WhatsApp Business em Meta App → WhatsApp → API Setup. NÃO é o telefone — é o ID interno.
-            </p>
-            <div className="flex gap-2">
-              <Input
-                placeholder="123456789012345"
-                value={metaPhoneNumberId}
-                onChange={(e) => { setMetaPhoneNumberId(e.target.value); setMetaValidateResult(null) }}
-                className="flex-1"
-              />
-              <Button variant="outline" size="sm" onClick={validateMeta} disabled={metaValidating || metaDiagnosing || !metaToken.trim() || !metaPhoneNumberId.trim()}>
-                {metaValidating ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                Validar
-              </Button>
-              <Button variant="outline" size="sm" onClick={diagnoseMeta} disabled={metaValidating || metaDiagnosing || !metaToken.trim() || !metaPhoneNumberId.trim()} title="Introspecciona o token + checa se o phone_number_id pertence a uma WABA que o token pode usar. Use quando 'Validar' passa mas o envio dá code 200.">
-                {metaDiagnosing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                Diagnosticar
-              </Button>
-            </div>
-            {metaValidateResult && (
-              <div className={cn(
-                "rounded border px-2 py-1.5 text-sm",
-                metaValidateResult.ok ? "border-success/30 bg-success/10 text-success" : "border-destructive/30 bg-destructive/10 text-destructive"
-              )}>
-                {metaValidateResult.ok ? (
-                  <span>
-                    ✓ Token válido — <strong>{metaValidateResult.displayPhoneNumber}</strong> ({metaValidateResult.verifiedName})
-                  </span>
-                ) : (
-                  <span>Falhou: {metaValidateResult.reason}</span>
-                )}
-              </div>
-            )}
-            {metaDiagnoseResult && <MetaDiagnoseResult result={metaDiagnoseResult} />}
-          </div>
-
-          <div className="space-y-1.5 rounded-md border bg-muted/20 p-3">
-            <Label className="text-sm">Registrar número no Cloud API <span className="font-normal text-muted-foreground">(uma vez por número)</span></Label>
-            <p className="text-sm text-muted-foreground">
-              Antes do primeiro envio, o número precisa de um POST <code className="font-mono">/register</code>. Escolhe um PIN de 6 dígitos (vira o 2FA da WABA — anota ele) e clica Registrar. Roda com o token + Phone Number ID já salvos. Se já registrou antes, passe o PIN existente.
-            </p>
-            <div className="flex gap-2">
-              <Input
-                inputMode="numeric"
-                pattern="\d{6}"
-                maxLength={6}
-                placeholder="123456"
-                value={metaPin}
-                onChange={(e) => { setMetaPin(e.target.value.replace(/\D/g, "").slice(0, 6)); setMetaRegisterResult(null) }}
-                className="flex-1 font-mono"
-              />
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={registerMetaPhone}
-                disabled={metaRegistering || dirty || !/^\d{6}$/.test(metaPin)}
-                title={dirty ? "Salve antes de registrar" : "POST /v18.0/{phone_number_id}/register"}
-              >
-                {metaRegistering ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                Registrar
-              </Button>
-            </div>
-            {metaRegisterResult && (
-              <div className={cn(
-                "rounded border px-2 py-1.5 text-sm",
-                metaRegisterResult.ok
-                  ? "border-success/30 bg-success/10 text-success"
-                  : "border-destructive/30 bg-destructive/10 text-destructive"
-              )}>
-                {metaRegisterResult.ok
-                  ? <>✓ Número registrado no Cloud API — pode testar &quot;Enviar pra mim&quot; agora.</>
-                  : <>Falhou: {metaRegisterResult.reason}</>}
-              </div>
-            )}
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">
+          {mode === "manual_wame" && (
             <div className="space-y-1.5">
-              <Label className="text-sm">Template aprovado pela Meta</Label>
+              <Label className="text-sm">Mensagem padrão do WhatsApp (opcional)</Label>
               <p className="text-sm text-muted-foreground">
-                Nome EXATO do template aprovado em Meta Business Manager → WhatsApp Manager → Modelos de mensagem. Categoria <strong>Utilidade</strong>. Corpo precisa ter 3 variáveis: {"{{1}}"} contato, {"{{2}}"} título, {"{{3}}"} link de aprovação.
+                Texto pré-preenchido no botão &quot;Enviar via WA&quot;. Placeholders: <code className="rounded bg-muted px-1 font-mono text-[12px]">{"{{contact_name}}"}</code>, <code className="rounded bg-muted px-1 font-mono text-[12px]">{"{{post_title}}"}</code>, <code className="rounded bg-muted px-1 font-mono text-[12px]">{"{{approval_url}}"}</code>, <code className="rounded bg-muted px-1 font-mono text-[12px]">{"{{client_name}}"}</code>. Em branco = mensagem padrão.
               </p>
-              <Input
-                placeholder="approval_request"
-                value={metaTemplateName}
-                onChange={(e) => setMetaTemplateName(e.target.value)}
+              <textarea
+                value={waTemplate}
+                onChange={(e) => setWaTemplate(e.target.value)}
+                placeholder={`Olá {{contact_name}}!\n\nA ${clientName} preparou um post pra você revisar:\n*{{post_title}}*\n\nClique aqui pra aprovar ou pedir alterações:\n{{approval_url}}`}
+                rows={6}
+                className="w-full rounded border bg-background p-2 text-base focus:outline-none focus:ring-2 focus:ring-primary/30"
               />
             </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm">Idioma</Label>
-              <p className="text-sm text-muted-foreground">Código do template (ex: pt_BR, en_US).</p>
-              <Input
-                placeholder="pt_BR"
-                value={metaTemplateLanguage}
-                onChange={(e) => setMetaTemplateLanguage(e.target.value)}
-              />
-            </div>
-          </div>
+          )}
 
-          <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
-            <p className="font-medium text-warning">⏳ Lembrete sobre aprovação do template</p>
-            <p className="mt-1 text-foreground/80">
-              Meta revisa templates manualmente em 24-48h. Crie o template no Meta Business Manager primeiro, espere a aprovação, depois cole o nome aqui. O dispatch só funciona depois que o template está <em>Approved</em> no painel da Meta.
-            </p>
-          </div>
-          </>
+          {mode === "auto" && !whatsappConfigured && (
+            <div className="rounded-md border border-warning/40 bg-warning/10 p-3 text-sm">
+              <p className="font-medium text-warning">⚠ WhatsApp da agência não configurado</p>
+              <p className="mt-1 text-foreground/80">
+                O modo automático precisa do token + Phone Number ID + template configurados em <a href="/settings" className="underline">/settings → WhatsApp da agência</a>. Sem isso, cada disparo do cron vai falhar e cair pra envio manual. Pra um cliente específico que não usa Meta Cloud, troque pra &quot;Manual por post&quot; acima.
+              </p>
+            </div>
           )}
 
           <Button onClick={save} disabled={saving || !dirty} size="sm">
@@ -1004,203 +570,12 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
             Salvar
           </Button>
 
-          {/* Self-test dispatch — works for whichever provider is
-              configured. The endpoint detects from client row. */}
-          {!dirty && ((provider === "manychat" && origApiKey && origFlowNs) ||
-            (provider === "meta_cloud" && origMetaToken && origMetaPhoneNumberId && origMetaTemplateName)) && (
-            <>
-              <SelfTestPanel clientId={clientId} />
-              {provider === "manychat" && <ContactDebugButton clientId={clientId} />}
-              {provider === "manychat" && <ManyChatDebugButton clientId={clientId} />}
-            </>
-          )}
-
-          <div className="rounded-lg border bg-muted/10">
-            <button
-              onClick={() => setShowFlowGuide((v) => !v)}
-              className="flex w-full items-center justify-between gap-2 px-3 py-2 text-left text-base font-medium hover:bg-muted/20"
-            >
-              <span>📋 Como criar o Flow + template Meta-aprovado</span>
-              <span className="text-sm text-muted-foreground">{showFlowGuide ? "ocultar" : "ver passo a passo"}</span>
-            </button>
-            {showFlowGuide && (
-              <div className="space-y-3 border-t px-3 py-3 text-sm">
-                <div>
-                  <p className="font-semibold">1. Criar template no Meta WhatsApp Manager</p>
-                  <p className="text-muted-foreground">
-                    Em <a href="https://business.facebook.com/wa/manage/message-templates/" target="_blank" rel="noopener noreferrer" className="underline">business.facebook.com → Mensagens → Modelos</a>, crie um template categoria <strong>Utilidade</strong>. Cole o texto abaixo (Meta aprova em até 24h):
-                  </p>
-                  <div className="mt-1.5 flex items-stretch gap-1.5">
-                    <pre className="flex-1 overflow-x-auto rounded border bg-background p-2 font-mono text-[13px] whitespace-pre-wrap">{STARTER_TEMPLATE}</pre>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => {
-                        navigator.clipboard.writeText(STARTER_TEMPLATE)
-                        toast.success("Template copiado")
-                      }}
-                      className="shrink-0"
-                    >
-                      <Copy className="h-3.5 w-3.5" />
-                    </Button>
-                  </div>
-                  <p className="mt-1 text-muted-foreground">
-                    Variáveis: <strong>{"{{1}}"}</strong> = nome do contato, <strong>{"{{2}}"}</strong> = título do post, <strong>{"{{3}}"}</strong> = link de aprovação.
-                  </p>
-                </div>
-
-                <div>
-                  <p className="font-semibold">2. Criar custom fields no ManyChat</p>
-                  <p className="text-muted-foreground">
-                    Settings → Audience → Custom User Fields → New. Crie 3 campos do tipo <strong>Text</strong> (case-sensitive):
-                  </p>
-                  <ul className="mt-1 ml-4 list-disc space-y-0.5 font-mono text-[13px]">
-                    <li>approval_url</li>
-                    <li>post_title</li>
-                    <li>post_url</li>
-                  </ul>
-                  <p className="mt-2 text-muted-foreground">
-                    <strong>Pro nome do destinatário</strong>, use a variável <strong>nativa</strong> do ManyChat <code className="rounded bg-muted px-1 font-mono text-[13px]">{"{{Primeiro Nome}}"}</code> (System Field → First Name) direto no template — ela já vem preenchida do perfil WhatsApp, sem precisar criar custom field.
-                  </p>
-                </div>
-
-                <div>
-                  <p className="font-semibold">3. Criar o Flow no ManyChat</p>
-                  <ol className="ml-4 list-decimal space-y-0.5 text-muted-foreground">
-                    <li>Automation → New Flow → escolha o canal <strong>WhatsApp</strong>.</li>
-                    <li>Adicione um bloco <strong>Send Message Template</strong> (não Free Form).</li>
-                    <li>Selecione o template aprovado pela Meta.</li>
-                    <li>Mapeie as variáveis: {"{{1}}"} → <code className="rounded bg-muted px-1 font-mono">{"{{Primeiro Nome}}"}</code> (System Field), {"{{2}}"} → <code className="rounded bg-muted px-1 font-mono">post_title</code>, {"{{3}}"} → <code className="rounded bg-muted px-1 font-mono">approval_url</code>.</li>
-                    <li>Salve. Clique em ⋯ → <strong>Get API Reference</strong> → copie o <code className="rounded bg-muted px-1 font-mono">flow_ns</code> e cole acima.</li>
-                  </ol>
-                </div>
-
-                <div className="rounded border border-warning/30 bg-warning/5 p-2 text-warning">
-                  <p className="font-semibold">⚠ Pré-requisito do WhatsApp Business</p>
-                  <p className="text-foreground/80">
-                    O cliente final precisa ter conversado com a página antes (mesmo que uma mensagem só). Sem isso, a Meta bloqueia o template — só números <em>opted-in</em> recebem.
-                  </p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          <div className="rounded-lg border border-dashed bg-muted/20 p-3 space-y-3">
-            <div>
-              <p className="text-base font-semibold">Testar dispatch (debug)</p>
-              <p className="text-sm text-muted-foreground">
-                Roda o sweep manualmente pra UM post (sem esperar o cron de 5 min). Pega o pageId no Notion: clique &quot;⋯&quot; → Copiar link → cole, e a parte depois do título (32 hex) é o pageId.
-              </p>
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm">Workspace</Label>
-              {connections.length === 0 ? (
-                <p className="text-sm text-muted-foreground">Nenhum Notion conectado para este cliente.</p>
-              ) : (
-                <select
-                  value={testConnectionId}
-                  onChange={(e) => setTestConnectionId(e.target.value)}
-                  className="w-full h-8 rounded border bg-background px-2 text-base"
-                >
-                  <option value="">— Escolher workspace —</option>
-                  {connections.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.workspaceName}{c.databaseName ? ` (${c.databaseName})` : ""}
-                    </option>
-                  ))}
-                </select>
-              )}
-            </div>
-            <div className="space-y-1.5">
-              <Label className="text-sm">URL ou pageId do Notion</Label>
-              <Input
-                placeholder="Cole a URL do post (⋯ → Copiar link no Notion) ou o pageId direto"
-                value={testPageId}
-                onChange={(e) => {
-                  // Auto-strip the URL to just the pageId so the agency
-                  // can paste raw Notion links without thinking.
-                  const next = e.target.value
-                  setTestPageId(next.includes("notion.so") ? extractNotionPageId(next) : next)
-                }}
-                className="font-mono text-sm"
-              />
-            </div>
-            <div className="flex flex-wrap gap-2">
-              <Button size="sm" variant="outline" onClick={() => runTest(false)} disabled={testing || !testPageId.trim() || !testConnectionId}>
-                {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-                Dry-run (só gera token)
-              </Button>
-              <Button size="sm" onClick={() => runTest(true)} disabled={testing || !testPageId.trim() || !testConnectionId}>
-                {testing ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageCircle className="h-3.5 w-3.5" />}
-                Disparar ManyChat
-              </Button>
-            </div>
-
-            {testResult && (
-              <div className="space-y-2 rounded border bg-background p-2">
-                {testResult.error && (
-                  <p className="text-sm text-destructive break-words">
-                    <strong>Erro:</strong> {String(testResult.error)}
-                  </p>
-                )}
-                {testResult.contact && testResult.contact.resolved !== false && (
-                  <div className="text-sm">
-                    <p className="font-medium">Contato resolvido:</p>
-                    <p className="text-muted-foreground">
-                      {testResult.contact.name ?? "(sem nome)"} · {testResult.contact.email ?? "(sem email)"} · {testResult.contact.phone ?? "(sem telefone)"}
-                    </p>
-                  </div>
-                )}
-                {testResult.approvalLink && (
-                  <div className="text-sm space-y-1">
-                    <p className="font-medium">
-                      Token {testResult.approvalLink.reused ? "(reaproveitado — já existia pendente)" : "(novo)"}:
-                    </p>
-                    <a
-                      href={testResult.approvalLink.approvalUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="block break-all font-mono text-[13px] text-primary underline"
-                    >
-                      {testResult.approvalLink.approvalUrl}
-                    </a>
-                  </div>
-                )}
-                {testResult.waClickToChat && (
-                  <a
-                    href={testResult.waClickToChat}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="inline-flex items-center gap-1.5 rounded-md bg-success/15 px-2.5 py-1 text-sm font-medium text-success hover:bg-success/25"
-                  >
-                    <MessageCircle className="h-3.5 w-3.5" />
-                    Abrir wa.me (mandar pelo seu WhatsApp)
-                  </a>
-                )}
-                {testResult.manychat && (
-                  <div className="text-sm">
-                    <p className="font-medium">ManyChat:</p>
-                    <pre className="mt-1 overflow-x-auto rounded bg-muted/40 p-2 font-mono text-[12px]">
-{JSON.stringify(testResult.manychat.result, null, 2)}
-                    </pre>
-                  </div>
-                )}
-                {testResult.hint && (
-                  <p className="text-sm italic text-muted-foreground">{testResult.hint}</p>
-                )}
-              </div>
-            )}
-          </div>
-          </>
-          )}
-
           <ApprovalHistory clientId={clientId} />
         </>
       )}
     </div>
   )
 }
-
 // Histórico de aprovações — fetches /api/clients/[id]/approvals on demand
 // (collapsed by default to keep the panel scannable). Renders 4 buckets:
 // pending (highlighting stale ones), decided (last 30d, with the client's
@@ -1610,517 +985,6 @@ export function SetupChecklistPanel({ clientId }: { clientId: string }) {
   )
 }
 
-// Sends the saved ManyChat Flow to a phone the agency picks (usually
-// their own) — confirms token + Flow + WA template are all wired
-// without spamming the real client. Result includes a "subscriber not
-// found" hint when applicable since that's the most common failure.
-// Contact-resolution diagnostic. Walks the same path the cron uses,
-// dumps every intermediate value (rollup payload shape, contact IDs
-// extracted, phone fields found on the contact page, the picked
-// phone + source). Surfaces "phone came from Conta page, not Contato"
-// kind of bugs without requiring access to Trigger.dev worker logs.
-function ContactDebugButton({ clientId }: { clientId: string }) {
-  const [loading, setLoading] = useState(false)
-  const [result, setResult] = useState<any>(null)
-  // Posts in awaiting-approval status — populated on mount so the user
-  // can pick which one to diagnose. Auto-picking the first one was
-  // grabbing wrong posts.
-  const [posts, setPosts] = useState<Array<{ id: string; title: string }>>([])
-  const [selectedPostId, setSelectedPostId] = useState<string>("")
-  const [loadingPosts, setLoadingPosts] = useState(false)
-
-  async function loadPosts() {
-    setLoadingPosts(true)
-    try {
-      const res = await fetch(`/api/clients/${clientId}/debug-contact?list=1`)
-      const data = await res.json()
-      const list: Array<{ id: string; title: string }> = data?.posts ?? []
-      setPosts(list)
-      if (list.length > 0 && !selectedPostId) setSelectedPostId(list[0].id)
-    } finally {
-      setLoadingPosts(false)
-    }
-  }
-
-  useEffect(() => {
-    loadPosts()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [clientId])
-
-  async function run() {
-    setLoading(true)
-    setResult(null)
-    try {
-      const qs = selectedPostId ? `?pageId=${encodeURIComponent(selectedPostId)}` : ""
-      const res = await fetch(`/api/clients/${clientId}/debug-contact${qs}`)
-      const data = await res.json()
-      setResult(data)
-    } catch (e) {
-      setResult({ error: e instanceof Error ? e.message : String(e) })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  return (
-    <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <div>
-          <p className="text-base font-semibold">Diagnosticar resolução de contato</p>
-          <p className="text-sm text-muted-foreground">
-            Roda a mesma resolução que o cron usa. Escolha o post que quer diagnosticar (lista todos em status &quot;aguardando aprovação&quot;).
-          </p>
-        </div>
-        <Button size="sm" variant="outline" onClick={run} disabled={loading || !selectedPostId}>
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          Diagnosticar
-        </Button>
-      </div>
-
-      {/* Post picker: user must pick which awaiting-approval post to
-          diagnose. Auto-pick was grabbing wrong posts. */}
-      <div className="space-y-1">
-        <Label className="text-sm">Post pra diagnosticar</Label>
-        {loadingPosts ? (
-          <p className="text-sm text-muted-foreground">Carregando posts em status de aprovação…</p>
-        ) : posts.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            Nenhum post em status de aprovação. Marca um no Notion como &quot;aguardando aprovação&quot; e recarrega.
-          </p>
-        ) : (
-          <select
-            value={selectedPostId}
-            onChange={(e) => setSelectedPostId(e.target.value)}
-            className="w-full rounded-md border bg-card px-2 py-1.5 text-sm"
-          >
-            {posts.map((p) => (
-              <option key={p.id} value={p.id}>{p.title}</option>
-            ))}
-          </select>
-        )}
-        {posts.length > 0 && (
-          <div className="flex items-center justify-between text-[13px] text-muted-foreground">
-            <span>{posts.length} post{posts.length === 1 ? "" : "s"} em aprovação</span>
-            <button onClick={loadPosts} disabled={loadingPosts} className="hover:underline">
-              Recarregar lista
-            </button>
-          </div>
-        )}
-      </div>
-
-      {result && (
-        <div className="space-y-2 rounded-md border bg-card p-3 text-sm">
-          {result.error && (
-            <p className="text-destructive">⚠ {result.error}</p>
-          )}
-          {result.pickedContact && (
-            <div className={cn(
-              "rounded p-2",
-              result.pickedPhone ? "bg-success/10 text-success" : "bg-warning/10 text-warning",
-            )}>
-              <p className="font-medium">
-                {result.pickedPhone ? "✓" : "⚠"} Contato escolhido: {result.pickedContact.title ?? "(sem título)"}
-              </p>
-              <p className="text-[13px] opacity-80">{result.pickedReason}</p>
-              {result.pickedPhone && (
-                <p className="mt-1 text-[13px]">
-                  Telefone: <strong className="font-mono">{result.pickedPhone.value}</strong>
-                  <span className="ml-2 opacity-70">(via {result.pickedPhone.source})</span>
-                </p>
-              )}
-              {!result.pickedPhone && (
-                <p className="mt-1 text-[13px]">Sem telefone resolvido neste contato.</p>
-              )}
-            </div>
-          )}
-          {Array.isArray(result.contacts) && result.contacts.length > 0 && (
-            <details className="text-[13px]">
-              <summary className="cursor-pointer font-medium text-muted-foreground">
-                {result.contacts.length} contato(s) encontrado(s) — ver detalhes
-              </summary>
-              <ul className="mt-1.5 space-y-1.5">
-                {result.contacts.map((c: any) => (
-                  <li key={c.id} className="rounded bg-muted/30 p-2">
-                    <p className="font-mono text-[12px] opacity-70">{c.id}</p>
-                    <p className="font-medium">{c.title ?? "(sem título)"}</p>
-                    {c.approverField && (
-                      <p className="text-[12px]">Aprovador &quot;{c.approverField}&quot;: {c.approverChecked === true ? "✓ marcado" : c.approverChecked === false ? "○ desmarcado" : "—"}</p>
-                    )}
-                    {c.phoneFields && c.phoneFields.length > 0 ? (
-                      <ul className="mt-1 text-[12px] font-mono">
-                        {c.phoneFields.map((pf: any, i: number) => (
-                          <li key={i}>{pf.name} ({pf.type}): {pf.value}</li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <p className="text-[12px] opacity-60">Sem campo telefone neste contato.</p>
-                    )}
-                    {c.error && <p className="text-[12px] text-destructive">{c.error}</p>}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-          {Array.isArray(result.trace) && result.trace.length > 0 && (
-            <details className="text-[12px]">
-              <summary className="cursor-pointer text-muted-foreground">Trace completo (JSON)</summary>
-              <pre className="mt-1.5 max-h-96 overflow-auto rounded bg-muted p-2 font-mono">{JSON.stringify(result.trace, null, 2)}</pre>
-            </details>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-// Probes the ManyChat connection: page name, phone format variants.
-// Used when "Subscriber não encontrado" persists despite the agency
-// being sure the contact is in ManyChat — confirms which account the
-// API key targets and which phone variants ManyChat refuses.
-function ManyChatDebugButton({ clientId }: { clientId: string }) {
-  const [loading, setLoading] = useState(false)
-  const [phone, setPhone] = useState("")
-  const [result, setResult] = useState<any>(null)
-  const [open, setOpen] = useState(false)
-
-  async function run() {
-    setLoading(true)
-    setResult(null)
-    try {
-      const qs = phone.trim() ? `?phone=${encodeURIComponent(phone.trim())}` : ""
-      const res = await fetch(`/api/clients/${clientId}/manychat-debug${qs}`)
-      const data = await res.json()
-      setResult(data)
-    } catch (e) {
-      setResult({ error: e instanceof Error ? e.message : String(e) })
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="rounded-md border bg-card px-3 py-2 text-left text-sm hover:bg-accent"
-      >
-        <p className="font-semibold">Diagnosticar conexão ManyChat</p>
-        <p className="mt-0.5 text-muted-foreground">
-          Confirma em qual conta ManyChat a API key está conectada + testa formatos de telefone (útil quando dá &quot;subscriber não encontrado&quot;).
-        </p>
-      </button>
-    )
-  }
-
-  return (
-    <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
-      <div className="flex items-baseline justify-between gap-3">
-        <div>
-          <p className="text-base font-semibold">Diagnosticar conexão ManyChat</p>
-          <p className="text-sm text-muted-foreground">
-            Confirma qual conta ManyChat a API key acessa + testa variantes do telefone.
-          </p>
-        </div>
-        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
-          <X className="h-3.5 w-3.5" />
-        </Button>
-      </div>
-      <div className="flex flex-wrap gap-2">
-        <Input
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          placeholder="Telefone (E.164 ou só dígitos) — opcional"
-          className="flex-1"
-        />
-        <Button size="sm" variant="outline" onClick={run} disabled={loading}>
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          Testar
-        </Button>
-      </div>
-
-      {result && (
-        <div className="space-y-2 rounded-md border bg-card p-3 text-sm">
-          {result.error && <p className="text-destructive">⚠ {result.error}</p>}
-
-          {result.pageInfo && (
-            <div
-              className={cn(
-                "rounded p-2 text-[13px]",
-                result.pageInfo.ok ? "bg-success/10 text-success" : "bg-destructive/10 text-destructive",
-              )}
-            >
-              <p className="font-medium">
-                {result.pageInfo.ok ? "✓" : "⚠"} {result.pageInfo.ok ? `Conta ManyChat: ${result.pageInfo.name ?? "(sem nome)"}` : "Falha em autenticar"}
-              </p>
-              <p className="opacity-80">Page ID: {result.pageInfo.id ?? "—"}{result.pageInfo.timezone ? ` · ${result.pageInfo.timezone}` : ""}</p>
-              <p className="opacity-70 text-[12px]">Status HTTP: {result.pageInfo.status}</p>
-            </div>
-          )}
-
-          {Array.isArray(result.phoneProbes) && (
-            <details>
-              <summary className="cursor-pointer text-[13px] font-medium text-muted-foreground">
-                {result.phoneProbes.length} variantes testadas
-              </summary>
-              <ul className="mt-1.5 space-y-1 font-mono text-[12px]">
-                {result.phoneProbes.map((p: any, i: number) => (
-                  <li
-                    key={i}
-                    className={cn(
-                      "rounded px-2 py-1",
-                      p.status === 200 && p.body?.data?.id
-                        ? "bg-success/10 text-success"
-                        : "bg-muted/40",
-                    )}
-                  >
-                    <strong>{p.variant}</strong> → {p.status} {p.body?.data?.id ? `· subscriber ${p.body.data.id}` : ""}
-                  </li>
-                ))}
-              </ul>
-            </details>
-          )}
-
-          {result.advice && (
-            <div className="rounded bg-warning/10 p-2 text-[13px] text-warning">
-              💡 {result.advice}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function SelfTestPanel({ clientId }: { clientId: string }) {
-  const [phone, setPhone] = useState("")
-  const [name, setName] = useState("")
-  const [sending, setSending] = useState(false)
-  const [result, setResult] = useState<{ ok: boolean; reason?: string; hint?: string | null } | null>(null)
-  const [open, setOpen] = useState(false)
-
-  async function send() {
-    if (!phone.trim()) {
-      toast.error("Cole seu telefone")
-      return
-    }
-    setSending(true)
-    setResult(null)
-    try {
-      const res = await fetch(`/api/clients/${clientId}/test-approval-self`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ phone: phone.trim(), name: name.trim() || undefined }),
-      })
-      const data = await res.json().catch(() => null)
-      if (!res.ok) {
-        // Endpoint returns `reason` (from dispatchApprovalRequest) on
-        // failure. Older callers might have read `error` (Next.js
-        // default 4xx shape). Try both so we never show a bare "Erro".
-        const reason = data?.reason ?? data?.error ?? `HTTP ${res.status}: sem detalhe`
-        setResult({ ok: false, reason, hint: data?.hint ?? null })
-        return
-      }
-      // Even with HTTP 200 the dispatcher can return ok:false (e.g.
-      // when /api/.../test-approval-self surfaces dispatch result
-      // without remapping to a 5xx). Honor that.
-      if (data && data.ok === false) {
-        setResult({ ok: false, reason: data.reason ?? "Falha no dispatch (sem detalhe)", hint: data.hint ?? null })
-        return
-      }
-      setResult({ ok: true })
-      toast.success("Mensagem enviada — confira seu WhatsApp")
-    } catch (e) {
-      setResult({ ok: false, reason: e instanceof Error ? e.message : String(e) })
-    } finally {
-      setSending(false)
-    }
-  }
-
-  if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="inline-flex items-center gap-1.5 rounded-md border border-dashed bg-muted/30 px-3 py-2 text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-      >
-        <MessageCircle className="h-3.5 w-3.5" />
-        Testar com meu próprio WhatsApp
-      </button>
-    )
-  }
-
-  return (
-    <div className="space-y-2 rounded-lg border bg-muted/20 p-3">
-      <div className="flex items-baseline justify-between">
-        <p className="text-base font-semibold">Testar com seu WhatsApp</p>
-        <button
-          type="button"
-          onClick={() => { setOpen(false); setResult(null) }}
-          className="text-sm text-muted-foreground hover:text-foreground"
-        >
-          Fechar
-        </button>
-      </div>
-      <p className="text-sm text-muted-foreground">
-        Dispara o Flow configurado pra você em vez do cliente real, com um post de teste. Confirma que ManyChat + Meta + Flow estão todos OK antes de mandar pro cliente.
-      </p>
-      <div className="space-y-1.5">
-        <Label className="text-sm">Seu telefone (E.164)</Label>
-        <Input
-          type="tel"
-          placeholder="+5511999999999"
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
-          className="font-mono text-sm"
-        />
-      </div>
-      <div className="space-y-1.5">
-        <Label className="text-sm">Seu nome (vai aparecer como contact_name)</Label>
-        <Input
-          type="text"
-          placeholder="Vai usar o nome da sua conta se ficar em branco"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
-      <Button size="sm" onClick={send} disabled={sending || !phone.trim()}>
-        {sending ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <MessageCircle className="h-3.5 w-3.5" />}
-        Enviar pra mim
-      </Button>
-      {result && (
-        <div
-          className={cn(
-            "rounded border px-2 py-1.5 text-sm",
-            result.ok
-              ? "border-success/30 bg-success/10 text-success"
-              : "border-destructive/30 bg-destructive/10 text-destructive"
-          )}
-        >
-          {result.ok ? (
-            <span>✓ Enviado. Verifique seu WhatsApp em alguns segundos.</span>
-          ) : (
-            <div className="space-y-1">
-              <p className="font-medium">{result.reason}</p>
-              {result.hint && <p className="text-foreground/80">{result.hint}</p>}
-            </div>
-          )}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function FlowPicker({
-  clientId,
-  apiKey,
-  value,
-  onChange,
-}: {
-  clientId: string
-  apiKey: string
-  value: string
-  onChange: (next: string) => void
-}) {
-  const [flows, setFlows] = useState<Array<{ ns: string; name: string; folderName: string | null }> | null>(null)
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-  const [showRaw, setShowRaw] = useState(false)
-
-  async function load() {
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch(`/api/clients/${clientId}/manychat-flows`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ apiKey: apiKey.trim() || undefined }),
-      })
-      const data = await res.json().catch(() => null)
-      if (!res.ok) {
-        setError(data?.error ?? "Erro ao listar Flows")
-        return
-      }
-      setFlows(Array.isArray(data?.flows) ? data.flows : [])
-    } finally {
-      setLoading(false)
-    }
-  }
-
-  const selectedInList = flows?.some((f) => f.ns === value)
-
-  return (
-    <div className="space-y-1.5">
-      {flows === null ? (
-        <div className="flex flex-wrap gap-2">
-          <Input
-            placeholder="content20240501123456_abc123"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="flex-1 font-mono text-sm"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={load}
-            disabled={loading || !apiKey.trim()}
-            title={apiKey.trim() ? "Buscar Flows do ManyChat" : "Cole a API key acima primeiro"}
-          >
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
-            Carregar Flows
-          </Button>
-        </div>
-      ) : showRaw ? (
-        <div className="flex flex-wrap gap-2">
-          <Input
-            placeholder="content20240501123456_abc123"
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="flex-1 font-mono text-sm"
-          />
-          <Button variant="ghost" size="sm" onClick={() => setShowRaw(false)}>
-            Voltar pra lista
-          </Button>
-        </div>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          <select
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            className="h-9 flex-1 rounded border bg-background px-2 text-base"
-          >
-            <option value="">— Escolher Flow —</option>
-            {!selectedInList && value && (
-              <option value={value}>(salvo) {value.slice(0, 24)}…</option>
-            )}
-            {flows.map((f) => (
-              <option key={f.ns} value={f.ns}>
-                {f.folderName ? `${f.folderName} / ` : ""}{f.name}
-              </option>
-            ))}
-          </select>
-          <Button variant="outline" size="sm" onClick={load} disabled={loading} title="Atualizar lista">
-            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          </Button>
-          <Button variant="ghost" size="sm" onClick={() => setShowRaw(true)}>
-            Colar manualmente
-          </Button>
-        </div>
-      )}
-      {error && (
-        <p className="rounded border border-destructive/30 bg-destructive/10 px-2 py-1 text-[13px] text-destructive">
-          ManyChat: {error}
-        </p>
-      )}
-      {flows && flows.length === 0 && !error && (
-        <p className="text-[13px] text-muted-foreground">
-          Nenhum Flow encontrado nessa conta. Crie um Flow no ManyChat (com bloco &quot;Send Message Template&quot;) e clique em <em>Atualizar</em>.
-        </p>
-      )}
-    </div>
-  )
-}
-
 function MemberEditRow({
   initialRole,
   initialScope,
@@ -2409,112 +1273,3 @@ export function NotionContasPanel({ clientId, clientName }: { clientId: string; 
   )
 }
 
-// Renders the structured diagnosis returned by /api/.../meta-diagnose.
-// Three rows (token / phone / match), each with a ✓ or ✗, plus a top
-// summary line. Designed so the agency can read it from across the room
-// and immediately know which gate failed and what to fix.
-type DiagnoseResult = {
-  ok?: boolean
-  summary?: string
-  token?: {
-    ok: boolean
-    appId: string | null
-    expiresLabel: string
-    scopes: string[]
-    hasMessagingScope: boolean
-    hasManagementScope: boolean
-    messagingTargetWabaIds: string[]
-    reason: string | null
-  }
-  phone?: {
-    ok: boolean
-    displayPhoneNumber: string | null
-    verifiedName: string | null
-    wabaId: string | null
-    isMetaTestNumber: boolean
-    reason: string | null
-  }
-  match?: {
-    ok: boolean | null
-    reason: string
-  }
-}
-
-function MetaDiagnoseResult({ result }: { result: DiagnoseResult }) {
-  if (!result?.token && !result?.phone) {
-    return (
-      <div className="rounded border border-destructive/30 bg-destructive/10 px-2 py-1.5 text-sm text-destructive">
-        {result?.summary ?? "Diagnóstico falhou"}
-      </div>
-    )
-  }
-  const t = result.token
-  const p = result.phone
-  const m = result.match
-  const topClass = result.ok
-    ? "border-success/30 bg-success/10 text-success"
-    : "border-destructive/30 bg-destructive/10 text-destructive"
-  return (
-    <div className="space-y-1.5">
-      <div className={cn("rounded border px-2 py-1.5 text-sm font-medium", topClass)}>
-        {result.ok ? "✓ " : "✗ "}{result.summary}
-      </div>
-      <div className="rounded border bg-muted/30 px-2 py-1.5 text-[13px] text-foreground/90 space-y-1">
-        <DiagnoseRow ok={t?.ok ?? false}>
-          <strong>Token</strong>
-          {t?.appId && <> · app <code className="font-mono">{t.appId}</code></>}
-          {t?.expiresLabel && <> · {t.expiresLabel}</>}
-          <div className="mt-0.5 text-muted-foreground">
-            scopes: {t?.scopes?.length ? t.scopes.join(", ") : "(nenhum)"}
-          </div>
-          {t && !t.hasMessagingScope && (
-            <div className="text-destructive">falta whatsapp_business_messaging — gere novo token marcando essa checkbox</div>
-          )}
-          {t && t.hasMessagingScope && (
-            <div className="text-muted-foreground">
-              WABAs do token: {t.messagingTargetWabaIds.length > 0
-                ? t.messagingTargetWabaIds.map((id) => <code key={id} className="ml-1 font-mono">{id}</code>)
-                : <span className="text-destructive">(nenhuma — atribua a WABA ao System User e gere novo token)</span>}
-            </div>
-          )}
-          {t?.reason && !t.ok && <div className="text-destructive">{t.reason}</div>}
-        </DiagnoseRow>
-
-        <DiagnoseRow ok={p?.ok ?? false}>
-          <strong>Phone Number ID</strong>
-          {p?.displayPhoneNumber && <> · {p.displayPhoneNumber}</>}
-          {p?.verifiedName && <> ({p.verifiedName})</>}
-          {p?.wabaId && (
-            <div className="mt-0.5 text-muted-foreground">
-              WABA do número: <code className="font-mono">{p.wabaId}</code>
-            </div>
-          )}
-          {p?.isMetaTestNumber && (
-            <div className="text-warning">
-              ⚠ Este é o NÚMERO DE TESTE da Meta (+1 555…) — pertence à WABA da Meta, não à sua. Use o ID do seu número real.
-            </div>
-          )}
-          {p?.reason && !p.ok && <div className="text-destructive">{p.reason}</div>}
-        </DiagnoseRow>
-
-        <DiagnoseRow ok={m?.ok === true}>
-          <strong>WABA do número ↔ WABAs do token</strong>
-          <div className={cn("mt-0.5", m?.ok === false ? "text-destructive" : "text-muted-foreground")}>
-            {m?.reason ?? "—"}
-          </div>
-        </DiagnoseRow>
-      </div>
-    </div>
-  )
-}
-
-function DiagnoseRow({ ok, children }: { ok: boolean; children: React.ReactNode }) {
-  return (
-    <div className="flex gap-2">
-      <span className={cn("mt-0.5 shrink-0", ok ? "text-success" : "text-destructive")}>
-        {ok ? "✓" : "✗"}
-      </span>
-      <div className="min-w-0 flex-1 break-words">{children}</div>
-    </div>
-  )
-}

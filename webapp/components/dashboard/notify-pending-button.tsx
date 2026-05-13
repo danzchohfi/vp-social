@@ -25,7 +25,7 @@ export function NotifyPendingButton({ clientId, pendingCount }: { clientId: stri
       const skipped = data?.skipped ?? 0
       const errors: Array<{ phone: string; reason: string }> = data?.errors ?? []
       if (dispatched > 0 && errors.length === 0) {
-        toast.success(`${dispatched} pendência${dispatched === 1 ? "" : "s"} notificada${dispatched === 1 ? "" : "s"} via ManyChat`)
+        toast.success(`${dispatched} pendência${dispatched === 1 ? "" : "s"} notificada${dispatched === 1 ? "" : "s"} via WhatsApp`)
       } else if (dispatched > 0) {
         toast.warning(`${dispatched} enviada${dispatched === 1 ? "" : "s"}; ${errors.length} falhou${errors.length === 1 ? "" : "ram"}`)
       } else {
