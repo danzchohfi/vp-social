@@ -10,6 +10,7 @@ import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { PostRowSkeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
+import { PageHeader } from "@/components/ui/page-header"
 import {
   DndContext,
   PointerSensor,
@@ -369,15 +370,19 @@ export default function ScheduledPage() {
 
   return (
     <div className="p-4 sm:p-8">
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-3xl tracking-tight sm:text-4xl">Publicações</h1>
-          {agencyMode && (
-            <span className="mt-1 inline-block rounded-full bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
-              Visão agência · todos os clientes
-            </span>
-          )}
-          <p className="text-muted-foreground">
+      <PageHeader
+        title={
+          <span className="flex flex-wrap items-baseline gap-2">
+            Publicações
+            {agencyMode && (
+              <span className="inline-block rounded-full bg-primary/10 px-2 py-0.5 text-sm font-medium text-primary">
+                Visão agência · todos os clientes
+              </span>
+            )}
+          </span>
+        }
+        subtitle={
+          <>
             {willPublishPosts.length} prontos para publicar
             {awaitingApproval.length > 0 && (
               <span className={cn(staleApprovals > 0 ? "text-warning" : "text-muted-foreground")}>
@@ -387,37 +392,39 @@ export default function ScheduledPage() {
             )}
             {needsAttention.length > 0 && <span className="text-warning"> · {needsAttention.length} precisam de ajustes</span>}
             {publishedCount > 0 && <span className="text-success"> · {publishedCount} publicados nos últimos 90 dias</span>}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <div className="inline-flex rounded-lg border bg-card p-0.5">
-            <button
-              onClick={() => setView("list")}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium transition-colors",
-                view === "list" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <List className="h-3.5 w-3.5" />
-              Lista
-            </button>
-            <button
-              onClick={() => setView("calendar")}
-              className={cn(
-                "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium transition-colors",
-                view === "calendar" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              <CalendarIcon className="h-3.5 w-3.5" />
-              Calendário
-            </button>
+          </>
+        }
+        action={
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-lg border bg-card p-0.5">
+              <button
+                onClick={() => setView("list")}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium transition-colors",
+                  view === "list" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <List className="h-3.5 w-3.5" />
+                Lista
+              </button>
+              <button
+                onClick={() => setView("calendar")}
+                className={cn(
+                  "inline-flex items-center gap-1.5 rounded-md px-2.5 py-1 text-sm font-medium transition-colors",
+                  view === "calendar" ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <CalendarIcon className="h-3.5 w-3.5" />
+                Calendário
+              </button>
+            </div>
+            <Button variant="outline" size="sm" onClick={load} disabled={loading}>
+              <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
+              Atualizar
+            </Button>
           </div>
-          <Button variant="outline" size="sm" onClick={load} disabled={loading}>
-            <RefreshCw className={cn("h-4 w-4", loading && "animate-spin")} />
-            Atualizar
-          </Button>
-        </div>
-      </div>
+        }
+      />
 
       {/* Status filter */}
       <div className="mb-6 inline-flex flex-wrap gap-1 rounded-lg border bg-card p-0.5">
