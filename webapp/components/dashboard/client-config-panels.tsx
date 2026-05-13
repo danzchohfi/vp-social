@@ -325,8 +325,18 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [calendarPath, setCalendarPath] = useState("")
-  // WhatsApp provider toggle: ManyChat (legacy) vs Meta Cloud (direct).
-  const [provider, setProvider] = useState<"manychat" | "meta_cloud">("manychat")
+  // WhatsApp provider. ManyChat support was kept on the schema for
+  // backward compat (existing rows in DB) but the UI no longer offers
+  // it — Meta Cloud is the only path. New clients default to meta_cloud
+  // immediately; legacy clients still on "manychat" see the old form
+  // (gated by `provider === "manychat"` below) so they don't lose
+  // their saved creds, but they can't switch back to it.
+  const [provider, setProvider] = useState<"manychat" | "meta_cloud">("meta_cloud")
+  // setProvider remains exported via `setProvider` references in the
+  // panel — currently only used by the load() effect when reading
+  // existing client data. Kept to avoid silently losing legacy DB
+  // values; the provider selector itself is gone.
+  void setProvider
   const [origProvider, setOrigProvider] = useState<"manychat" | "meta_cloud">("manychat")
   const [apiKey, setApiKey] = useState("")
   const [flowNs, setFlowNs] = useState("")
@@ -634,114 +644,81 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
             </div>
           </div>
 
-          {/* Notification mode selector — drives whether the cron tries
-              ManyChat or just generates the link for manual wa.me share. */}
+          {/* Modo de envio — UMA pergunta só. Antes era "Como avisar"
+              + "Quando enviar" em radios separados, mas só geravam 3
+              combinações reais (as outras eram contraditórias / não
+              faziam sentido). Pra UI ficar mais clara, consolidamos
+              tudo aqui e mapeamos pros 2 campos do schema
+              (approvalNotificationMode + approvalDispatchMode) de
+              modo derivado. */}
           <div className="space-y-1.5">
-            <Label className="text-sm">Como avisar o cliente</Label>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label
-                className={cn(
-                  "cursor-pointer rounded-lg border p-3 text-sm transition-colors",
-                  mode === "auto_manychat"
-                    ? "border-primary bg-primary/5"
-                    : "hover:bg-accent",
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name={`approval-mode-${clientId}`}
-                    value="auto_manychat"
-                    checked={mode === "auto_manychat"}
-                    onChange={() => setMode("auto_manychat")}
-                    className="h-3.5 w-3.5"
-                  />
-                  <span className="font-medium">Automático via ManyChat</span>
+            <Label className="text-sm">Modo de envio do WhatsApp</Label>
+            {(() => {
+              type SendMode = "auto" | "manual_batch" | "wa_me"
+              const sendMode: SendMode =
+                mode === "manual_whatsapp" ? "wa_me"
+                  : dispatchMode === "manual" ? "manual_batch"
+                    : "auto"
+              function pick(next: SendMode) {
+                if (next === "auto") {
+                  setMode("auto_manychat")
+                  setDispatchMode("auto")
+                } else if (next === "manual_batch") {
+                  setMode("auto_manychat")
+                  setDispatchMode("manual")
+                } else {
+                  setMode("manual_whatsapp")
+                  setDispatchMode("auto")
+                }
+              }
+              const options: Array<{ value: SendMode; label: string; desc: React.ReactNode }> = [
+                {
+                  value: "auto",
+                  label: "Automático por post",
+                  desc: <>O cron dispara um WhatsApp pra cada post que entrar em &quot;aguardando&quot;, usando o provedor configurado acima (ManyChat ou Meta Cloud).</>,
+                },
+                {
+                  value: "manual_batch",
+                  label: "Manual em lote",
+                  desc: <>Cron prepara os links mas não envia. Você clica <strong>&quot;Notificar pendentes&quot;</strong> no /dashboard pra mandar tudo de uma vez (também pelo provedor configurado).</>,
+                },
+                {
+                  value: "wa_me",
+                  label: "Manual por post (wa.me)",
+                  desc: <>Sem API. App gera só o link pra cada post; você abre o WhatsApp pelo botão <strong>&quot;Enviar via WA&quot;</strong> em /scheduled, um por um.</>,
+                },
+              ]
+              return (
+                <div className="grid gap-2 sm:grid-cols-3">
+                  {options.map((opt) => (
+                    <label
+                      key={opt.value}
+                      className={cn(
+                        "cursor-pointer rounded-lg border p-3 text-sm transition-colors",
+                        sendMode === opt.value
+                          ? "border-primary bg-primary/5"
+                          : "hover:bg-accent",
+                      )}
+                    >
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="radio"
+                          name={`approval-send-mode-${clientId}`}
+                          value={opt.value}
+                          checked={sendMode === opt.value}
+                          onChange={() => pick(opt.value)}
+                          className="h-3.5 w-3.5"
+                        />
+                        <span className="font-medium">{opt.label}</span>
+                      </div>
+                      <p className="mt-1 ml-5 text-muted-foreground">
+                        {opt.desc}
+                      </p>
+                    </label>
+                  ))}
                 </div>
-                <p className="mt-1 ml-5 text-muted-foreground">
-                  O cron dispara WhatsApp pelo ManyChat assim que um post entra em &quot;aguardando&quot;. Requer token + Flow do ManyChat.
-                </p>
-              </label>
-              <label
-                className={cn(
-                  "cursor-pointer rounded-lg border p-3 text-sm transition-colors",
-                  mode === "manual_whatsapp"
-                    ? "border-primary bg-primary/5"
-                    : "hover:bg-accent",
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name={`approval-mode-${clientId}`}
-                    value="manual_whatsapp"
-                    checked={mode === "manual_whatsapp"}
-                    onChange={() => setMode("manual_whatsapp")}
-                    className="h-3.5 w-3.5"
-                  />
-                  <span className="font-medium">Manual via wa.me</span>
-                </div>
-                <p className="mt-1 ml-5 text-muted-foreground">
-                  Sem ManyChat. O app gera o link e você envia pelo seu WhatsApp clicando &quot;Enviar via WA&quot; em /scheduled.
-                </p>
-              </label>
-            </div>
-          </div>
-
-          {/* Dispatch timing — when the WhatsApp goes out. Independent
-              from the notification-mode radio above. Defaults to auto
-              for backward compat; user picks manual to stop the cron
-              spam and trigger a digest manually from /dashboard. */}
-          <div className="space-y-1.5">
-            <Label className="text-sm">Quando enviar o WhatsApp</Label>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label
-                className={cn(
-                  "cursor-pointer rounded-lg border p-3 text-sm transition-colors",
-                  dispatchMode === "auto"
-                    ? "border-primary bg-primary/5"
-                    : "hover:bg-accent",
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name={`approval-dispatch-${clientId}`}
-                    value="auto"
-                    checked={dispatchMode === "auto"}
-                    onChange={() => setDispatchMode("auto")}
-                    className="h-3.5 w-3.5"
-                  />
-                  <span className="font-medium">Automático</span>
-                </div>
-                <p className="mt-1 ml-5 text-muted-foreground">
-                  Cron dispara um WhatsApp pra cada post que entrar em &quot;aguardando aprovação&quot;.
-                </p>
-              </label>
-              <label
-                className={cn(
-                  "cursor-pointer rounded-lg border p-3 text-sm transition-colors",
-                  dispatchMode === "manual"
-                    ? "border-primary bg-primary/5"
-                    : "hover:bg-accent",
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name={`approval-dispatch-${clientId}`}
-                    value="manual"
-                    checked={dispatchMode === "manual"}
-                    onChange={() => setDispatchMode("manual")}
-                    className="h-3.5 w-3.5"
-                  />
-                  <span className="font-medium">Manual (eu disparo no /dashboard)</span>
-                </div>
-                <p className="mt-1 ml-5 text-muted-foreground">
-                  Cron cria os links mas não envia. Você clica <strong>&quot;Notificar pendentes&quot;</strong> no /dashboard pra mandar um WhatsApp resumo quando achar melhor.
-                </p>
-              </label>
-            </div>
+              )
+            })()}
           </div>
 
           {mode === "manual_whatsapp" && (
@@ -776,61 +753,6 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
 
           {mode === "auto_manychat" && (
           <>
-          {/* Provider toggle: ManyChat (legacy) vs Meta Cloud (direct).
-              Meta Cloud avoids the unreliable wa/findByPhone lookup and
-              the opt-in subscriber requirement — pre-approved templates
-              work for any number with WhatsApp. */}
-          <div className="space-y-1.5">
-            <Label className="text-sm">Provedor de WhatsApp</Label>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <label
-                className={cn(
-                  "cursor-pointer rounded-lg border p-3 text-sm transition-colors",
-                  provider === "meta_cloud"
-                    ? "border-primary bg-primary/5"
-                    : "hover:bg-accent",
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name={`wa-provider-${clientId}`}
-                    value="meta_cloud"
-                    checked={provider === "meta_cloud"}
-                    onChange={() => setProvider("meta_cloud")}
-                    className="h-3.5 w-3.5"
-                  />
-                  <span className="font-medium">Meta WhatsApp Cloud API <span className="text-success">(recomendado)</span></span>
-                </div>
-                <p className="mt-1 ml-5 text-muted-foreground">
-                  Direto com a Meta. Template pré-aprovado dispara pra qualquer número com WhatsApp. Sem ManyChat no meio.
-                </p>
-              </label>
-              <label
-                className={cn(
-                  "cursor-pointer rounded-lg border p-3 text-sm transition-colors",
-                  provider === "manychat"
-                    ? "border-primary bg-primary/5"
-                    : "hover:bg-accent",
-                )}
-              >
-                <div className="flex items-center gap-2">
-                  <input
-                    type="radio"
-                    name={`wa-provider-${clientId}`}
-                    value="manychat"
-                    checked={provider === "manychat"}
-                    onChange={() => setProvider("manychat")}
-                    className="h-3.5 w-3.5"
-                  />
-                  <span className="font-medium">ManyChat (legado)</span>
-                </div>
-                <p className="mt-1 ml-5 text-muted-foreground">
-                  Via API do ManyChat. Requer que o contato já tenha mandado mensagem (opt-in).
-                </p>
-              </label>
-            </div>
-          </div>
 
           {provider === "manychat" && (
           <>
