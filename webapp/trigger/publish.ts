@@ -12,9 +12,9 @@ import { validatePhoneE164 } from "../lib/phone"
 import { dispatchApprovalRequest, isConfigured, type UserWhatsappConfig } from "../lib/whatsapp-dispatch"
 import { generateId } from "../lib/utils"
 import { findApproverByPhone } from "../lib/approvers"
+import { APPROVAL_TTL_DAYS } from "../lib/approval-link"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
-const APPROVAL_TTL_DAYS = 14
 const STORY_CHUNK_PAUSE_MS = 30_000
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))

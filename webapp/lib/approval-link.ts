@@ -12,9 +12,48 @@ import { generateId } from "@/lib/utils"
 //     client browses all their posts on /c/{client-token})
 //
 // Two distinct token types:
-//   1. approvalLink.token — short-lived (14d), per-post, single-use
-//   2. client.publicCalendarToken — permanent, per-client, never expires
+//   1. approvalLink.token — TTL 30d, per-post, single-use. After 30d
+//      without explicit decision (sentVia=meta_cloud only), the tacit-
+//      approval cron auto-decides as approved (silence = yes).
+//   2. client.publicCalendarToken — permanent, per-client, never expires.
 //      Generated lazily on first request via getOrCreateClientCalendarToken.
+
+/** Single source of truth pra TTL de approval links. 30 dias desde
+ * sentAt (não desde createdAt) — só conta tempo depois que o cliente
+ * realmente recebeu a notificação. Antes valia 14, mudou pra 30 pra
+ * dar margem confortável dado que silêncio = aprovação tácita. */
+export const APPROVAL_TTL_DAYS = 30
+
+/** Calcula expiresAt a partir do momento de envio real. Retorna null se
+ * sentAt é null (link criado mas WhatsApp ainda não disparou). Caller
+ * deve persistir esse valor lazy quando sentAt é setado, NÃO no insert. */
+export function computeExpiresAt(sentAt: Date | string | null): Date | null {
+  if (!sentAt) return null
+  const ts = typeof sentAt === "string" ? new Date(sentAt) : sentAt
+  return new Date(ts.getTime() + APPROVAL_TTL_DAYS * 24 * 60 * 60 * 1000)
+}
+
+/** True quando o link é elegível pra tacit auto-approval AGORA:
+ *   - decision IS NULL (não decidido)
+ *   - tacit IS false (sweep não rodou ainda)
+ *   - sentVia === 'meta_cloud' (envio Meta confirmado — wa.me manual
+ *     não conta porque agency pode não ter clicado)
+ *   - sentAt + 30d <= now
+ * Usado pelo cron tacitApprovalSweep pra filtrar candidatos. */
+export function isTacitDue(row: {
+  sentAt: Date | string | null
+  decision: string | null
+  tacit: boolean
+  sentVia: string | null
+}): boolean {
+  if (row.decision !== null) return false
+  if (row.tacit) return false
+  if (row.sentVia !== "meta_cloud") return false
+  if (!row.sentAt) return false
+  const expires = computeExpiresAt(row.sentAt)
+  if (!expires) return false
+  return expires.getTime() <= Date.now()
+}
 
 /** Lazily creates the permanent calendar token for a client and returns it.
  * Idempotent: subsequent calls return the same token. The token is
@@ -72,13 +111,18 @@ export type LookupResult =
   | { kind: "decided"; row: typeof approvalLink.$inferSelect }
 
 /** Lookup a per-post approval token and classify its state. The caller
- * decides what to render (page) or status to return (API). Centralized
- * so both the page (server-rendered) and the API agree.
+ * decides what to render (page) or status to return (API).
  *
- * Special case: decision='expired' is a synthetic value the cron sets
- * when an old pending link expires without a decision (so it can release
- * the partial unique index slot and create a fresh link). We classify it
- * as "expired", not "decided", so the UI shows the right state. */
+ * Estados:
+ *   - decision='approved' (tacit=true ou false): "decided" — caller olha
+ *     row.tacit pra renderizar "Aprovado" vs "Aprovação tácita".
+ *   - decision='changes_requested': "decided".
+ *   - decision='expired': "expired" — sintético do cron pra orphan/
+ *     cancelled (Notion status moveu pra fora do "aguardando").
+ *     Distinto de tacit, que vira "approved".
+ *   - decision IS NULL + expiresAt no passado: "ok" (sweep ainda vai
+ *     rodar). UI mostra warning "aprovação automática iminente" se sentVia=meta_cloud.
+ *   - decision IS NULL + expiresAt no futuro: "ok" (pendente normal). */
 export async function lookupApprovalLink(token: string): Promise<LookupResult> {
   const [row] = await db
     .select()
@@ -88,6 +132,5 @@ export async function lookupApprovalLink(token: string): Promise<LookupResult> {
   if (!row) return { kind: "not_found" }
   if (row.decision === "expired") return { kind: "expired", row }
   if (row.decision !== null) return { kind: "decided", row }
-  if (isApprovalExpired(row.expiresAt)) return { kind: "expired", row }
   return { kind: "ok", row }
 }
