@@ -4,11 +4,13 @@ import type { NextRequest } from "next/server"
 // /invites + /api/invites are public so an unauthenticated invitee can
 // land on the accept page (the API call inside it also goes through here).
 // Same reason for /approve + /api/approve (per-post approval flow that
-// the client opens from a WhatsApp link, no login) and /c + /api/c
+// the client opens from a WhatsApp link, no login), /c + /api/c
 // (the permanent client-facing calendar page that lists pending +
 // scheduled + published posts of one client, accessed via a tokenized
-// public URL the agency shares once).
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/forgot-password", "/reset-password", "/api/auth", "/api/tiktok-proxy", "/privacy", "/terms", "/invites", "/api/invites", "/approve", "/api/approve", "/c", "/api/c"]
+// public URL the agency shares once) and /a + /api/a (the approver
+// magic-link portal — single token unifies posts + productions for an
+// individual approver, no login).
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/forgot-password", "/reset-password", "/api/auth", "/api/tiktok-proxy", "/privacy", "/terms", "/invites", "/api/invites", "/approve", "/api/approve", "/c", "/api/c", "/a", "/api/a"]
 
 export function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl

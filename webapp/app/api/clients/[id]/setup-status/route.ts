@@ -196,45 +196,74 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     }
   })()
 
-  // Step 4 — Approval. Reuses the logic from approval-config: if the
-  // client is in manual mode, it's "done" with no further setup needed
-  // beyond the Notion mapping. If auto, requires manychatApiKey + flow_ns.
+  // Step 4 — Approval. Modo manual = só usa o botão "Enviar via WA" no
+  // /scheduled (zero config além do mapeamento Notion). Modo automático
+  // = cron dispara o WhatsApp via provider WhatsApp Cloud (default) ou
+  // ManyChat legado (clientes antigos). ManyChat foi descontinuado pra
+  // contas novas mas o status check ainda cobre legacy.
   const approvalStep: SetupStep = (() => {
     const mode = (c.approvalNotificationMode ?? "auto_manychat") as "auto_manychat" | "manual_whatsapp"
     if (mode === "manual_whatsapp") {
       return {
         key: "approval",
-        label: "Aprovação: modo manual",
+        label: "Aprovação: modo manual (WhatsApp)",
         status: "done",
-        action: { label: "Trocar pra automático", href: "/clients" },
+        action: { label: "Trocar pra automático", href: "/settings" },
         detail: "Você envia o WhatsApp manualmente em /scheduled.",
       }
     }
+    const provider = (c.whatsappProvider ?? "manychat") as "manychat" | "meta_cloud"
+    if (provider === "meta_cloud") {
+      const hasToken = !!c.metaWaToken?.trim()
+      const hasPhoneId = !!c.metaPhoneNumberId?.trim()
+      const hasTemplate = !!c.metaTemplateName?.trim()
+      if (hasToken && hasPhoneId && hasTemplate) {
+        return {
+          key: "approval",
+          label: "Aprovação automática (WhatsApp Cloud)",
+          status: "done",
+          action: { label: "Testar", href: "/settings" },
+        }
+      }
+      const missing: string[] = []
+      if (!hasToken) missing.push("Token da API")
+      if (!hasPhoneId) missing.push("Phone Number ID")
+      if (!hasTemplate) missing.push("Nome do template")
+      if (hasToken || hasPhoneId || hasTemplate) {
+        return {
+          key: "approval",
+          label: "Aprovação (parcial)",
+          status: "partial",
+          action: { label: "Continuar", href: "/settings" },
+          detail: `Falta: ${missing.join(", ")}`,
+        }
+      }
+      return {
+        key: "approval",
+        label: "Configurar aprovação",
+        status: "missing",
+        action: { label: "Configurar", href: "/settings" },
+        detail: "Conecte WhatsApp Cloud em /settings ou use modo manual",
+      }
+    }
+    // Legacy ManyChat — só visível em clientes antigos que ainda não migraram.
     const hasKey = !!c.manychatApiKey?.trim()
     const hasFlow = !!c.manychatApprovalFlowNs?.trim()
     if (hasKey && hasFlow) {
       return {
         key: "approval",
-        label: "Aprovação automática (ManyChat)",
+        label: "Aprovação automática (ManyChat — legado)",
         status: "done",
-        action: { label: "Testar", href: "/clients" },
-      }
-    }
-    if (hasKey || hasFlow) {
-      return {
-        key: "approval",
-        label: "Aprovação (parcial)",
-        status: "partial",
-        action: { label: "Continuar", href: "/clients" },
-        detail: hasKey ? "Falta escolher um Flow" : "Falta a API key do ManyChat",
+        action: { label: "Migrar pra WhatsApp Cloud", href: "/settings" },
+        detail: "ManyChat foi substituído por WhatsApp Cloud — recomendado migrar.",
       }
     }
     return {
       key: "approval",
       label: "Configurar aprovação",
       status: "missing",
-      action: { label: "Configurar", href: "/clients" },
-      detail: "Automático via ManyChat ou manual via wa.me",
+      action: { label: "Configurar", href: "/settings" },
+      detail: "Conecte WhatsApp Cloud ou use modo manual.",
     }
   })()
 
