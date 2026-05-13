@@ -185,7 +185,10 @@ export default function ApproverPortalPage() {
   const postPending: PostPendingItem[] = data.postPending ?? []
 
   return (
-    <div className="min-h-screen bg-muted/20">
+    <div className="relative min-h-screen bg-muted/20">
+      <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[30rem] overflow-hidden">
+        <div className="absolute left-1/2 top-[-10rem] h-[36rem] w-[36rem] -translate-x-1/2 rounded-full aurora-bg" />
+      </div>
       <div className="mx-auto max-w-2xl px-4 py-6 sm:py-8">
         {/* Header */}
         <header className="mb-6 flex items-center gap-3">

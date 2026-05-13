@@ -1,9 +1,26 @@
 import * as React from "react"
 import { cn } from "@/lib/utils"
 
-const Card = React.forwardRef<HTMLDivElement, React.HTMLAttributes<HTMLDivElement>>(
-  ({ className, ...props }, ref) => (
-    <div ref={ref} className={cn("rounded-xl border bg-card text-card-foreground shadow-[0_1px_2px_rgba(0,0,0,0.04)]", className)} {...props} />
+// `variant="glass"` opt-in pra cards que se beneficiam de profundidade
+// (hero cards em landing/public portals, futuros modais). Default fica
+// idêntico — zero impacto em call sites existentes.
+type CardProps = React.HTMLAttributes<HTMLDivElement> & {
+  variant?: "default" | "glass"
+}
+
+const Card = React.forwardRef<HTMLDivElement, CardProps>(
+  ({ className, variant = "default", ...props }, ref) => (
+    <div
+      ref={ref}
+      className={cn(
+        "rounded-xl text-card-foreground",
+        variant === "glass"
+          ? "glass shadow-lg"
+          : "border bg-card shadow-[0_1px_2px_rgba(0,0,0,0.04)]",
+        className,
+      )}
+      {...props}
+    />
   )
 )
 Card.displayName = "Card"
