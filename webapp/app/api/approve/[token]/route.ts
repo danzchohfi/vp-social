@@ -7,7 +7,6 @@ import {
   production,
   productionApprover,
   approver as approverTable,
-  productionComment,
 } from "@/lib/db/schema"
 import { and, asc, desc, eq, gt, inArray, isNull, ne } from "drizzle-orm"
 import { NextResponse } from "next/server"
@@ -15,13 +14,9 @@ import { createNotionClient, DEFAULT_MAPPING, type FieldMapping } from "@/lib/no
 import {
   getOrCreateClientCalendarToken,
   isApprovalDecision,
-  isApprovalExpired,
   lookupApprovalLink,
 } from "@/lib/approval-link"
-import { advanceChain } from "@/lib/productions"
-import { dispatchApprovalRequest, getUserWhatsappConfig } from "@/lib/whatsapp-dispatch"
-import { notifyClientDecisionAsync } from "@/lib/email-notifications"
-import { generateId } from "@/lib/utils"
+import { decideApprovalLink } from "@/lib/approval-decide"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
 
@@ -244,9 +239,8 @@ export async function POST(
     return NextResponse.json({ error: "comment_required_for_changes" }, { status: 400 })
   }
 
-  // Look up + validate. We re-lookup inside the POST (instead of trusting
-  // a passed state) to prevent races: client could have an old GET cached
-  // and try to decide an already-decided link. Atomically re-check here.
+  // Lookup row (sem revalidação de expiry — atomic UPDATE em decideApprovalLink
+  // resolve race entre client e o cron tacit).
   const [row] = await db
     .select()
     .from(approvalLink)
@@ -256,193 +250,50 @@ export async function POST(
   if (row.decision !== null) {
     return NextResponse.json({ error: "already_decided", decision: row.decision }, { status: 409 })
   }
-  if (isApprovalExpired(row.expiresAt)) {
-    return NextResponse.json({ error: "expired" }, { status: 410 })
+
+  // Pre-check pra production_script revisão: se mapping não tem
+  // revisionRequestedValue, falha já — decideApprovalLink falharia
+  // silenciosamente no Notion. Caller espera 500 com configError.
+  if (row.kind === "post" && body.decision === "changes_requested") {
+    const [mappingRow] = await db
+      .select()
+      .from(fieldMapping)
+      .where(eq(fieldMapping.connectionId, row.connectionId))
+    if (!mappingRow?.revisionRequestedValue) {
+      return NextResponse.json(
+        { error: "revisionRequestedValue not configured", configError: true },
+        { status: 500 }
+      )
+    }
   }
 
-  // Atomic decide: claim the row first via a conditional UPDATE so two
-  // concurrent POSTs (rare but possible if the client double-taps) only
-  // let one through. Drizzle returns affected rows.
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
     ?? req.headers.get("x-real-ip")
     ?? null
 
-  const claim = await db
-    .update(approvalLink)
-    .set({
-      decision: body.decision,
-      decidedAt: new Date(),
-      decidedFromIp: ip,
-      comment: comment || null,
-    })
-    .where(and(
-      eq(approvalLink.token, token),
-      isNull(approvalLink.decision),
-    ))
-    .returning({ id: approvalLink.id })
+  const result = await decideApprovalLink({
+    row,
+    decision: body.decision,
+    mode: "explicit",
+    comment: comment || null,
+    ip,
+  })
 
-  if (claim.length === 0) {
-    const [latest] = await db
-      .select({ decision: approvalLink.decision })
-      .from(approvalLink)
-      .where(eq(approvalLink.token, token))
-    return NextResponse.json(
-      { error: "already_decided", decision: latest?.decision ?? null },
-      { status: 409 }
-    )
+  if (!result.ok) {
+    if (result.reason === "already_decided") {
+      return NextResponse.json(
+        { error: "already_decided", decision: result.existing },
+        { status: 409 }
+      )
+    }
+    return NextResponse.json({ error: result.reason }, { status: 500 })
   }
 
   const calendarToken = await getOrCreateClientCalendarToken(row.clientId)
-
-  // ─── Production-script branch ───────────────────────────────
-  // No Notion side effects. On approval, advance the chain (or finish
-  // it) — chain advance dispatches WhatsApp to the next approver. On
-  // changes_requested, mirror the comment into productionComment and
-  // flip the production back to revision_requested.
-  if (row.kind === "production_script" && row.productionId) {
-    if (body.decision === "approved") {
-      // advanceChain looks at all the round's approved rows (now
-      // including ours) and figures out who's next.
-      try {
-        const next = await advanceChain(db, row.productionId, row.round)
-        if (next.kind === "next") {
-          // Dispatch WhatsApp to the next approver via the agency's
-          // Meta Cloud config.
-          const [c] = await db
-            .select({ userId: clientTable.userId })
-            .from(clientTable)
-            .where(eq(clientTable.id, row.clientId))
-          let nextSentVia: "meta_cloud" | "none" = "none"
-          if (c && next.approver.phone) {
-            const config = await getUserWhatsappConfig(c.userId)
-            const sendResult = await dispatchApprovalRequest({
-              config,
-              phone: next.approver.phone,
-              contactName: next.approver.name,
-              postTitle: next.approvalLinkRow.postTitle,
-              approvalUrl: `${APP_URL}/approve/${next.approvalLinkRow.token}`,
-            })
-            if (sendResult.ok) nextSentVia = "meta_cloud"
-          }
-          await db
-            .update(approvalLink)
-            .set({ sentVia: nextSentVia, sentAt: nextSentVia === "none" ? null : new Date() })
-            .where(eq(approvalLink.id, next.approvalLinkRow.id))
-        } else {
-          // Chain complete (or no_chain): flip production to approved.
-          await db
-            .update(production)
-            .set({ status: "approved", updatedAt: new Date() })
-            .where(eq(production.id, row.productionId))
-        }
-      } catch (e) {
-        console.error(`[approve POST] advanceChain failed for production ${row.productionId}:`, e)
-      }
-    } else {
-      // changes_requested: mirror comment into productionComment thread.
-      // Also flip production status so agency sees the revision request
-      // in the /productions list.
-      try {
-        if (comment) {
-          await db.insert(productionComment).values({
-            id: generateId(),
-            productionId: row.productionId,
-            authorUserId: null,
-            authorName: row.contactName ?? "Cliente",
-            body: comment,
-          })
-        }
-        await db
-          .update(production)
-          .set({ status: "revision_requested", updatedAt: new Date() })
-          .where(eq(production.id, row.productionId))
-      } catch (e) {
-        console.error(`[approve POST] production-script revision side-effects failed:`, e)
-      }
-    }
-
-    return NextResponse.json({
-      ok: true,
-      decision: body.decision,
-      kind: "production_script",
-      calendarUrl: `/c/${calendarToken}`,
-    })
-  }
-
-  // ─── Legacy post-approval branch ────────────────────────────
-  const [conn] = await db
-    .select()
-    .from(notionConnection)
-    .where(eq(notionConnection.id, row.connectionId))
-  if (!conn) return NextResponse.json({ error: "connection_gone" }, { status: 410 })
-
-  const [mappingRow] = await db
-    .select()
-    .from(fieldMapping)
-    .where(eq(fieldMapping.connectionId, conn.id))
-  const mapping: FieldMapping = mappingRow ?? DEFAULT_MAPPING
-
-  if (body.decision === "changes_requested" && !mapping.revisionRequestedValue) {
-    return NextResponse.json(
-      { error: "revisionRequestedValue not configured", configError: true },
-      { status: 500 }
-    )
-  }
-
-  const notion = createNotionClient(conn.accessToken)
-
-  try {
-    const who = row.contactName ?? "Cliente"
-    const when = new Date().toLocaleString("pt-BR")
-    if (body.decision === "approved") {
-      // Decoupled approval (PR #64): when the agency configured a separate
-      // approval property + approvedValue, the publish status stays
-      // untouched. Otherwise legacy "flip to ready" behavior kicks in.
-      await notion.markApproved(row.notionPageId, mapping)
-      await notion.postSystemComment(
-        row.notionPageId,
-        `✓ Aprovado por ${who} · ${when}`,
-      )
-    } else {
-      await notion.markRevision(row.notionPageId, mapping)
-      await notion.postSystemComment(
-        row.notionPageId,
-        `🔁 Pedido alterações por ${who} · ${when}`,
-      )
-      if (comment) {
-        await notion.addClientComment(row.notionPageId, comment, row.contactName ?? null)
-      }
-    }
-  } catch (e) {
-    console.error(`[approve POST] Notion side-effect failed for token ${token}:`, e)
-  }
-
-  // Notify the agency owner via email so they don't have to refresh
-  // /scheduled to learn about the decision. Fire-and-forget so a Resend
-  // outage doesn't make the public approval flow look broken.
-  try {
-    const [ownerClient] = await db
-      .select({ name: clientTable.name, userId: clientTable.userId })
-      .from(clientTable)
-      .where(eq(clientTable.id, row.clientId))
-    if (ownerClient?.userId) {
-      notifyClientDecisionAsync(ownerClient.userId, ownerClient.name ?? null, {
-        postTitle: row.postTitle,
-        contactName: row.contactName,
-        decision: body.decision,
-        comment: comment || null,
-        approvalUrl: `${APP_URL}/approve/${row.token}`,
-        notionPageId: row.notionPageId,
-      })
-    }
-  } catch (e) {
-    console.warn(`[approve POST] decision-email lookup failed for token ${token}:`, e)
-  }
-
   return NextResponse.json({
     ok: true,
     decision: body.decision,
-    kind: "post",
+    kind: row.kind,
     calendarUrl: `/c/${calendarToken}`,
   })
 }
