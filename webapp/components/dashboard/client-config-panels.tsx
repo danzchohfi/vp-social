@@ -1625,7 +1625,7 @@ function ContactDebugButton({ clientId }: { clientId: string }) {
           )}
           {Array.isArray(result.contacts) && result.contacts.length > 0 && (
             <details className="text-[13px]">
-              <summary className="cursor-pointer rounded px-1 py-0.5 font-medium text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground">
+              <summary className="cursor-pointer font-medium text-muted-foreground">
                 {result.contacts.length} contato(s) encontrado(s) — ver detalhes
               </summary>
               <ul className="mt-1.5 space-y-1.5">
@@ -1653,7 +1653,7 @@ function ContactDebugButton({ clientId }: { clientId: string }) {
           )}
           {Array.isArray(result.trace) && result.trace.length > 0 && (
             <details className="text-[12px]">
-              <summary className="cursor-pointer rounded px-1 py-0.5 text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground">Trace completo (JSON)</summary>
+              <summary className="cursor-pointer text-muted-foreground">Trace completo (JSON)</summary>
               <pre className="mt-1.5 max-h-96 overflow-auto rounded bg-muted p-2 font-mono">{JSON.stringify(result.trace, null, 2)}</pre>
             </details>
           )}
@@ -1750,7 +1750,7 @@ function ManyChatDebugButton({ clientId }: { clientId: string }) {
 
           {Array.isArray(result.phoneProbes) && (
             <details>
-              <summary className="cursor-pointer rounded px-1 py-0.5 text-[13px] font-medium text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground">
+              <summary className="cursor-pointer text-[13px] font-medium text-muted-foreground">
                 {result.phoneProbes.length} variantes testadas
               </summary>
               <ul className="mt-1.5 space-y-1 font-mono text-[12px]">
@@ -1884,7 +1884,7 @@ function SelfTestPanel({ clientId }: { clientId: string }) {
             "rounded border px-2 py-1.5 text-sm",
             result.ok
               ? "border-success/30 bg-success/10 text-success"
-              : "border-destructive/30 bg-destructive/10 text-destructive",
+              : "border-destructive/30 bg-destructive/10 text-destructive"
           )}
         >
           {result.ok ? (
