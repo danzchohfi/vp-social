@@ -17,6 +17,7 @@ import {
   NotionContasPanel,
   SetupChecklistPanel,
 } from "@/components/dashboard/client-config-panels"
+import { NotionSetupGuide } from "@/components/setup-guides/notion-setup-guide"
 
 type Workspace = {
   id: string
@@ -574,6 +575,17 @@ export default function SettingsPage() {
         accent="neutral"
         icon={Database}
       >
+      {/* Setup guide first — auto-collapses to a compact "completo"
+          pill once `complete` (workspace selected + databaseId set) is
+          true, so existing users don't see the wall of steps. */}
+      {activeClient && (
+        <div className="mb-4">
+          <NotionSetupGuide
+            clientId={activeClient.id}
+            hasConnection={Boolean(selectedId && workspaces.find((w) => w.id === selectedId)?.databaseId)}
+          />
+        </div>
+      )}
       <div className="space-y-3">
         <Label>Workspace do Notion</Label>
         <Select value={selectedId} onValueChange={(v) => { setSelectedId(v); localStorage.setItem("vpsocial_selected_workspace", v) }}>
