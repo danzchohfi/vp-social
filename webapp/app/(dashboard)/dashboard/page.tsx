@@ -960,9 +960,72 @@ export default async function DashboardPage() {
         )
       })()}
 
-      <div className="mb-6 grid gap-4 sm:grid-cols-3">
-        <Link href="/scheduled?filter=upcoming" className="group">
-          <Card className="transition-colors group-hover:border-primary/40 group-hover:bg-primary/[0.03]">
+      {/* Bento "snapshot": Top Post grande à esquerda (8 cols × 3 rows)
+          + 3 KPIs empilhados à direita (4 cols × 1 row cada). Quando não
+          existe Top Post (cliente sem histórico de publicação), colapsa
+          pra 3 KPIs em linha horizontal — fallback simples. */}
+      <div className={cn(
+        "mb-8 grid gap-4",
+        showTopPost && topPost
+          ? "md:grid-cols-12 md:auto-rows-fr"
+          : "sm:grid-cols-3"
+      )}>
+        {showTopPost && topPost && (
+          <div className="relative overflow-hidden rounded-xl border border-success/30 bg-gradient-to-br from-success/[0.08] to-transparent p-6 md:col-span-8 md:row-span-3">
+            <div className="absolute right-0 top-0 -z-0 h-72 w-72 -translate-y-1/3 translate-x-1/3 rounded-full bg-success/10 blur-3xl" />
+            <div className="relative flex h-full flex-col">
+              <div className="mb-3 flex items-center gap-2">
+                <ThumbsUp className="h-4 w-4 text-success" />
+                <p className="text-[12px] uppercase tracking-wider text-success font-semibold">Destaque dos últimos 30 dias</p>
+              </div>
+              <p className="text-2xl font-semibold tracking-tight break-words md:text-3xl">{topPost.title || "Post sem título"}</p>
+              <p className="mt-2 text-sm text-muted-foreground">
+                @{topPost.conta}
+                {topPost.platform && <> · {topPost.platform}</>}
+                {isAgency && topPost.clientId && clientById.get(topPost.clientId) && (
+                  <> · {clientById.get(topPost.clientId)!.name}</>
+                )}
+                {" · "}
+                {new Date(topPost.publishedAt).toLocaleDateString("pt-BR")}
+              </p>
+              <div className="mt-4 flex flex-wrap items-baseline gap-x-6 gap-y-2">
+                {(topPost.likes ?? 0) > 0 && (
+                  <span className="inline-flex items-baseline gap-1.5">
+                    <strong className="text-2xl font-semibold text-success">{topPost.likes!.toLocaleString("pt-BR")}</strong>
+                    <span className="text-sm text-muted-foreground">curtidas</span>
+                  </span>
+                )}
+                {(topPost.comments ?? 0) > 0 && (
+                  <span className="inline-flex items-baseline gap-1.5">
+                    <strong className="text-2xl font-semibold text-success">{topPost.comments!.toLocaleString("pt-BR")}</strong>
+                    <span className="text-sm text-muted-foreground">comentários</span>
+                  </span>
+                )}
+                {(topPost.reach ?? 0) > 0 && (
+                  <span className="inline-flex items-baseline gap-1.5">
+                    <strong className="text-2xl font-semibold text-success">{topPost.reach!.toLocaleString("pt-BR")}</strong>
+                    <span className="text-sm text-muted-foreground">de alcance</span>
+                  </span>
+                )}
+              </div>
+              {topPost.permalink && (
+                <div className="mt-auto pt-4">
+                  <Button variant="outline" size="sm" asChild>
+                    <a href={topPost.permalink} target="_blank" rel="noopener noreferrer">
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Ver post
+                    </a>
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+        <Link
+          href="/scheduled?filter=upcoming"
+          className={cn("group", showTopPost && topPost && "md:col-span-4")}
+        >
+          <Card className="h-full transition-colors group-hover:border-primary/40 group-hover:bg-primary/[0.03]">
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center justify-between">
                 Agendados
@@ -975,8 +1038,11 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </Link>
-        <Link href="/scheduled?filter=published" className="group">
-          <Card className="transition-colors group-hover:border-success/40 group-hover:bg-success/[0.03]">
+        <Link
+          href="/scheduled?filter=published"
+          className={cn("group", showTopPost && topPost && "md:col-span-4")}
+        >
+          <Card className="h-full transition-colors group-hover:border-success/40 group-hover:bg-success/[0.03]">
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center justify-between">
                 Publicados
@@ -989,8 +1055,11 @@ export default async function DashboardPage() {
             </CardContent>
           </Card>
         </Link>
-        <Link href="/scheduled?filter=errors" className="group">
-          <Card className="transition-colors group-hover:border-destructive/40 group-hover:bg-destructive/[0.03]">
+        <Link
+          href="/scheduled?filter=errors"
+          className={cn("group", showTopPost && topPost && "md:col-span-4")}
+        >
+          <Card className="h-full transition-colors group-hover:border-destructive/40 group-hover:bg-destructive/[0.03]">
             <CardHeader className="pb-2">
               <CardDescription className="flex items-center justify-between">
                 Com erro
@@ -1004,59 +1073,6 @@ export default async function DashboardPage() {
           </Card>
         </Link>
       </div>
-
-      {showTopPost && topPost && (
-        <div className="mb-8 rounded-xl border border-success/30 bg-gradient-to-br from-success/[0.06] to-transparent p-5">
-          <div className="mb-2 flex items-center gap-2">
-            <ThumbsUp className="h-4 w-4 text-success" />
-            <p className="text-base font-semibold">Destaque dos últimos 30 dias</p>
-          </div>
-          <div className="flex flex-wrap items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="font-medium break-words">{topPost.title || "Post sem título"}</p>
-              <p className="text-sm text-muted-foreground">
-                @{topPost.conta}
-                {topPost.platform && <> · {topPost.platform}</>}
-                {isAgency && topPost.clientId && clientById.get(topPost.clientId) && (
-                  <> · {clientById.get(topPost.clientId)!.name}</>
-                )}
-                {" · "}
-                {new Date(topPost.publishedAt).toLocaleDateString("pt-BR")}
-              </p>
-              <div className="mt-2 flex flex-wrap items-center gap-3 text-base">
-                {(topPost.likes ?? 0) > 0 && (
-                  <span className="inline-flex items-center gap-1">
-                    <Heart className="h-3.5 w-3.5 text-success" />
-                    <strong>{topPost.likes!.toLocaleString("pt-BR")}</strong>
-                    <span className="text-muted-foreground">curtidas</span>
-                  </span>
-                )}
-                {(topPost.comments ?? 0) > 0 && (
-                  <span className="inline-flex items-center gap-1">
-                    <MessageCircle className="h-3.5 w-3.5 text-success" />
-                    <strong>{topPost.comments!.toLocaleString("pt-BR")}</strong>
-                    <span className="text-muted-foreground">comentários</span>
-                  </span>
-                )}
-                {(topPost.reach ?? 0) > 0 && (
-                  <span className="inline-flex items-center gap-1">
-                    <strong>{topPost.reach!.toLocaleString("pt-BR")}</strong>
-                    <span className="text-muted-foreground">de alcance</span>
-                  </span>
-                )}
-              </div>
-            </div>
-            {topPost.permalink && (
-              <Button variant="outline" size="sm" asChild>
-                <a href={topPost.permalink} target="_blank" rel="noopener noreferrer">
-                  <ExternalLink className="h-3.5 w-3.5" />
-                  Ver post
-                </a>
-              </Button>
-            )}
-          </div>
-        </div>
-      )}
 
       {(isReady || isAgency) && (
         <Card className="mb-8">

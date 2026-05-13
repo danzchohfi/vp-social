@@ -101,23 +101,95 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Features */}
+        {/* Features — Bento layout: HERO (publicação automática, 8col×2row) +
+            2 medium cells (Notion, IG multi) + 3 small cells abaixo. Diferentes
+            tamanhos comunicam hierarquia: o que mais importa ocupa mais espaço.
+            Mobile colapsa pra 1 coluna preservando a ordem. */}
         <section id="features" className="px-6 py-24">
           <div className="mx-auto max-w-6xl">
             <div className="mb-16 text-center">
               <h2 className="mb-4 text-4xl font-bold tracking-tight">Tudo que você precisa</h2>
               <p className="text-lg text-muted-foreground">Uma plataforma completa para gestão de redes sociais</p>
             </div>
-            <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-              {features.map((f) => (
-                <div key={f.title} className="group rounded-2xl border bg-card p-6 transition-shadow hover:shadow-md">
-                  <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                    <f.icon className="h-5 w-5" />
+            <div className="grid gap-4 md:grid-cols-12 md:grid-rows-[auto_auto_auto] md:gap-5">
+              {/* HERO — Publicação automática */}
+              <div className="group relative overflow-hidden rounded-2xl border bg-card p-6 transition-shadow hover:shadow-lg md:col-span-8 md:row-span-2 md:p-10">
+                <div className="absolute right-0 top-0 -z-0 h-72 w-72 -translate-y-1/3 translate-x-1/3 rounded-full bg-primary/10 blur-3xl" />
+                <div className="relative">
+                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/20">
+                    <Zap className="h-7 w-7" />
                   </div>
-                  <h3 className="mb-2 font-semibold">{f.title}</h3>
-                  <p className="text-base text-muted-foreground">{f.description}</p>
+                  <h3 className="mb-3 text-3xl font-semibold tracking-tight md:text-4xl">
+                    Publicação <span className="italic text-primary">automática</span>
+                  </h3>
+                  <p className="max-w-xl text-base text-muted-foreground md:text-lg">
+                    Defina o status como &quot;Agendamento&quot; no Notion. O VP Social publica em
+                    Instagram, Facebook, YouTube, TikTok e LinkedIn — sem você abrir um app.
+                  </p>
+                  <div className="mt-6 flex flex-wrap items-center gap-2">
+                    {["Instagram", "Facebook", "Reels", "Stories", "Carrossel", "Vídeo"].map((t) => (
+                      <span key={t} className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[13px] font-medium text-primary">
+                        {t}
+                      </span>
+                    ))}
+                  </div>
                 </div>
-              ))}
+              </div>
+
+              {/* MEDIUM — Conecte o Notion */}
+              <div className="group rounded-2xl border bg-card p-6 transition-shadow hover:shadow-md md:col-span-4 md:row-span-1">
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Link2 className="h-5 w-5" />
+                </div>
+                <h3 className="mb-2 font-semibold">Conecte o Notion</h3>
+                <p className="text-base text-muted-foreground">
+                  Vincule seu banco do Notion em segundos. Suporte a qualquer estrutura de database.
+                </p>
+              </div>
+
+              {/* MEDIUM — Multi-conta Instagram */}
+              <div className="group rounded-2xl border bg-card p-6 transition-shadow hover:shadow-md md:col-span-4 md:row-span-1">
+                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
+                  <Instagram className="h-5 w-5" />
+                </div>
+                <h3 className="mb-2 font-semibold">Multi-conta, multi-rede</h3>
+                <p className="text-base text-muted-foreground">
+                  Múltiplos clientes, múltiplas contas IG, FB, YouTube, TikTok, LinkedIn — uma só plataforma.
+                </p>
+              </div>
+
+              {/* SMALL — Dashboard */}
+              <div className="group rounded-2xl border bg-card p-6 transition-shadow hover:shadow-md md:col-span-4">
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <LayoutDashboard className="h-4 w-4" />
+                </div>
+                <h3 className="mb-1.5 font-semibold">Dashboard completo</h3>
+                <p className="text-sm text-muted-foreground">
+                  Agendados, publicados e erros em tempo real, com 1 clique pra cada ação.
+                </p>
+              </div>
+
+              {/* SMALL — Para agências */}
+              <div className="group rounded-2xl border bg-card p-6 transition-shadow hover:shadow-md md:col-span-4">
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <Users className="h-4 w-4" />
+                </div>
+                <h3 className="mb-1.5 font-semibold">Feito para agências</h3>
+                <p className="text-sm text-muted-foreground">
+                  Estrutura multi-cliente. Cada cliente com suas contas, mapeamentos e aprovadores.
+                </p>
+              </div>
+
+              {/* SMALL — Histórico */}
+              <div className="group rounded-2xl border bg-card p-6 transition-shadow hover:shadow-md md:col-span-4">
+                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
+                  <BarChart3 className="h-4 w-4" />
+                </div>
+                <h3 className="mb-1.5 font-semibold">Histórico + métricas</h3>
+                <p className="text-sm text-muted-foreground">
+                  Likes, comentários, alcance e saves — sincronizados do Notion direto pro Instagram.
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -212,15 +284,6 @@ export default function LandingPage() {
     </div>
   )
 }
-
-const features = [
-  { icon: Link2, title: "Conecte o Notion", description: "Vincule seu banco de dados do Notion em segundos. Suporte a qualquer estrutura de database." },
-  { icon: Instagram, title: "Multi-conta Instagram", description: "Gerencie múltiplos clientes e contas Instagram em uma única plataforma." },
-  { icon: Zap, title: "Publicação automática", description: "Defina o status como 'Agendamento' no Notion e o VP Social publica automaticamente." },
-  { icon: LayoutDashboard, title: "Dashboard completo", description: "Visualize todos os posts agendados, publicados e com erro em tempo real." },
-  { icon: Users, title: "Feito para agências", description: "Estrutura multi-cliente. Cada cliente com suas próprias contas e configurações." },
-  { icon: BarChart3, title: "Histórico completo", description: "Registro detalhado de todas as publicações com status e mensagens de erro." },
-]
 
 const steps = [
   { title: "Crie sua conta", description: "Cadastre-se com e-mail ou faça login com o Facebook diretamente." },
