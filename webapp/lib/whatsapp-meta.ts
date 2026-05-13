@@ -105,6 +105,7 @@ function explainMetaError(err: any): string | null {
   if (code === 132001) return "Idioma do template não bate. O template foi aprovado em outro idioma — confira metaTemplateLanguage."
   if (code === 132005) return "Número de variáveis no template não bate com os parâmetros enviados. Recreate o template com 3 variáveis ({{1}} {{2}} {{3}}) ou ajuste os parâmetros."
   if (code === 132012) return "Categoria do template mudou pra MARKETING e o destinatário não está opt-in. Cria um template UTILITY (aprovação de conteúdo qualifica)."
+  if (code === 133010) return "Número não registrado no Cloud API. Em WhatsApp Manager → Configurações → Verificação em duas etapas, defina um PIN de 6 dígitos; depois POST /v18.0/{phone_number_id}/register com {messaging_product:'whatsapp', pin:'XXXXXX'} usando o mesmo token. Só precisa fazer uma vez."
   if (code === 190) return "Token expirou ou foi revogado. Gere um novo permanent System User token em Meta Business Settings."
   if (subcode === 2018109) return "Phone Number ID não pertence à WABA do token. Confira que ambos vêm da mesma conta no Meta."
   return null
@@ -142,4 +143,191 @@ export async function validateMetaCreds(token: string, phoneNumberId: string): P
   } catch (e) {
     return { ok: false, reason: e instanceof Error ? e.message : String(e) }
   }
+}
+
+// Deep diagnostic: validateMetaCreds only checks "can read the phone".
+// This goes further — introspects the TOKEN (via /debug_token) and the
+// PHONE→WABA mapping, then cross-references. Catches the classic
+// "phone_number_id is from Meta's test WABA but the System User token
+// only covers the agency's real WABA" trap (which surfaces as code 200
+// at send time with a generic "necessary permissions" message).
+//
+// Returns a flat structure with one ok/reason per check + a top-level
+// `summary` that names the likely fix. The UI maps each section to a
+// row with ✓/✗ icon so the agency can see at a glance which gate failed.
+
+export type MetaDiagnosis = {
+  // True only when all three sections pass + the WABA-of-phone matches
+  // the WABA the token can act on.
+  ok: boolean
+  summary: string
+  token: {
+    ok: boolean
+    appId: string | null
+    expiresAt: number | null
+    expiresLabel: string
+    scopes: string[]
+    hasMessagingScope: boolean
+    hasManagementScope: boolean
+    // WABA IDs the token is granted to message on behalf of (parsed
+    // from `granular_scopes` of the whatsapp_business_messaging entry).
+    // Empty array = token has the scope name but no asset assigned to
+    // it = will fail with code 200 on send.
+    messagingTargetWabaIds: string[]
+    reason: string | null
+  }
+  phone: {
+    ok: boolean
+    displayPhoneNumber: string | null
+    verifiedName: string | null
+    wabaId: string | null
+    isMetaTestNumber: boolean
+    reason: string | null
+  }
+  // Cross-check: does phone.wabaId appear in token.messagingTargetWabaIds?
+  match: {
+    ok: boolean | null  // null when either side failed and we can't compare
+    reason: string
+  }
+}
+
+export async function diagnoseMeta(token: string, phoneNumberId: string): Promise<MetaDiagnosis> {
+  const result: MetaDiagnosis = {
+    ok: false,
+    summary: "",
+    token: {
+      ok: false, appId: null, expiresAt: null, expiresLabel: "",
+      scopes: [], hasMessagingScope: false, hasManagementScope: false,
+      messagingTargetWabaIds: [], reason: null,
+    },
+    phone: {
+      ok: false, displayPhoneNumber: null, verifiedName: null,
+      wabaId: null, isMetaTestNumber: false, reason: null,
+    },
+    match: { ok: null, reason: "" },
+  }
+
+  if (!token || !phoneNumberId) {
+    result.summary = "token ou phone_number_id vazios"
+    return result
+  }
+
+  // 1) Token introspection. Self-inspection (input_token=access_token=token)
+  // works for User and System User tokens. Returns app_id, expires_at,
+  // scopes, granular_scopes.
+  try {
+    const url = `${META_BASE}/debug_token?input_token=${encodeURIComponent(token)}&access_token=${encodeURIComponent(token)}`
+    const res = await fetchWithRetry(url, {
+      method: "GET",
+      logContext: { platform: "meta_wa", op: "debug_token", phoneNumberId },
+      maxRetries: 0,
+      timeoutMs: 10_000,
+    })
+    const data: any = await res.json().catch(() => null)
+    if (!res.ok || !data?.data) {
+      const err = data?.error
+      result.token.reason = `${err?.message ?? `HTTP ${res.status}`}${err?.code ? ` [code ${err.code}]` : ""}`
+    } else {
+      const td = data.data
+      result.token.appId = td.app_id ? String(td.app_id) : null
+      result.token.expiresAt = typeof td.expires_at === "number" ? td.expires_at : null
+      // expires_at = 0 means "never expires" (permanent System User token)
+      if (result.token.expiresAt === 0 || result.token.expiresAt === null) {
+        result.token.expiresLabel = "permanente (não expira)"
+      } else {
+        const ms = result.token.expiresAt * 1000
+        const date = new Date(ms)
+        result.token.expiresLabel = ms > Date.now()
+          ? `expira em ${date.toLocaleDateString("pt-BR")} ${date.toLocaleTimeString("pt-BR")}`
+          : `EXPIROU em ${date.toLocaleDateString("pt-BR")}`
+      }
+      result.token.scopes = Array.isArray(td.scopes) ? td.scopes : []
+      result.token.hasMessagingScope = result.token.scopes.includes("whatsapp_business_messaging")
+      result.token.hasManagementScope = result.token.scopes.includes("whatsapp_business_management")
+      // granular_scopes is the per-scope asset list. Each entry:
+      // { scope: "whatsapp_business_messaging", target_ids: ["123…","456…"] }
+      const gs: any[] = Array.isArray(td.granular_scopes) ? td.granular_scopes : []
+      const messagingEntry = gs.find((g) => g?.scope === "whatsapp_business_messaging")
+      result.token.messagingTargetWabaIds = Array.isArray(messagingEntry?.target_ids)
+        ? messagingEntry.target_ids.map(String)
+        : []
+      const expiredOrInvalid = td.is_valid === false || (result.token.expiresAt && result.token.expiresAt * 1000 < Date.now())
+      result.token.ok = !expiredOrInvalid && result.token.hasMessagingScope
+      if (expiredOrInvalid) result.token.reason = "token inválido/expirado"
+      else if (!result.token.hasMessagingScope) result.token.reason = "scope whatsapp_business_messaging não está no token"
+    }
+  } catch (e) {
+    result.token.reason = e instanceof Error ? e.message : String(e)
+  }
+
+  // 2) Phone introspection. We need to know which WABA owns this phone.
+  // The `whatsapp_business_account` edge returns it. Meta's test number
+  // has a fixed WABA ID range, but we detect it by display_phone_number
+  // pattern (+1 555 …) AND a couple of WABA IDs Meta uses for the
+  // sandbox. The reliable signal is: WABA owned by the app vs. by the BM.
+  try {
+    const url = `${META_BASE}/${encodeURIComponent(phoneNumberId)}?fields=id,display_phone_number,verified_name,whatsapp_business_account{id,name}`
+    const res = await fetchWithRetry(url, {
+      method: "GET",
+      headers: { Authorization: `Bearer ${token}` },
+      logContext: { platform: "meta_wa", op: "diagnose_phone", phoneNumberId },
+      maxRetries: 0,
+      timeoutMs: 10_000,
+    })
+    const data: any = await res.json().catch(() => null)
+    if (!res.ok) {
+      const err = data?.error
+      result.phone.reason = `${err?.message ?? `HTTP ${res.status}`}${err?.code ? ` [code ${err.code}]` : ""}`
+    } else {
+      result.phone.displayPhoneNumber = data?.display_phone_number ?? null
+      result.phone.verifiedName = data?.verified_name ?? null
+      result.phone.wabaId = data?.whatsapp_business_account?.id
+        ? String(data.whatsapp_business_account.id)
+        : null
+      // Meta's free test number is always +1 555 016 4447. Heuristic: any
+      // display number starting with "+1 555" coming from this Cloud
+      // API context is the test sandbox. Good enough for the warning.
+      const display = (result.phone.displayPhoneNumber ?? "").replace(/\s+/g, "")
+      result.phone.isMetaTestNumber = display.startsWith("+1555")
+      result.phone.ok = !!result.phone.wabaId
+      if (!result.phone.wabaId) result.phone.reason = "phone_number_id não retornou WABA — Meta pode tê-lo descontinuado"
+    }
+  } catch (e) {
+    result.phone.reason = e instanceof Error ? e.message : String(e)
+  }
+
+  // 3) Cross-check: phone's WABA must be in the token's messaging targets.
+  if (result.token.ok && result.phone.ok && result.phone.wabaId) {
+    if (result.token.messagingTargetWabaIds.length === 0) {
+      result.match.ok = false
+      result.match.reason = "Token tem o scope whatsapp_business_messaging mas NENHUMA WABA atribuída. Em Business Settings → Usuários do sistema → seu System User → Atribuir ativos → Contas do WhatsApp, marque a WABA com 'Enviar mensagens' e gere um NOVO token."
+    } else if (result.token.messagingTargetWabaIds.includes(result.phone.wabaId)) {
+      result.match.ok = true
+      result.match.reason = `Phone Number ID pertence à WABA ${result.phone.wabaId}, que está nos assets do token.`
+    } else {
+      result.match.ok = false
+      const testHint = result.phone.isMetaTestNumber
+        ? " — esse Phone Number ID é do NÚMERO DE TESTE da Meta (+1 555…), que pertence a uma WABA que a Meta administra, não a sua. Troque para o Phone Number ID do seu número real em Meta App → WhatsApp → Configuração da API → dropdown 'De'."
+        : ""
+      result.match.reason = `Phone Number ID pertence à WABA ${result.phone.wabaId}, mas o token só pode enviar pelas WABAs ${result.token.messagingTargetWabaIds.join(", ")}.${testHint}`
+    }
+  } else {
+    result.match.ok = null
+    result.match.reason = "Não foi possível comparar — token ou phone não introspeccionaram."
+  }
+
+  result.ok = result.token.ok && result.phone.ok && result.match.ok === true
+
+  // Pick the single most actionable line for the summary.
+  if (result.ok) {
+    result.summary = `Tudo certo: token vale pra WABA ${result.phone.wabaId} (${result.phone.displayPhoneNumber}).`
+  } else if (!result.token.ok) {
+    result.summary = `Token: ${result.token.reason ?? "falha"}`
+  } else if (!result.phone.ok) {
+    result.summary = `Phone Number ID: ${result.phone.reason ?? "falha"}`
+  } else if (result.match.ok === false) {
+    result.summary = result.match.reason
+  }
+
+  return result
 }
