@@ -56,6 +56,35 @@
 
 /* Respeita preferência de menos animação: pausa aurora, transições
    instantâneas. Acessibilidade básica. */
+/* Stagger animation utility — aplicar em containers de lista pra cada
+   filho aparecer em cascata. CSS-only via :nth-child delay. backwards
+   fill garante que estado inicial é o "fora-da-tela" (não pisca em
+   estado final por 1 frame antes da animação rodar). */
+@keyframes stagger-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.stagger-children > * {
+  animation: stagger-fade-in 0.4s cubic-bezier(0.2, 0.8, 0.2, 1) backwards;
+}
+.stagger-children > *:nth-child(1)  { animation-delay: 0ms; }
+.stagger-children > *:nth-child(2)  { animation-delay: 40ms; }
+.stagger-children > *:nth-child(3)  { animation-delay: 80ms; }
+.stagger-children > *:nth-child(4)  { animation-delay: 120ms; }
+.stagger-children > *:nth-child(5)  { animation-delay: 160ms; }
+.stagger-children > *:nth-child(6)  { animation-delay: 200ms; }
+.stagger-children > *:nth-child(7)  { animation-delay: 240ms; }
+.stagger-children > *:nth-child(8)  { animation-delay: 280ms; }
+.stagger-children > *:nth-child(9)  { animation-delay: 320ms; }
+.stagger-children > *:nth-child(n+10) { animation-delay: 360ms; }
+
 /* cmdk command palette — estilo do heading de cada grupo. cmdk renderiza
    o heading como elemento com data-attr [cmdk-group-heading], então
    estilizamos via attribute selector global pra não duplicar markup. */

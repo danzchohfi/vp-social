@@ -111,7 +111,7 @@ export default function LandingPage() {
               <h2 className="mb-4 text-4xl font-bold tracking-tight">Tudo que você precisa</h2>
               <p className="text-lg text-muted-foreground">Uma plataforma completa para gestão de redes sociais</p>
             </div>
-            <div className="grid gap-4 md:grid-cols-12 md:grid-rows-[auto_auto_auto] md:gap-5">
+            <div className="stagger-children grid gap-4 md:grid-cols-12 md:grid-rows-[auto_auto_auto] md:gap-5">
               {/* HERO — Publicação automática */}
               <div className="group relative overflow-hidden rounded-2xl border bg-card p-6 transition-shadow hover:shadow-lg md:col-span-8 md:row-span-2 md:p-10">
                 <div className="absolute right-0 top-0 -z-0 h-72 w-72 -translate-y-1/3 translate-x-1/3 rounded-full bg-primary/10 blur-3xl" />

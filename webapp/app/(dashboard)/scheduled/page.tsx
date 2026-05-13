@@ -964,7 +964,7 @@ function ContaGroup({ conta, posts, canPublishNow, onPublished, issuesFn }: { co
           {ws && <span className="ml-2 opacity-70">· {ws}</span>}
         </span>
       </div>
-      <div className="space-y-2">
+      <div className="stagger-children space-y-2">
         {posts.map((post) => (
           <PostRow key={post.pageId} post={post} canPublishNow={canPublishNow} onPublished={onPublished} issues={issuesFn?.(post)} />
         ))}
