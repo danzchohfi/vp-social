@@ -8,8 +8,8 @@ import { publishToPlatform, saveLog, claimPublishSlot, completePublishSlot, hasP
 import { createInstagramPublisher, fetchInstagramPermalink } from "../lib/instagram"
 import { probeVideoDurationSec, splitStoryVideo } from "../lib/video-splitter"
 import { notifyPublishFailureAsync } from "../lib/email-notifications"
-import { validatePhoneE164 } from "../lib/manychat"
-import { dispatchApprovalRequest, sentViaForResult, type DispatchClient } from "../lib/whatsapp-dispatch"
+import { validatePhoneE164 } from "../lib/phone"
+import { dispatchApprovalRequest, type UserWhatsappConfig } from "../lib/whatsapp-dispatch"
 import { generateId } from "../lib/utils"
 import { findApproverByPhone } from "../lib/approvers"
 
@@ -196,64 +196,51 @@ export const publishForConnection = task({
 
     const { userId } = connection
 
-    // Owning client name + WhatsApp dispatch config — fetched once per
-    // connection so we don't N+1 inside the per-post loop. Carries both
-    // ManyChat (legacy) and Meta Cloud (new) credentials; the dispatcher
-    // picks based on client.whatsappProvider.
-    let clientName: string | null = null
-    let dispatchClient: DispatchClient = {
-      whatsappProvider: "manychat",
-      manychatApiKey: null,
-      manychatApprovalFlowNs: null,
+    // Agency-level WhatsApp config (one WABA per user). Fetched once
+    // per connection so we don't N+1 inside the per-post loop. Empty
+    // when the user hasn't configured Meta Cloud yet → dispatcher
+    // surfaces friendly error per-post.
+    const [waConfigRow] = await db
+      .select({
+        metaWaToken: schema.userWhatsappConfig.metaWaToken,
+        metaPhoneNumberId: schema.userWhatsappConfig.metaPhoneNumberId,
+        metaTemplateName: schema.userWhatsappConfig.metaTemplateName,
+        metaTemplateLanguage: schema.userWhatsappConfig.metaTemplateLanguage,
+      })
+      .from(schema.userWhatsappConfig)
+      .where(eq(schema.userWhatsappConfig.userId, userId))
+    const waConfig: UserWhatsappConfig = waConfigRow ?? {
       metaWaToken: null,
       metaPhoneNumberId: null,
       metaTemplateName: null,
       metaTemplateLanguage: "pt_BR",
     }
-    let approvalMode: "auto_manychat" | "manual_whatsapp" = "auto_manychat"
-    // 'auto' = cron dispatches WhatsApp on every new pending post.
-    // 'manual' = cron creates the approvalLink but doesn't dispatch; agency
-    // clicks "Notificar pendentes" on /dashboard to fire a digest.
+
+    // Per-client approval routing: which posts auto-dispatch vs. fall
+    // back to manual wa.me, and whether the cron fires per-post or
+    // waits for the agency's "Notificar pendentes" click.
+    let clientName: string | null = null
+    let approvalMode: "auto" | "manual_wame" = "auto"
     let approvalDispatchMode: "auto" | "manual" = "auto"
     if (connection.clientId) {
       const [c] = await db
         .select({
           name: schema.client.name,
-          manychatApiKey: schema.client.manychatApiKey,
-          manychatApprovalFlowNs: schema.client.manychatApprovalFlowNs,
-          whatsappProvider: schema.client.whatsappProvider,
-          metaWaToken: schema.client.metaWaToken,
-          metaPhoneNumberId: schema.client.metaPhoneNumberId,
-          metaTemplateName: schema.client.metaTemplateName,
-          metaTemplateLanguage: schema.client.metaTemplateLanguage,
           approvalNotificationMode: schema.client.approvalNotificationMode,
           approvalDispatchMode: schema.client.approvalDispatchMode,
           publishingPaused: schema.client.publishingPaused,
         })
         .from(schema.client)
         .where(eq(schema.client.id, connection.clientId))
-      // Hard pause: skip publish + approval sweep entirely. We exit here
-      // (not before the connection lookup) so the log line includes the
-      // client name for clarity, and so the cron schedule itself isn't
-      // affected — only the per-connection work.
       if (c?.publishingPaused) {
         logger.info(`[paused] cliente "${c.name}" — publicações pausadas, pulando este tick.`)
         return { published: 0, failed: 0, skipped: 0 }
       }
       clientName = c?.name ?? null
-      dispatchClient = {
-        whatsappProvider: c?.whatsappProvider ?? "manychat",
-        manychatApiKey: c?.manychatApiKey ?? null,
-        manychatApprovalFlowNs: c?.manychatApprovalFlowNs ?? null,
-        metaWaToken: c?.metaWaToken ?? null,
-        metaPhoneNumberId: c?.metaPhoneNumberId ?? null,
-        metaTemplateName: c?.metaTemplateName ?? null,
-        metaTemplateLanguage: c?.metaTemplateLanguage ?? "pt_BR",
-      }
-      // Treat NULL as auto_manychat for backward compat with clients
-      // configured before the column existed.
-      if (c?.approvalNotificationMode === "manual_whatsapp") {
-        approvalMode = "manual_whatsapp"
+      // 'manual_whatsapp' = legacy mode name; preserved here to keep
+      // existing rows working. New rows write 'manual_wame'.
+      if (c?.approvalNotificationMode === "manual_whatsapp" || c?.approvalNotificationMode === "manual_wame") {
+        approvalMode = "manual_wame"
       }
       if (c?.approvalDispatchMode === "manual") {
         approvalDispatchMode = "manual"
@@ -285,7 +272,7 @@ export const publishForConnection = task({
           mapping,
           approvalMode,
           approvalDispatchMode,
-          dispatchClient,
+          waConfig,
         })
       } catch (e) {
         logger.error(`Falha no approval sweep (workspace ${connection.workspaceName}): ${e}`)
@@ -568,21 +555,20 @@ type SweepArgs = {
   // Unifies the /a/[token] magic-link portal across both kinds.
   userId: string
   mapping: FieldMapping
-  // Notification mode for this client. 'manual_whatsapp' = skip ManyChat
-  // dispatch entirely — agency uses the click-to-chat WA button on
-  // /scheduled. 'auto_manychat' = try ManyChat, fall back to sentVia='none'
-  // if creds missing or API rejects.
-  approvalMode: "auto_manychat" | "manual_whatsapp"
+  // Per-client routing. 'manual_wame' = skip Meta dispatch entirely; agency
+  // uses the click-to-chat WA button on /scheduled. 'auto' = cron dispatches
+  // via Meta Cloud per-post, falling back to sentVia='none' if creds missing
+  // or API rejects.
+  approvalMode: "auto" | "manual_wame"
   // When 'manual', cron creates the approvalLink but does NOT dispatch.
   // Agency triggers via /api/clients/[id]/notify-pending later.
   approvalDispatchMode: "auto" | "manual"
-  // Client's WhatsApp config — ManyChat creds + Meta creds + provider
-  // discriminator. Resolved by the dispatcher (lib/whatsapp-dispatch).
-  dispatchClient: DispatchClient
+  // Agency-level Meta Cloud config (one WABA per user).
+  waConfig: UserWhatsappConfig
 }
 
 async function runApprovalSweep(a: SweepArgs): Promise<void> {
-  const { db, notion, connectionId, clientId, clientName, userId, mapping, approvalMode, approvalDispatchMode, dispatchClient } = a
+  const { db, notion, connectionId, clientId, clientName, userId, mapping, approvalMode, approvalDispatchMode, waConfig } = a
   if (!mapping.awaitingApprovalValue) return
   const connection = await db
     .select()
@@ -605,7 +591,7 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
   // Without this cleanup, /dashboard pendingByClient counted 10 when the
   // user only saw 1 truly awaiting in Notion (2026-05-12 report).
   // Note: we only flip rows where sentVia is null/'none' — any link we
-  // actually sent (sentVia='manychat'|'manual') keeps its WhatsApp URL
+  // actually sent (sentVia='meta_cloud'|'manual') keeps its WhatsApp URL
   // valid so the recipient can still decide if they click it.
   try {
     const awaitingIds = new Set(posts.map((p) => p.pageId))
@@ -857,18 +843,18 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
     }
 
     // Decide how to notify based on the client's approvalMode setting.
-    //   manual_whatsapp → skip ManyChat entirely. Mark sentVia='manual'
-    //                     so the UI knows this is an intended state, not
-    //                     a misconfiguration. Agency sees the row in
-    //                     /scheduled with a "Enviar via WA" wa.me button.
-    //   auto_manychat   → try ManyChat. On failure or missing creds, fall
-    //                     back to sentVia='none' and the agency manually
-    //                     nudges via the same click-to-chat button.
-    // 'invalid_phone' = ManyChat dispatch was skipped because the
-    // contact's phone in the Notion DB doesn't look like a real E.164
-    // number. UI surfaces this clearly in /scheduled so the agency
-    // knows to fix the Contato page (vs. silent ManyChat 'not found').
-    let sentVia: "manychat" | "meta_cloud" | "manual" | "invalid_phone" | "none" = "none"
+    //   manual_wame → skip Meta dispatch entirely. Mark sentVia='manual'
+    //                 so the UI knows this is an intended state, not a
+    //                 misconfiguration. Agency sees the row in /scheduled
+    //                 with a "Enviar via WA" wa.me button.
+    //   auto        → try Meta Cloud. On failure or missing creds, fall
+    //                 back to sentVia='none' and the agency manually nudges
+    //                 via the same click-to-chat button.
+    // 'invalid_phone' = dispatch was skipped because the contact's phone
+    // in the Notion DB doesn't look like a real E.164 number. UI surfaces
+    // this clearly in /scheduled so the agency knows to fix the Contato
+    // page (vs. silent "not found").
+    let sentVia: "meta_cloud" | "manual" | "invalid_phone" | "none" = "none"
     // Captures why the dispatch didn't fire (or did, but failed).
     // Surfaces in /scheduled so the agency sees the actual cause
     // without having to open Trigger.dev worker logs.
@@ -886,7 +872,7 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
     if (approvalDispatchMode === "manual") {
       lastError = "Modo manual ativo — clique 'Notificar pendentes' no /dashboard pra disparar"
       logger.info(`[approval] dispatch manual: link criado para "${post.title}", aguardando agência clicar "Notificar pendentes"`)
-    } else if (approvalMode === "manual_whatsapp") {
+    } else if (approvalMode === "manual_wame") {
       sentVia = "manual"
       logger.info(`[approval] modo manual: link gerado para "${post.title}" — agência envia via wa.me em /scheduled`)
     } else if (phoneIssue) {
@@ -894,24 +880,23 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       lastError = `Telefone inválido (${contact.phone}): ${phoneIssue}`
       logger.warn(`[approval] telefone inválido pra "${post.title}" (${contact.phone}): ${phoneIssue}. Agência precisa corrigir a página Contato no Notion.`)
     } else if (contact.phone) {
-      // Provider-agnostic dispatch: ManyChat OR Meta Cloud API based
-      // on client.whatsappProvider. The dispatcher handles missing
-      // creds with a friendly reason.
+      // Meta Cloud dispatch. waConfig is agency-level (one WABA per
+      // user). When unconfigured, dispatcher returns ok=false with a
+      // friendly reason — surface in /history same as a real send fail.
       const result = await dispatchApprovalRequest({
-        client: dispatchClient,
+        config: waConfig,
         phone: contact.phone,
         contactName: contact.name,
         postTitle: post.title || "",
         approvalUrl,
-        postUrl: post.notionUrl || "",
       })
       if (result.ok) {
-        sentVia = sentViaForResult(result)
+        sentVia = "meta_cloud"
         lastError = null
-        logger.info(`[approval] ${result.provider} enviado para ${contact.phone} (${post.title})`)
+        logger.info(`[approval] meta_cloud enviado para ${contact.phone} (${post.title})`)
       } else {
-        lastError = result.provider ? `${result.provider}: ${result.reason}` : result.reason
-        logger.warn(`[approval] ${result.provider ?? "dispatch"} falhou para "${post.title}": ${result.reason}`)
+        lastError = result.reason
+        logger.warn(`[approval] meta_cloud falhou para "${post.title}": ${result.reason}`)
         // Surface the dispatch failure in /history so the agency
         // doesn't have to dig through Trigger.dev logs to see
         // "template not approved" or "phone not in allowed list".
@@ -948,7 +933,7 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
     // soft-fails on Notion permission errors.
     const recipient = contact.name ?? contact.phone ?? "contato"
     const reqLabel =
-      sentVia === "manychat" || sentVia === "meta_cloud" ? `via WhatsApp pra ${recipient}`
+      sentVia === "meta_cloud" ? `via WhatsApp pra ${recipient}`
         : sentVia === "manual" ? `— agência envia via WhatsApp pra ${recipient}`
           : sentVia === "invalid_phone" ? `— ⚠ telefone inválido (${contact.phone ?? "vazio"}); corrigir contato no Notion`
             : `— ⚠ envio automático falhou; agência precisa enviar manualmente`
@@ -1002,8 +987,8 @@ export const cleanupStalePending = schedules.task({
 // ─── Production-approval stale-link reminders ───────────────────
 // Daily 9am São Paulo: nudges any production-script approval link
 // that's been sitting pending for >3 days without a decision. Sends
-// the same ManyChat flow as the original dispatch but tags the row
-// with reminderSentAt so each link only gets ONE reminder (no spam
+// the same Meta Cloud template as the original dispatch but tags the
+// row with reminderSentAt so each link only gets ONE reminder (no spam
 // loop). The agency can still bump the round manually if 6+ days
 // pass — that creates a new approvalLink and resets the cycle.
 //
@@ -1041,10 +1026,11 @@ export const productionApprovalReminders = schedules.task({
 
     let sent = 0
     let skipped = 0
+    // Cache the agency owner's WhatsApp config by userId — multiple
+    // links from the same agency share the same WABA. Saves a query
+    // per row when the cron processes a batch from one agency.
+    const waConfigByUser = new Map<string, UserWhatsappConfig>()
     for (const row of live) {
-      // Re-resolve approver name + client ManyChat config every loop —
-      // safer than a batch join when row counts are small (typical: 1–10
-      // a day). Skip if approver is missing (deleted) or no phone.
       try {
         if (!row.approverId) {
           skipped++
@@ -1058,33 +1044,36 @@ export const productionApprovalReminders = schedules.task({
           skipped++
           continue
         }
-        const [client] = await db
-          .select({
-            whatsappProvider: schema.client.whatsappProvider,
-            manychatApiKey: schema.client.manychatApiKey,
-            manychatApprovalFlowNs: schema.client.manychatApprovalFlowNs,
-            metaWaToken: schema.client.metaWaToken,
-            metaPhoneNumberId: schema.client.metaPhoneNumberId,
-            metaTemplateName: schema.client.metaTemplateName,
-            metaTemplateLanguage: schema.client.metaTemplateLanguage,
-          })
+        const [c] = await db
+          .select({ userId: schema.client.userId })
           .from(schema.client)
           .where(eq(schema.client.id, row.clientId))
-        if (!client) {
+        if (!c) {
           skipped++
           continue
         }
+        let config = waConfigByUser.get(c.userId)
+        if (!config) {
+          const [cfg] = await db
+            .select({
+              metaWaToken: schema.userWhatsappConfig.metaWaToken,
+              metaPhoneNumberId: schema.userWhatsappConfig.metaPhoneNumberId,
+              metaTemplateName: schema.userWhatsappConfig.metaTemplateName,
+              metaTemplateLanguage: schema.userWhatsappConfig.metaTemplateLanguage,
+            })
+            .from(schema.userWhatsappConfig)
+            .where(eq(schema.userWhatsappConfig.userId, c.userId))
+          config = cfg ?? {
+            metaWaToken: null,
+            metaPhoneNumberId: null,
+            metaTemplateName: null,
+            metaTemplateLanguage: "pt_BR",
+          }
+          waConfigByUser.set(c.userId, config)
+        }
 
         const dispatch = await dispatchApprovalRequest({
-          client: {
-            whatsappProvider: client.whatsappProvider,
-            manychatApiKey: client.manychatApiKey,
-            manychatApprovalFlowNs: client.manychatApprovalFlowNs,
-            metaWaToken: client.metaWaToken,
-            metaPhoneNumberId: client.metaPhoneNumberId,
-            metaTemplateName: client.metaTemplateName,
-            metaTemplateLanguage: client.metaTemplateLanguage,
-          },
+          config,
           phone: approver.phone,
           contactName: approver.name,
           postTitle: row.postTitle,
@@ -1104,7 +1093,7 @@ export const productionApprovalReminders = schedules.task({
           logger.info(`[reminders] ✓ "${row.postTitle}" → ${approver.name} (${approver.phone})`)
         } else {
           skipped++
-          logger.warn(`[reminders] ManyChat falhou pra "${row.postTitle}": ${dispatch.reason}`)
+          logger.warn(`[reminders] Meta Cloud falhou pra "${row.postTitle}": ${dispatch.reason}`)
         }
       } catch (e) {
         skipped++

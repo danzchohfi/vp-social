@@ -5,20 +5,15 @@ import { and, eq } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { userIsClientOwner } from "@/lib/active-client"
-import { dispatchApprovalRequest } from "@/lib/whatsapp-dispatch"
+import { dispatchApprovalRequest, getUserWhatsappConfig } from "@/lib/whatsapp-dispatch"
 import { createNotionClient } from "@/lib/notion"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
 
 // Per-post manual dispatch. Lets the agency fire a WhatsApp for a
-// SPECIFIC pending link — not the bulk notify-pending which fans out
-// to every group. Used when the user wants to target one post they
-// know about and verify the contact+phone before/after.
-//
-// Idempotent on the dispatch result: if sentVia is already 'manychat'
-// we still try, because the agency might be intentionally re-sending.
-// Updates sentVia + lastError on the row so /scheduled reflects the
-// new state.
+// SPECIFIC pending link — not the bulk notify-pending. Idempotent: if
+// the row was already sent we still try, because the agency might be
+// intentionally re-sending.
 export async function POST(
   _req: Request,
   { params }: { params: Promise<{ token: string }> },
@@ -45,35 +40,18 @@ export async function POST(
     })
   }
 
-  // Load the client's WhatsApp config (both providers). The dispatcher
-  // picks based on client.whatsappProvider.
   const [c] = await db
-    .select({
-      whatsappProvider: clientTable.whatsappProvider,
-      manychatApiKey: clientTable.manychatApiKey,
-      manychatApprovalFlowNs: clientTable.manychatApprovalFlowNs,
-      metaWaToken: clientTable.metaWaToken,
-      metaPhoneNumberId: clientTable.metaPhoneNumberId,
-      metaTemplateName: clientTable.metaTemplateName,
-      metaTemplateLanguage: clientTable.metaTemplateLanguage,
-    })
+    .select({ userId: clientTable.userId })
     .from(clientTable)
     .where(eq(clientTable.id, link.clientId))
   if (!c) {
     return NextResponse.json({ ok: false, reason: "Cliente não encontrado." })
   }
+  const config = await getUserWhatsappConfig(c.userId)
 
   const approvalUrl = `${APP_URL}/approve/${link.token}`
   const result = await dispatchApprovalRequest({
-    client: {
-      whatsappProvider: c.whatsappProvider,
-      manychatApiKey: c.manychatApiKey,
-      manychatApprovalFlowNs: c.manychatApprovalFlowNs,
-      metaWaToken: c.metaWaToken,
-      metaPhoneNumberId: c.metaPhoneNumberId,
-      metaTemplateName: c.metaTemplateName,
-      metaTemplateLanguage: c.metaTemplateLanguage,
-    },
+    config,
     phone: link.contactPhone,
     contactName: link.contactName,
     postTitle: link.postTitle ?? "",
@@ -83,7 +61,7 @@ export async function POST(
   if (result.ok) {
     await db
       .update(approvalLink)
-      .set({ sentVia: result.provider, sentAt: new Date(), lastError: null })
+      .set({ sentVia: "meta_cloud", sentAt: new Date(), lastError: null })
       .where(eq(approvalLink.token, token))
 
     // Audit comment in Notion (best-effort, mirrors the cron behavior).
@@ -116,7 +94,7 @@ export async function POST(
 
   await db
     .update(approvalLink)
-    .set({ lastError: `${result.provider ?? "dispatch"}: ${result.reason}` })
+    .set({ lastError: `meta_cloud: ${result.reason}` })
     .where(eq(approvalLink.token, token))
 
   return NextResponse.json({

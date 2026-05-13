@@ -1,7 +1,7 @@
 import { logger } from "./log"
 
 // Resilient fetch wrapper for external APIs (Meta, IG, FB, YT, TikTok,
-// LinkedIn, Notion, ManyChat). Adds:
+// LinkedIn, Notion). Adds:
 //   - Configurable retry on 429 + 5xx + network errors with exponential
 //     backoff + jitter to avoid thundering herd if many posts queue up.
 //   - AbortController timeout (default 30s) so slow APIs don't hang the

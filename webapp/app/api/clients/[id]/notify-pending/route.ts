@@ -5,8 +5,8 @@ import { and, eq, inArray, isNull, or } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { userIsClientOwner } from "@/lib/active-client"
-import { validatePhoneE164 } from "@/lib/manychat"
-import { dispatchApprovalRequest } from "@/lib/whatsapp-dispatch"
+import { validatePhoneE164 } from "@/lib/phone"
+import { dispatchApprovalRequest, getUserWhatsappConfig, isConfigured } from "@/lib/whatsapp-dispatch"
 import { createNotionClient } from "@/lib/notion"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
@@ -21,11 +21,8 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://
 //     multiple posts go to the same approver — most common).
 //   - When approvers differ per-post (rare), sends one message per approver
 //     with the posts they're responsible for.
-//   - Reuses the existing ManyChat Flow (same custom fields: approval_url,
-//     post_title, post_url) so agencies don't need a separate template.
-//     The agency's flow already supports `{{Primeiro Nome}}` natively.
-//
-// Returns a summary: { dispatched: count, skipped: count, errors: [...] }
+//   - Uses the agency-level Meta Cloud config (userWhatsappConfig). One
+//     WABA per agency, all clients share it.
 export async function POST(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -40,37 +37,20 @@ export async function POST(
   }
 
   const [row] = await db
-    .select({
-      name: clientTable.name,
-      whatsappProvider: clientTable.whatsappProvider,
-      manychatApiKey: clientTable.manychatApiKey,
-      manychatApprovalFlowNs: clientTable.manychatApprovalFlowNs,
-      metaWaToken: clientTable.metaWaToken,
-      metaPhoneNumberId: clientTable.metaPhoneNumberId,
-      metaTemplateName: clientTable.metaTemplateName,
-      metaTemplateLanguage: clientTable.metaTemplateLanguage,
-    })
+    .select({ name: clientTable.name, userId: clientTable.userId })
     .from(clientTable)
     .where(eq(clientTable.id, id))
   if (!row) return NextResponse.json({ error: "Cliente não encontrado" }, { status: 404 })
-  // Validate provider creds — fast-fail with friendly error.
-  if (row.whatsappProvider === "meta_cloud") {
-    if (!row.metaWaToken || !row.metaPhoneNumberId || !row.metaTemplateName) {
-      return NextResponse.json({
-        error: "Meta WhatsApp não configurado pra este cliente (token + phone_number_id + template em /settings → Aprovação cliente).",
-      }, { status: 400 })
-    }
-  } else {
-    if (!row.manychatApiKey || !row.manychatApprovalFlowNs) {
-      return NextResponse.json({
-        error: "ManyChat não configurado pra este cliente. Cole a API key e escolha um Flow em /settings → Aprovação cliente.",
-      }, { status: 400 })
-    }
+
+  const waConfig = await getUserWhatsappConfig(row.userId)
+  if (!isConfigured(waConfig)) {
+    return NextResponse.json({
+      error: "WhatsApp da agência não configurado em /settings → WhatsApp da agência (faltam token, phone_number_id ou template).",
+    }, { status: 400 })
   }
 
   // Pending approvalLinks for this client = decision IS NULL AND not yet
-  // sent (sentVia null or 'none'). Other sentVia values ('manychat',
-  // 'manual', 'invalid_phone') were already handled.
+  // sent (sentVia null or 'none'). Other sentVia values were already handled.
   const pending = await db
     .select()
     .from(approvalLink)
@@ -107,7 +87,6 @@ export async function POST(
     groups.set(key, arr)
   }
 
-  // Pull client's public calendar token once — used for batch links below.
   const [clientWithToken] = await db
     .select({ publicCalendarToken: clientTable.publicCalendarToken })
     .from(clientTable)
@@ -123,9 +102,6 @@ export async function POST(
   for (const [phone, links] of groups.entries()) {
     const first = links[0]
     const isBatch = links.length > 1
-    // For a single pending post, link straight to /approve/<token>. For
-    // multiple, send the calendar URL so the client lands on the full list
-    // (and can use each row's inline Approve button there).
     const approvalUrl = isBatch
       ? (calendarUrl ?? `${APP_URL}/approve/${first.token}`)
       : `${APP_URL}/approve/${first.token}`
@@ -133,15 +109,7 @@ export async function POST(
       ? `${links.length} posts aguardando sua aprovação`
       : (first.postTitle || "Post sem título")
     const result = await dispatchApprovalRequest({
-      client: {
-        whatsappProvider: row.whatsappProvider,
-        manychatApiKey: row.manychatApiKey,
-        manychatApprovalFlowNs: row.manychatApprovalFlowNs,
-        metaWaToken: row.metaWaToken,
-        metaPhoneNumberId: row.metaPhoneNumberId,
-        metaTemplateName: row.metaTemplateName,
-        metaTemplateLanguage: row.metaTemplateLanguage,
-      },
+      config: waConfig,
       phone: first.contactPhone!,
       contactName: first.contactName,
       postTitle: titleField,
@@ -152,31 +120,23 @@ export async function POST(
       for (const l of links) dispatchedIds.push(l.id)
     } else {
       errors.push({ phone, reason: result.reason })
-      // Persist the failure on every link that we just tried for
-      // this phone group, so /scheduled can show "<provider>: <reason>"
-      // instead of the generic "WhatsApp não foi enviado automaticamente".
       await db
         .update(approvalLink)
-        .set({ lastError: `${result.provider ?? "dispatch"}: ${result.reason}` })
+        .set({ lastError: `meta_cloud: ${result.reason}` })
         .where(inArray(approvalLink.id, links.map((l) => l.id)))
     }
   }
 
-  // Mark the dispatched links as sent — prevents re-firing on the next
-  // click. Done in one batched UPDATE per call.
   if (dispatchedIds.length > 0) {
     const now = new Date()
     await db
       .update(approvalLink)
-      .set({ sentVia: row.whatsappProvider === "meta_cloud" ? "meta_cloud" : "manychat", sentAt: now, lastError: null })
+      .set({ sentVia: "meta_cloud", sentAt: now, lastError: null })
       .where(inArray(approvalLink.id, dispatchedIds))
 
-    // Audit trail in Notion: leave a comment on each post that just
-    // got notified, so the timeline is complete even when the dispatch
-    // was triggered manually from /dashboard rather than via cron.
-    // Uses the first Notion connection owned by this client — if more
-    // than one workspace serves this client, we'd need to track which
-    // connection each link came from. Acceptable for v1.
+    // Audit trail in Notion. Uses the first Notion connection owned by
+    // this client — if more than one workspace serves this client, we'd
+    // need to track which connection each link came from. Acceptable v1.
     const [conn] = await db
       .select({ accessToken: notionConnection.accessToken })
       .from(notionConnection)

@@ -1,5 +1,5 @@
-// Meta WhatsApp Cloud API client — direct dispatch, no ManyChat in
-// the middle. Sends a pre-approved template message to any phone
+// Meta WhatsApp Cloud API client — direct dispatch. Sends a pre-approved
+// template message to any phone
 // number that has WhatsApp (no subscriber lookup, no opt-in problem
 // at the API level — Meta handles deliverability rules via the
 // template approval process upstream).

@@ -40,6 +40,26 @@ export const account = pgTable("account", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
 
+// ─── WhatsApp config (agency-level, 1:1 com user) ───────────────────
+// Uma WABA central por usuário/agência. Todos os clientes do mesmo
+// owner disparam aprovações pelo mesmo número Meta Cloud. Token vem
+// de um System User permanente (whatsapp_business_messaging +
+// whatsapp_business_management). Phone Number ID vem da WABA. Template
+// é pré-aprovado pela Meta (24-48h review) com 3 variáveis:
+// {{1}}=contactName, {{2}}=postTitle, {{3}}=approvalUrl.
+//
+// Quando todos os campos estão null/vazios, o cron pula o dispatch
+// automático — aprovação cai pro modo manual (wa.me) por padrão.
+export const userWhatsappConfig = pgTable("user_whatsapp_config", {
+  userId: text("user_id").primaryKey().references(() => user.id, { onDelete: "cascade" }),
+  metaWaToken: text("meta_wa_token"),
+  metaPhoneNumberId: text("meta_phone_number_id"),
+  metaTemplateName: text("meta_template_name"),
+  metaTemplateLanguage: text("meta_template_language").notNull().default("pt_BR"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  updatedAt: timestamp("updated_at").notNull().defaultNow(),
+})
+
 export const verification = pgTable("verification", {
   id: text("id").primaryKey(),
   identifier: text("identifier").notNull(),
@@ -56,39 +76,11 @@ export const client = pgTable("client", {
   userId: text("user_id").notNull().references(() => user.id, { onDelete: "cascade" }),
   name: text("name").notNull(),
   logoUrl: text("logo_url"),
-  // ManyChat integration for client-approval WhatsApp notifications. Both
-  // optional — when set, the cron uses ManyChat API to send the approval
-  // request to the subscriber matching the contact's phone (read from the
-  // Notion Contatos DB via fieldMapping.contactPhoneField). When not set,
-  // the agency uses the click-to-chat WA button manually from /scheduled
-  // (email path was removed by design — WA-only).
-  manychatApiKey: text("manychat_api_key"),
-  manychatApprovalFlowNs: text("manychat_approval_flow_ns"),
-  // WhatsApp dispatch provider per client. ManyChat is the legacy
-  // path (unreliable wa/findByPhone lookups, requires opt-in per
-  // subscriber). 'meta_cloud' uses WhatsApp Cloud API direct from
-  // Meta: phone IS the identifier, pre-approved templates work for
-  // any number, no middleman. Default 'manychat' for backward compat
-  // — existing clients keep working until they migrate via /settings.
-  whatsappProvider: text("whatsapp_provider").notNull().default("manychat"),
-  // Meta WhatsApp Cloud API credentials. Set when whatsappProvider
-  // is 'meta_cloud'. The Phone Number ID lives under WhatsApp > API
-  // Setup in the Meta App. The token MUST be a permanent System
-  // User token from Meta Business Settings (not the temporary one
-  // shown in API Setup — that expires in 24h).
-  metaWaToken: text("meta_wa_token"),
-  metaPhoneNumberId: text("meta_phone_number_id"),
-  // Pre-approved message template (24-48h Meta review). Variables
-  // map to {{1}}=contactName {{2}}=postTitle {{3}}=approvalUrl.
-  metaTemplateName: text("meta_template_name"),
-  metaTemplateLanguage: text("meta_template_language").notNull().default("pt_BR"),
-  // How the agency wants to notify clients of pending approvals.
-  //   'auto_manychat'   → cron dispatches via ManyChat API (needs token + flowNs)
-  //   'manual_whatsapp' → cron creates the approvalLink but doesn't dispatch.
-  //                       Agency clicks "Enviar via WA" in /scheduled (wa.me).
-  // NULL = legacy unset; treated as auto_manychat for backward compat.
-  // Surfaces in /clients ApprovalPanel as a radio + drives which fields
-  // are required for the "Configurada" status pill.
+  // How the agency notifies clients of pending approvals.
+  //   'auto'   → cron dispatches via Meta Cloud (needs userWhatsappConfig)
+  //   'manual' → cron creates the approvalLink but doesn't dispatch.
+  //              Agency clicks "Enviar via WA" in /scheduled (wa.me).
+  // NULL = treated as 'auto'. Drives the radio in ApprovalPanel.
   approvalNotificationMode: text("approval_notification_mode"),
   // When 'auto' (default), the cron sweep dispatches a WhatsApp per
   // pending post automatically. When 'manual', the cron still creates

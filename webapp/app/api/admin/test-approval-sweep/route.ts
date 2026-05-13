@@ -10,8 +10,8 @@ import { and, eq, isNull } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping } from "@/lib/notion"
-import { buildWhatsAppClickToChatUrl } from "@/lib/manychat"
-import { dispatchApprovalRequest } from "@/lib/whatsapp-dispatch"
+import { buildWhatsAppClickToChatUrl } from "@/lib/phone"
+import { dispatchApprovalRequest, getUserWhatsappConfig, isConfigured } from "@/lib/whatsapp-dispatch"
 import { userIsClientOwner } from "@/lib/active-client"
 import { generateId } from "@/lib/utils"
 
@@ -22,10 +22,10 @@ import { generateId } from "@/lib/utils"
 //
 // Two modes via `dispatch` flag:
 //   dispatch=false → dry-run: resolves contact, creates approvalLink,
-//     skips ManyChat. Returns the wa.me click-to-chat URL so agency
+//     skips Meta Cloud. Returns the wa.me click-to-chat URL so agency
 //     can manually open WhatsApp.
-//   dispatch=true  → full path: also tries ManyChat. Returns the
-//     ManyChat result inline.
+//   dispatch=true  → full path: also tries Meta Cloud. Returns the
+//     dispatch result inline.
 //
 // Idempotency: if a pending approvalLink already exists for the page,
 // reuses its token. Same partial unique index as the cron.
@@ -64,22 +64,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Apenas o owner do cliente pode rodar este teste" }, { status: 403 })
   }
 
-  // Mapping + client config.
+  // Mapping + agency WhatsApp config.
   const [mappingRow] = await db.select().from(fieldMapping).where(eq(fieldMapping.connectionId, conn.id))
   const mapping: FieldMapping = mappingRow ?? DEFAULT_MAPPING
   const [clientRow] = await db
-    .select({
-      name: clientTable.name,
-      whatsappProvider: clientTable.whatsappProvider,
-      manychatApiKey: clientTable.manychatApiKey,
-      manychatApprovalFlowNs: clientTable.manychatApprovalFlowNs,
-      metaWaToken: clientTable.metaWaToken,
-      metaPhoneNumberId: clientTable.metaPhoneNumberId,
-      metaTemplateName: clientTable.metaTemplateName,
-      metaTemplateLanguage: clientTable.metaTemplateLanguage,
-    })
+    .select({ name: clientTable.name, userId: clientTable.userId })
     .from(clientTable)
     .where(eq(clientTable.id, conn.clientId))
+  const waConfig = clientRow ? await getUserWhatsappConfig(clientRow.userId) : null
 
   const diagnostics: Record<string, unknown> = {
     connectionId: conn.id,
@@ -93,7 +85,7 @@ export async function POST(req: Request) {
       contactEmailField: mapping.contactEmailField || null,
       contactPhoneField: mapping.contactPhoneField || null,
     },
-    manychatConfigured: !!(clientRow?.manychatApiKey && clientRow?.manychatApprovalFlowNs),
+    whatsappConfigured: !!waConfig && isConfigured(waConfig),
   }
 
   if (!mapping.awaitingApprovalValue) {
@@ -199,49 +191,40 @@ export async function POST(req: Request) {
       ok: true,
       mode: "dry-run",
       ...diagnostics,
-      hint: "Abra o waClickToChat acima para mandar pelo seu próprio WhatsApp, ou rode novamente com {dispatch: true} para tentar ManyChat",
+      hint: "Abra o waClickToChat acima para mandar pelo seu próprio WhatsApp, ou rode novamente com {dispatch: true} para tentar Meta Cloud",
     })
   }
 
-  // Full mode: try the configured WhatsApp provider.
+  // Full mode: try the agency Meta Cloud config.
   if (!contact.phone) {
     return NextResponse.json({
       ok: false,
       mode: "dispatch",
       ...diagnostics,
-      manychat: { result: { ok: false, reason: "Contato sem telefone — WhatsApp dispatch precisa do número" } },
+      dispatch: { result: { ok: false, reason: "Contato sem telefone — WhatsApp dispatch precisa do número" } },
     })
   }
-  if (!clientRow) {
+  if (!clientRow || !waConfig) {
     return NextResponse.json({
       ok: false,
       mode: "dispatch",
       ...diagnostics,
-      manychat: { result: { ok: false, reason: "Cliente não encontrado" } },
+      dispatch: { result: { ok: false, reason: "Cliente não encontrado" } },
     })
   }
 
   const result = await dispatchApprovalRequest({
-    client: {
-      whatsappProvider: clientRow.whatsappProvider,
-      manychatApiKey: clientRow.manychatApiKey,
-      manychatApprovalFlowNs: clientRow.manychatApprovalFlowNs,
-      metaWaToken: clientRow.metaWaToken,
-      metaPhoneNumberId: clientRow.metaPhoneNumberId,
-      metaTemplateName: clientRow.metaTemplateName,
-      metaTemplateLanguage: clientRow.metaTemplateLanguage,
-    },
+    config: waConfig,
     phone: contact.phone,
     contactName: contact.name,
     postTitle: post.title || "",
     approvalUrl,
-    postUrl: post.notionUrl || "",
   })
 
   if (result.ok) {
     await db
       .update(approvalLink)
-      .set({ sentVia: result.provider, sentAt: new Date() })
+      .set({ sentVia: "meta_cloud", sentAt: new Date() })
       .where(eq(approvalLink.token, token))
   }
 
@@ -249,6 +232,6 @@ export async function POST(req: Request) {
     ok: result.ok,
     mode: "dispatch",
     ...diagnostics,
-    manychat: { result },
+    dispatch: { result },
   })
 }

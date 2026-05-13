@@ -94,9 +94,9 @@ export async function GET(
   // Diagnose why orphan cleanup might not be expiring rows:
   //   - row.stillAwaiting === true → legitimately pending
   //   - row.stillAwaiting === false AND sentVia in (null,'none','invalid_phone') → SHOULD be expired (bug)
-  //   - row.stillAwaiting === false AND sentVia === 'manychat' → kept on purpose (live WhatsApp link)
+  //   - row.stillAwaiting === false AND sentVia === 'meta_cloud' → kept on purpose (live WhatsApp link)
   const shouldBeExpired = pendingDetails.filter((p) => !p.stillAwaiting && (p.sentVia === "none" || p.sentVia === "invalid_phone" || !p.sentVia))
-  const liveSentNotInAwaiting = pendingDetails.filter((p) => !p.stillAwaiting && p.sentVia === "manychat")
+  const liveSentNotInAwaiting = pendingDetails.filter((p) => !p.stillAwaiting && p.sentVia === "meta_cloud")
 
   return NextResponse.json({
     totalPending: links.length,

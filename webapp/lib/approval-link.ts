@@ -5,7 +5,7 @@ import { generateId } from "@/lib/utils"
 
 // Approval-link helpers shared by:
 //   - the cron sweep in trigger/publish.ts (creates per-post tokens and
-//     dispatches via ManyChat)
+//     dispatches via Meta Cloud WhatsApp)
 //   - the public approval API in app/api/approve/[token]/route.ts (the
 //     client decides on /approve/{token})
 //   - the public client-calendar API in app/api/c/[token]/route.ts (the

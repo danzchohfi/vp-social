@@ -11,7 +11,7 @@ import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { userHasClientAccess } from "@/lib/active-client"
 import { advanceChain, bumpRound, type ProductionStatus } from "@/lib/productions"
-import { dispatchApprovalRequest } from "@/lib/whatsapp-dispatch"
+import { dispatchApprovalRequest, getUserWhatsappConfig } from "@/lib/whatsapp-dispatch"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
 
@@ -19,15 +19,15 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://
 //
 // Kicks off (or restarts) the chain. Pulls the production's chain via
 // productionApprover, calls advanceChain to materialize the first
-// pending approvalLink for this round, dispatches ManyChat, and flips
-// production.status='awaiting_approval'.
+// pending approvalLink for this round, dispatches Meta Cloud WhatsApp,
+// and flips production.status='awaiting_approval'.
 //
 // Allowed source statuses:
 //   - script_drafting: round 1 (or whatever the next free round is)
 //   - revision_requested: bumps round to max+1, restarts from step 1
 //
 // Idempotent on the production-pending unique index — calling twice
-// returns the existing row without double-dispatching ManyChat.
+// returns the existing row without double-dispatching.
 export async function POST(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -88,47 +88,29 @@ export async function POST(_req: Request, { params }: { params: Promise<{ id: st
 
   const { approvalLinkRow, approver, stepOrder, totalSteps } = result
 
-  // Dispatch ManyChat with the new token. Reuses the same flow_ns config
-  // as post approvals — agency creates ONE WhatsApp template; the message
-  // wording covers both posts and production scripts (or they spin up a
-  // separate flow_ns later via the production-flow-ns field on client —
-  // not implemented in v1).
-  const [client] = await db
-    .select({
-      whatsappProvider: clientTable.whatsappProvider,
-      manychatApiKey: clientTable.manychatApiKey,
-      manychatApprovalFlowNs: clientTable.manychatApprovalFlowNs,
-      metaWaToken: clientTable.metaWaToken,
-      metaPhoneNumberId: clientTable.metaPhoneNumberId,
-      metaTemplateName: clientTable.metaTemplateName,
-      metaTemplateLanguage: clientTable.metaTemplateLanguage,
-    })
+  // Dispatch via the agency's Meta Cloud config. One WABA per user — all
+  // clients of the same agency share the same WhatsApp number.
+  const [c] = await db
+    .select({ userId: clientTable.userId })
     .from(clientTable)
     .where(eq(clientTable.id, prod.clientId))
 
   const approvalUrl = `${APP_URL}/approve/${approvalLinkRow.token}`
 
-  let sentVia: "manychat" | "meta_cloud" | "none" = "none"
+  let sentVia: "meta_cloud" | "none" = "none"
   let dispatchReason: string | null = null
 
-  if (client && approver.phone) {
+  if (c && approver.phone) {
+    const config = await getUserWhatsappConfig(c.userId)
     const sendResult = await dispatchApprovalRequest({
-      client: {
-        whatsappProvider: client.whatsappProvider,
-        manychatApiKey: client.manychatApiKey,
-        manychatApprovalFlowNs: client.manychatApprovalFlowNs,
-        metaWaToken: client.metaWaToken,
-        metaPhoneNumberId: client.metaPhoneNumberId,
-        metaTemplateName: client.metaTemplateName,
-        metaTemplateLanguage: client.metaTemplateLanguage,
-      },
+      config,
       phone: approver.phone,
       contactName: approver.name,
       postTitle: prod.title,
       approvalUrl,
     })
     if (sendResult.ok) {
-      sentVia = sendResult.provider
+      sentVia = "meta_cloud"
     } else {
       dispatchReason = sendResult.reason
     }

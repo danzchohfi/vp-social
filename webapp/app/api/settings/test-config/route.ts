@@ -6,7 +6,8 @@ import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING } from "@/lib/notion"
 import { getActiveClientId } from "@/lib/active-client"
-import { validateManychatToken } from "@/lib/manychat"
+import { validateMetaCreds } from "@/lib/whatsapp-meta"
+import { userWhatsappConfig } from "@/lib/db/schema"
 import { Client } from "@notionhq/client"
 
 type CheckResult = {
@@ -285,36 +286,39 @@ export async function GET() {
         })
       }
 
-      // ManyChat token check — runs once per request (not per workspace).
-      // Skip if already pushed for this client from a previous connection.
-      const alreadyChecked = checks.some((c) => c.id === "approval-manychat")
-      if (!alreadyChecked && clientId) {
+      // Agency Meta Cloud WhatsApp check — runs once per request (not per
+      // workspace). One WABA per user, shared across all clients.
+      const alreadyChecked = checks.some((c) => c.id === "approval-whatsapp")
+      if (!alreadyChecked) {
         const [c] = await db
           .select({
-            apiKey: clientTable.manychatApiKey,
-            flowNs: clientTable.manychatApprovalFlowNs,
+            token: userWhatsappConfig.metaWaToken,
+            phoneId: userWhatsappConfig.metaPhoneNumberId,
+            template: userWhatsappConfig.metaTemplateName,
           })
-          .from(clientTable)
-          .where(eq(clientTable.id, clientId))
+          .from(userWhatsappConfig)
+          .where(eq(userWhatsappConfig.userId, session.user.id))
 
-        if (!c?.apiKey || !c?.flowNs) {
+        if (!c?.token || !c?.phoneId || !c?.template) {
+          const missing: string[] = []
+          if (!c?.token) missing.push("token")
+          if (!c?.phoneId) missing.push("phone_number_id")
+          if (!c?.template) missing.push("template")
           checks.push({
-            id: "approval-manychat",
-            label: `Aprovação · ManyChat`,
+            id: "approval-whatsapp",
+            label: `Aprovação · WhatsApp da agência`,
             status: "warn",
-            message: c?.apiKey
-              ? "API key salvo mas Flow Namespace vazio"
-              : "ManyChat não configurado — vai criar token mas não envia WhatsApp (use o wa.me click-to-chat).",
+            message: `Faltando: ${missing.join(", ")}. Sem isso, modo automático cai pra envio manual (wa.me).`,
           })
         } else {
-          const result = await validateManychatToken(c.apiKey)
+          const result = await validateMetaCreds(c.token, c.phoneId)
           checks.push({
-            id: "approval-manychat",
-            label: `Aprovação · ManyChat`,
+            id: "approval-whatsapp",
+            label: `Aprovação · WhatsApp da agência`,
             status: result.ok ? "ok" : "error",
             message: result.ok
-              ? `Token válido — conectado a "${result.page.name}"`
-              : `Token rejeitado: ${result.reason}`,
+              ? `Credenciais OK — ${result.displayPhoneNumber} (${result.verifiedName})`
+              : `Credenciais rejeitadas: ${result.reason}`,
           })
         }
       }

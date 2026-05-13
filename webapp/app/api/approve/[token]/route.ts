@@ -19,7 +19,7 @@ import {
   lookupApprovalLink,
 } from "@/lib/approval-link"
 import { advanceChain } from "@/lib/productions"
-import { dispatchApprovalRequest } from "@/lib/whatsapp-dispatch"
+import { dispatchApprovalRequest, getUserWhatsappConfig } from "@/lib/whatsapp-dispatch"
 import { notifyClientDecisionAsync } from "@/lib/email-notifications"
 import { generateId } from "@/lib/utils"
 
@@ -28,7 +28,7 @@ const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://
 // Public API for the per-post approval flow. NO AUTH — the URL token IS
 // the auth. The token is created by the cron sweep in trigger/publish.ts
 // (kind='post') OR by /api/productions/[id]/send-approval (kind='production_script')
-// and delivered via ManyChat to the contact's phone. It's single-use,
+// and delivered via Meta Cloud WhatsApp to the contact's phone. Single-use,
 // expires in 14d, and points to one Notion page OR one production-script
 // chain step.
 //
@@ -296,7 +296,7 @@ export async function POST(
 
   // ─── Production-script branch ───────────────────────────────
   // No Notion side effects. On approval, advance the chain (or finish
-  // it) — chain advance dispatches ManyChat to the next approver. On
+  // it) — chain advance dispatches WhatsApp to the next approver. On
   // changes_requested, mirror the comment into productionComment and
   // flip the production back to revision_requested.
   if (row.kind === "production_script" && row.productionId) {
@@ -306,38 +306,23 @@ export async function POST(
       try {
         const next = await advanceChain(db, row.productionId, row.round)
         if (next.kind === "next") {
-          // Dispatch WhatsApp to the next approver via the unified
-          // provider-aware path.
-          const [client] = await db
-            .select({
-              whatsappProvider: clientTable.whatsappProvider,
-              manychatApiKey: clientTable.manychatApiKey,
-              manychatApprovalFlowNs: clientTable.manychatApprovalFlowNs,
-              metaWaToken: clientTable.metaWaToken,
-              metaPhoneNumberId: clientTable.metaPhoneNumberId,
-              metaTemplateName: clientTable.metaTemplateName,
-              metaTemplateLanguage: clientTable.metaTemplateLanguage,
-            })
+          // Dispatch WhatsApp to the next approver via the agency's
+          // Meta Cloud config.
+          const [c] = await db
+            .select({ userId: clientTable.userId })
             .from(clientTable)
             .where(eq(clientTable.id, row.clientId))
-          let nextSentVia: "manychat" | "meta_cloud" | "none" = "none"
-          if (client && next.approver.phone) {
+          let nextSentVia: "meta_cloud" | "none" = "none"
+          if (c && next.approver.phone) {
+            const config = await getUserWhatsappConfig(c.userId)
             const sendResult = await dispatchApprovalRequest({
-              client: {
-                whatsappProvider: client.whatsappProvider,
-                manychatApiKey: client.manychatApiKey,
-                manychatApprovalFlowNs: client.manychatApprovalFlowNs,
-                metaWaToken: client.metaWaToken,
-                metaPhoneNumberId: client.metaPhoneNumberId,
-                metaTemplateName: client.metaTemplateName,
-                metaTemplateLanguage: client.metaTemplateLanguage,
-              },
+              config,
               phone: next.approver.phone,
               contactName: next.approver.name,
               postTitle: next.approvalLinkRow.postTitle,
               approvalUrl: `${APP_URL}/approve/${next.approvalLinkRow.token}`,
             })
-            if (sendResult.ok) nextSentVia = sendResult.provider
+            if (sendResult.ok) nextSentVia = "meta_cloud"
           }
           await db
             .update(approvalLink)

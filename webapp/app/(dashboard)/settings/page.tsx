@@ -18,6 +18,7 @@ import {
   NotionContasPanel,
   SetupChecklistPanel,
 } from "@/components/dashboard/client-config-panels"
+import { WhatsappConfigPanel } from "@/components/dashboard/whatsapp-config-panel"
 import { NotionSetupGuide } from "@/components/setup-guides/notion-setup-guide"
 
 type Workspace = {
@@ -499,6 +500,15 @@ export default function SettingsPage() {
         className="mb-0"
       />
 
+      <CollapsibleSection
+        title="WhatsApp da agência"
+        description="Uma WABA pra todos os clientes — token + phone_number_id + template, configurados uma vez"
+        accent="primary"
+        icon={MessageCircle}
+      >
+        <WhatsappConfigPanel />
+      </CollapsibleSection>
+
       {/* All per-client configuration rendered inline here — moved
           from /clients in PR #65 ("juntar tudo em uma"). Each section
           carries its own state via the imported panel component, so
@@ -528,7 +538,7 @@ export default function SettingsPage() {
 
           <CollapsibleSection
             title="Aprovação cliente"
-            description="ManyChat / WhatsApp, dispatch mode, template, diagnóstico de contato"
+            description="Modo de envio (automático / manual em lote / wa.me) + link permanente do calendário"
             accent="primary"
             icon={MessageCircle}
           >

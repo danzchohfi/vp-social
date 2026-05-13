@@ -1,6 +1,6 @@
 import { auth } from "@/lib/auth"
 import { db } from "@/lib/db"
-import { client, fieldMapping, notionConnection } from "@/lib/db/schema"
+import { client, fieldMapping, notionConnection, userWhatsappConfig } from "@/lib/db/schema"
 import { eq, inArray } from "drizzle-orm"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
@@ -9,7 +9,7 @@ import { userIsClientOwner } from "@/lib/active-client"
 
 export type ApprovalConfigStatus = "configured" | "partial" | "missing"
 
-// Returns the per-client approval flow config + a derived completeness
+// Returns the per-client approval routing config + a derived completeness
 // status the UI uses to render the green/yellow/red pill on the client
 // card and to gate the "tudo certo" CTA in the panel.
 //
@@ -17,7 +17,8 @@ export type ApprovalConfigStatus = "configured" | "partial" | "missing"
 // data — agency can flip a Notion field mapping in /settings and the
 // pill updates on next refresh without an explicit "save" anywhere.
 //
-// Owner-only because the API key is sensitive.
+// Owner-only: surfaces whether the agency-level WhatsApp config is set,
+// which is sensitive (token presence).
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> }
@@ -35,14 +36,9 @@ export async function GET(
   const [row] = await db
     .select({
       name: client.name,
-      whatsappProvider: client.whatsappProvider,
-      manychatApiKey: client.manychatApiKey,
-      manychatApprovalFlowNs: client.manychatApprovalFlowNs,
-      metaWaToken: client.metaWaToken,
-      metaPhoneNumberId: client.metaPhoneNumberId,
-      metaTemplateName: client.metaTemplateName,
-      metaTemplateLanguage: client.metaTemplateLanguage,
+      userId: client.userId,
       approvalNotificationMode: client.approvalNotificationMode,
+      approvalDispatchMode: client.approvalDispatchMode,
       manualWhatsappTemplate: client.manualWhatsappTemplate,
     })
     .from(client)
@@ -50,13 +46,20 @@ export async function GET(
 
   if (!row) return NextResponse.json({ error: "not_found" }, { status: 404 })
 
+  // Agency-level WhatsApp config. One per user — all clients share it.
+  const [waCfg] = await db
+    .select({
+      metaWaToken: userWhatsappConfig.metaWaToken,
+      metaPhoneNumberId: userWhatsappConfig.metaPhoneNumberId,
+      metaTemplateName: userWhatsappConfig.metaTemplateName,
+    })
+    .from(userWhatsappConfig)
+    .where(eq(userWhatsappConfig.userId, row.userId))
+  const whatsappConfigured = !!(waCfg?.metaWaToken && waCfg?.metaPhoneNumberId && waCfg?.metaTemplateName)
+
   // Lazy create — first call generates the token. Idempotent.
   const calendarToken = await getOrCreateClientCalendarToken(id)
 
-  // Connections + their fieldMappings — drives the per-connection
-  // checklist below. Each connection needs awaitingApprovalValue +
-  // revisionRequestedValue + clientContactField + contactEmailField +
-  // contactPhoneField for the cron approval sweep to fire.
   const connections = await db
     .select({
       id: notionConnection.id,
@@ -81,8 +84,6 @@ export async function GET(
 
   const mappingByConn = new Map(mappings.map((m) => [m.connectionId, m]))
 
-  // Per-connection completeness — a connection is "ready" when all 5
-  // approval fields are non-empty.
   type ConnStatus = {
     id: string
     workspaceName: string
@@ -92,9 +93,6 @@ export async function GET(
   }
   type Mapping = (typeof mappings)[number]
   type ApprovalKey = Exclude<keyof Mapping, "connectionId">
-  // Email + WhatsApp picker were removed from /settings — resolveContact
-  // auto-detects the phone now and email isn't part of the WhatsApp-only
-  // flow. Only the relation/rollup + status values are required.
   const required: Array<[ApprovalKey, string]> = [
     ["awaitingApprovalValue", "Status que dispara aprovação"],
     ["revisionRequestedValue", 'Status quando "pedir alterações"'],
@@ -104,7 +102,6 @@ export async function GET(
     const m = mappingByConn.get(c.id)
     const missing: string[] = []
     if (!m) {
-      // No mapping row at all → all 5 missing.
       for (const [, label] of required) missing.push(label)
     } else {
       for (const [key, label] of required) {
@@ -121,26 +118,22 @@ export async function GET(
     }
   })
 
-  // Derive overall status:
-  //   'configured'  — at least one connection's Notion mapping is ready
-  //                   AND (mode='manual_whatsapp' OR ManyChat creds set)
-  //   'partial'     — some Notion mapping done, but not enough to dispatch
-  //   'missing'     — no Notion mapping AND no Notion connections
-  const mode = (row.approvalNotificationMode ?? "auto_manychat") as
-    | "auto_manychat"
-    | "manual_whatsapp"
-  const hasManychat = !!row.manychatApiKey?.trim() && !!row.manychatApprovalFlowNs?.trim()
+  // 'manual_whatsapp' = legacy column value kept for old rows. New writes
+  // use 'manual_wame'. Either way we treat as manual here.
+  const mode = (row.approvalNotificationMode === "manual_whatsapp" || row.approvalNotificationMode === "manual_wame"
+    ? "manual_wame"
+    : "auto") as "auto" | "manual_wame"
   const anyNotionReady = connectionStatus.some((c) => c.notionReady)
   const anyNotionPartial = connectionStatus.some(
-    (c) => !c.notionReady && c.missingNotionFields.length < 5,
+    (c) => !c.notionReady && c.missingNotionFields.length < 3,
   )
 
   let status: ApprovalConfigStatus
   if (connections.length === 0) {
     status = "missing"
-  } else if (anyNotionReady && (mode === "manual_whatsapp" || hasManychat)) {
+  } else if (anyNotionReady && (mode === "manual_wame" || whatsappConfigured)) {
     status = "configured"
-  } else if (anyNotionReady || anyNotionPartial || hasManychat) {
+  } else if (anyNotionReady || anyNotionPartial || whatsappConfigured) {
     status = "partial"
   } else {
     status = "missing"
@@ -150,30 +143,24 @@ export async function GET(
     clientName: row.name,
     calendarToken,
     calendarPath: `/c/${calendarToken}`,
-    whatsappProvider: row.whatsappProvider,
-    manychatApiKey: row.manychatApiKey ?? "",
-    manychatApprovalFlowNs: row.manychatApprovalFlowNs ?? "",
-    metaWaToken: row.metaWaToken ?? "",
-    metaPhoneNumberId: row.metaPhoneNumberId ?? "",
-    metaTemplateName: row.metaTemplateName ?? "",
-    metaTemplateLanguage: row.metaTemplateLanguage ?? "pt_BR",
     approvalNotificationMode: mode,
+    approvalDispatchMode: row.approvalDispatchMode === "manual" ? "manual" : "auto",
     manualWhatsappTemplate: row.manualWhatsappTemplate ?? "",
+    whatsappConfigured,
     connections: connectionStatus,
     status,
-    // Highest-impact missing-thing summary for the UI to render in one line.
     nextStepHint: deriveNextStep({
       connections: connectionStatus,
       mode,
-      hasManychat,
+      whatsappConfigured,
     }),
   })
 }
 
 function deriveNextStep(args: {
   connections: Array<{ notionReady: boolean; missingNotionFields: string[]; workspaceName: string }>
-  mode: "auto_manychat" | "manual_whatsapp"
-  hasManychat: boolean
+  mode: "auto" | "manual_wame"
+  whatsappConfigured: boolean
 }): string | null {
   if (args.connections.length === 0) {
     return "Conecte um workspace do Notion antes de configurar aprovações."
@@ -183,8 +170,8 @@ function deriveNextStep(args: {
     const fields = firstUnready.missingNotionFields.slice(0, 2).join(", ")
     return `Em /settings → ${firstUnready.workspaceName}, preencha: ${fields}${firstUnready.missingNotionFields.length > 2 ? "..." : ""}`
   }
-  if (args.mode === "auto_manychat" && !args.hasManychat) {
-    return "Cole a API key do ManyChat e o Flow Namespace abaixo (ou troque pra modo manual)."
+  if (args.mode === "auto" && !args.whatsappConfigured) {
+    return "Configure o WhatsApp da agência em /settings (token + phone_number_id + template) — ou troque pra modo manual nesse cliente."
   }
   return null
 }

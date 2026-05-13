@@ -178,7 +178,7 @@ export default function ProductionDetailPage() {
       const res = await fetch(`/api/productions/${id}/send-approval`, { method: "POST" })
       const data = await res.json()
       if (!res.ok) throw new Error(data.error ?? "Falha ao enviar")
-      const sentLabel = data.sentVia === "manychat" ? "ManyChat enviou WhatsApp pro" : "Link gerado pra"
+      const sentLabel = data.sentVia === "meta_cloud" ? "WhatsApp enviado pro" : "Link gerado pra"
       toast.success(`${sentLabel} ${data.approver?.name ?? "aprovador"} (passo ${data.stepOrder}/${data.totalSteps})`)
       if (data.dispatchReason) {
         toast.warning(`WhatsApp não enviou: ${data.dispatchReason}. Use "Reenviar via WA" no banner.`)

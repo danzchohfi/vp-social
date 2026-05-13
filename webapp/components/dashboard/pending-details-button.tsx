@@ -123,7 +123,7 @@ export function PendingDetailsButton({ clientId }: { clientId: string }) {
                             "rounded-md border p-3 text-sm " +
                             (p.stillAwaiting
                               ? "border-success/40 bg-success/5"
-                              : p.sentVia === "manychat"
+                              : p.sentVia === "meta_cloud"
                               ? "border-muted bg-muted/30"
                               : "border-warning/40 bg-warning/10")
                           }
@@ -138,7 +138,7 @@ export function PendingDetailsButton({ clientId }: { clientId: string }) {
                                 <span className="font-mono">{p.sentVia ?? "none"}</span>
                                 {p.stillAwaiting ? (
                                   <span className="ml-2 text-success">✓ ainda awaiting</span>
-                                ) : p.sentVia === "manychat" ? (
+                                ) : p.sentVia === "meta_cloud" ? (
                                   <span className="ml-2 text-muted-foreground">já enviado · link WA válido</span>
                                 ) : (
                                   <span className="ml-2 text-warning">⚠ post NÃO está awaiting no Notion (órfão)</span>

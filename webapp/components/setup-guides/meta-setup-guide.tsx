@@ -150,12 +150,12 @@ const META_STEPS: SetupStep[] = [
   },
 ]
 
-export function MetaSetupGuide({ clientId, hasCredentials }: { clientId: string; hasCredentials: boolean }) {
+export function MetaSetupGuide({ hasCredentials }: { hasCredentials: boolean }) {
   return (
     <SetupGuide
       title="Configurar Meta WhatsApp Cloud — passo a passo"
       subtitle="~30-45min + 24-48h de revisão Meta"
-      storageKey={`vpsocial_meta_setup_progress_${clientId}`}
+      storageKey="vpsocial_meta_setup_progress"
       steps={META_STEPS}
       complete={hasCredentials}
     />

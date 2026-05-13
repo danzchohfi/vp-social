@@ -53,7 +53,7 @@ type ApiResponse = {
   state: "ok" | "decided" | "expired"
   decision: "approved" | "changes_requested" | null
   decidedAt: string | null
-  // sentAt = when ManyChat (or manual WA) actually delivered the link.
+  // sentAt = when WhatsApp (auto or manual wa.me) actually delivered the link.
   // expiresAt = 14d from creation. Both shown in the meta-line so the
   // client knows when it was sent and how long they have to respond.
   sentAt: string | null

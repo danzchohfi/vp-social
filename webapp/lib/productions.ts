@@ -193,7 +193,7 @@ export async function getActiveStep(db: Db, productionId: string): Promise<
  * decide whether to flip production status to 'approved'.
  *
  *   - { kind: "next", approvalLink, approver }: caller should send
- *     ManyChat to the next approver with the new approvalLink token.
+ *     WhatsApp to the next approver with the new approvalLink token.
  *   - { kind: "complete" }: chain finished, caller flips the production
  *     status to 'approved'.
  *   - { kind: "no_chain" }: production has no chain configured. Treat
@@ -246,7 +246,7 @@ export async function advanceChain(
   if (!approver) return { kind: "complete" }
 
   // Idempotency: if a pending link for this approver/round already exists,
-  // return it unchanged so callers don't double-dispatch ManyChat.
+  // return it unchanged so callers don't double-dispatch WhatsApp.
   const [existing] = await db
     .select()
     .from(schema.approvalLink)
@@ -262,7 +262,7 @@ export async function advanceChain(
     return { kind: "next", approvalLinkRow: existing, approver, stepOrder: nextStep.stepOrder, totalSteps: stepRows.length }
   }
 
-  // Caller is responsible for ManyChat dispatch + setting sentVia after
+  // Caller is responsible for WhatsApp dispatch + setting sentVia after
   // we INSERT. We just create the row with sentVia='none' and let the
   // caller flip it on success. Same pattern as the post-approval cron.
   const [production] = await db
