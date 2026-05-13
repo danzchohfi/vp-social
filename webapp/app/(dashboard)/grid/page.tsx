@@ -16,6 +16,7 @@
 import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
+import { PageHeader } from "@/components/ui/page-header"
 import { Loader2, Grid3x3, ExternalLink, Calendar as CalendarIcon, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -141,14 +142,10 @@ export default function GridPreviewPage() {
 
   return (
     <div className="mx-auto max-w-5xl p-8">
-      <div className="mb-6 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <h1 className="text-3xl tracking-tight sm:text-4xl">Preview do grid</h1>
-          <p className="text-muted-foreground">
-            Veja como o feed do Instagram vai ficar depois que os posts agendados publicarem.
-          </p>
-        </div>
-      </div>
+      <PageHeader
+        title="Preview do grid"
+        subtitle="Veja como o feed do Instagram vai ficar depois que os posts agendados publicarem."
+      />
 
       {/* Account picker */}
       {accountsLoading ? (
