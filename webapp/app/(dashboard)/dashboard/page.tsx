@@ -7,6 +7,7 @@ import { eq, desc, count, inArray, and, gte, max, isNotNull } from "drizzle-orm"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
+import { PageHeader } from "@/components/ui/page-header"
 import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, Zap, ArrowRight, Facebook, Youtube, Linkedin, CalendarClock, LayoutGrid, Building2, AlertTriangle, MoonStar, ExternalLink, MessageCircle, ThumbsUp, Heart, Tag } from "lucide-react"
 import Link from "next/link"
 import { PublishButton } from "@/components/dashboard/publish-button"
@@ -407,10 +408,10 @@ export default async function DashboardPage() {
 
   return (
     <div className="p-4 sm:p-8">
-      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-3xl tracking-tight sm:text-4xl">Dashboard</h1>
-          <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-0.5">
+      <PageHeader
+        title="Dashboard"
+        subtitle={
+          <span className="flex flex-wrap items-center gap-x-2 gap-y-0.5">
             {isAgency ? (
               <span className="inline-flex items-center gap-1.5">
                 <LayoutGrid className="h-3.5 w-3.5 text-primary" />
@@ -421,14 +422,10 @@ export default async function DashboardPage() {
             )}
             <span aria-hidden="true">·</span>
             <span>Olá, {session!.user.name} 👋</span>
-          </p>
-        </div>
-        {!isAgency && isReady && (
-          <div className="shrink-0">
-            <PublishButton />
-          </div>
-        )}
-      </div>
+          </span>
+        }
+        action={!isAgency && isReady ? <PublishButton /> : undefined}
+      />
 
       {hasHealthIssues && (
         <div className="mb-8 rounded-xl border border-warning/40 bg-warning/5 p-4 sm:p-5">
