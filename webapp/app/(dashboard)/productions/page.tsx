@@ -4,6 +4,7 @@ import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/ui/page-header"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Loader2, Plus, RefreshCw, Film } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { StatusPill } from "@/components/productions/status-pill"
@@ -139,26 +140,15 @@ export default function ProductionsListPage() {
         </div>
       ) : visible.length === 0 ? (
         <Card>
-          <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <Film className="mb-3 h-10 w-10 text-muted-foreground/40" />
-            <p className="font-medium">
-              {productions.length === 0
-                ? "Nenhuma produção ainda"
-                : "Nenhuma produção neste filtro"}
-            </p>
-            <p className="mt-1 text-base text-muted-foreground">
-              {productions.length === 0
+          <CardContent className="pt-6">
+            <EmptyState
+              icon={Film}
+              title={productions.length === 0 ? "Nenhuma produção ainda" : "Nenhuma produção neste filtro"}
+              description={productions.length === 0
                 ? "Crie a primeira pra começar o fluxo de roteiro → aprovação → entrega."
                 : "Mude de filtro ou atualize a página."}
-            </p>
-            {productions.length === 0 && (
-              <Button asChild size="sm" className="mt-4">
-                <Link href="/productions/new">
-                  <Plus className="h-4 w-4" />
-                  Nova produção
-                </Link>
-              </Button>
-            )}
+              action={productions.length === 0 ? { label: "Nova produção", href: "/productions/new" } : undefined}
+            />
           </CardContent>
         </Card>
       ) : (

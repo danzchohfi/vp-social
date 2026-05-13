@@ -17,6 +17,7 @@ import { useEffect, useState } from "react"
 import Link from "next/link"
 import { Card, CardContent } from "@/components/ui/card"
 import { PageHeader } from "@/components/ui/page-header"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Loader2, Grid3x3, ExternalLink, Calendar as CalendarIcon, Clock } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
@@ -205,10 +206,12 @@ export default function GridPreviewPage() {
             </div>
           ) : items === null ? null : items.length === 0 ? (
             <Card>
-              <CardContent className="py-12 text-center">
-                <p className="text-base text-muted-foreground">
-                  Sem posts pra mostrar. Agende um post no Notion ou aguarde os já agendados aparecerem.
-                </p>
+              <CardContent className="pt-6">
+                <EmptyState
+                  icon={Grid3x3}
+                  title="Sem posts pra mostrar"
+                  description="Agende um post no Notion ou aguarde os já agendados aparecerem."
+                />
               </CardContent>
             </Card>
           ) : (

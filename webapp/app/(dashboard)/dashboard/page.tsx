@@ -8,6 +8,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { PageHeader } from "@/components/ui/page-header"
+import { EmptyState } from "@/components/ui/empty-state"
 import { Instagram, BookOpen, CheckCircle2, XCircle, Clock, Zap, ArrowRight, Facebook, Youtube, Linkedin, CalendarClock, LayoutGrid, Building2, AlertTriangle, MoonStar, ExternalLink, MessageCircle, ThumbsUp, Heart, Tag, Film, Image as ImageIcon } from "lucide-react"
 import Link from "next/link"
 import { PublishButton } from "@/components/dashboard/publish-button"
@@ -1072,24 +1073,17 @@ export default async function DashboardPage() {
           </CardHeader>
           <CardContent>
             {nextFive.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-8 text-center">
-                <CalendarClock className="mb-3 h-8 w-8 text-muted-foreground/40" />
-                <p className="text-base font-medium">Nenhum post na fila</p>
-                <p className="mt-1 text-sm text-muted-foreground">
-                  Marque posts como &quot;Agendamento&quot; no Notion para vê-los aqui.
-                </p>
-                {!isAgency && notion[0]?.databaseId && (
-                  <a
-                    href={`https://www.notion.so/${notion[0].databaseId.replace(/-/g, "")}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="mt-3 inline-flex items-center gap-1.5 rounded-md border border-input bg-background px-3 py-1.5 text-sm font-medium hover:bg-accent"
-                  >
-                    <BookOpen className="h-3.5 w-3.5" />
-                    Abrir Notion
-                  </a>
-                )}
-              </div>
+              <EmptyState
+                icon={CalendarClock}
+                title="Nenhum post na fila"
+                description='Marque posts como "Agendamento" no Notion para vê-los aqui.'
+                action={!isAgency && notion[0]?.databaseId ? {
+                  label: "Abrir Notion",
+                  href: `https://www.notion.so/${notion[0].databaseId.replace(/-/g, "")}`,
+                  external: true,
+                } : undefined}
+                className="py-8"
+              />
             ) : (
               <div className="space-y-2">
                 {nextFive.map((p) => {
@@ -1208,13 +1202,14 @@ export default async function DashboardPage() {
         </CardHeader>
         <CardContent>
           {activeByPlatform.length === 0 ? (
-            <p className="py-3 text-base text-muted-foreground">
-              {isAgency
-                ? "Nenhuma conta conectada em nenhum cliente ainda."
-                : "Nenhuma conta conectada a este cliente ainda."}
-              {" "}
-              <Link href="/accounts" className="underline">Conectar agora</Link>.
-            </p>
+            <EmptyState
+              icon={Instagram}
+              title={isAgency ? "Nenhuma conta conectada em nenhum cliente" : "Nenhuma conta conectada"}
+              description="Conecte Instagram, Facebook, YouTube, TikTok ou LinkedIn pra começar a publicar."
+              action={{ label: "Conectar conta", href: "/accounts" }}
+              tone="warning"
+              className="py-8"
+            />
           ) : (
             <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
               {activeByPlatform.map((p) => {
@@ -1259,13 +1254,11 @@ export default async function DashboardPage() {
         </CardHeader>
         <CardContent>
           {logs.length === 0 ? (
-            <div className="flex flex-col items-center justify-center py-12 text-center">
-              <Clock className="mb-3 h-10 w-10 text-muted-foreground/40" />
-              <p className="font-medium">Nenhuma publicação ainda</p>
-              <p className="mt-1 text-base text-muted-foreground">
-                Configure as contas e marque posts como &quot;Agendamento&quot; no Notion.
-              </p>
-            </div>
+            <EmptyState
+              icon={Clock}
+              title="Nenhuma publicação ainda"
+              description='Configure as contas e marque posts como "Agendamento" no Notion.'
+            />
           ) : (
             <div className="space-y-3">
               {logs.map((log) => {
