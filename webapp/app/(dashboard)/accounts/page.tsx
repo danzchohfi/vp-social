@@ -10,6 +10,7 @@ import { Instagram, Trash2, Loader2, Facebook, Pencil, Check, X, Youtube, Linked
 import { cn } from "@/lib/utils"
 import { RequiresSingleClient } from "@/components/dashboard/requires-single-client"
 import { PageHeader } from "@/components/ui/page-header"
+import { InstagramSetupGuide } from "@/components/setup-guides/instagram-setup-guide"
 
 function TikTokIcon({ className }: { className?: string }) {
   return (
@@ -95,7 +96,7 @@ export default function AccountsPage() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editValue, setEditValue] = useState("")
   const [unavailable, setUnavailable] = useState<Set<Platform>>(new Set())
-  const [activeClient, setActiveClient] = useState<{ name: string; logoUrl: string | null } | null>(null)
+  const [activeClient, setActiveClient] = useState<{ id: string; name: string; logoUrl: string | null } | null>(null)
 
   // Pending = pages saved by Facebook callback as active=false in the last
   // 30 min, awaiting per-client confirmation. Shown as a banner + checklist
@@ -167,7 +168,7 @@ export default function AccountsPage() {
     const res = await fetch("/api/clients")
     const data = await res.json()
     const c = (data.clients ?? []).find((x: any) => x.id === data.activeClientId)
-    if (c) setActiveClient({ name: c.name, logoUrl: c.logoUrl })
+    if (c) setActiveClient({ id: c.id, name: c.name, logoUrl: c.logoUrl })
   }
 
   async function fetchAccounts() {
@@ -292,6 +293,18 @@ export default function AccountsPage() {
         }
         subtitle="Apenas as contas deste cliente. Para conectar outro, troque o cliente na barra lateral."
       />
+
+      {/* Setup guide for Instagram — most agencies struggle with the
+          IG↔Page link + Business account conversion. Auto-collapses
+          once at least one IG account is connected. */}
+      {activeClient && (
+        <div className="mb-6">
+          <InstagramSetupGuide
+            clientId={activeClient.id}
+            hasInstagramAccount={accounts.some((a) => a.platform === "instagram" && a.active)}
+          />
+        </div>
+      )}
 
       {pendingAccounts.length > 0 && (
         <div className="mb-6 rounded-xl border-2 border-primary/40 bg-primary/5 p-4 sm:p-5">
