@@ -45,7 +45,7 @@ export default function LandingPage() {
         {/* Hero */}
         <section className="relative overflow-hidden px-6 py-24 text-center md:py-36">
           <div className="absolute inset-0 -z-10">
-            <div className="absolute left-1/2 top-0 h-[600px] w-[600px] -translate-x-1/2 rounded-full bg-primary/5 blur-3xl" />
+            <div className="absolute left-1/2 top-0 h-[700px] w-[700px] -translate-x-1/2 rounded-full aurora-bg" />
           </div>
           <div className="mx-auto max-w-4xl">
             {/* Brand logo — kept large + above the fold so TikTok / Meta /
@@ -58,7 +58,7 @@ export default function LandingPage() {
               alt="VP Social"
               width={96}
               height={96}
-              className="mx-auto mb-8 h-20 w-20 rounded-2xl shadow-lg ring-1 ring-black/5 sm:h-24 sm:w-24"
+              className="mx-auto mb-8 h-20 w-20 rounded-2xl shadow-lg ring-1 ring-black/5 sm:h-24 sm:w-24 [view-transition-name:hero-logo]"
             />
             <Badge variant="secondary" className="mb-6 gap-1.5">
               <Sparkles className="h-3 w-3" />
