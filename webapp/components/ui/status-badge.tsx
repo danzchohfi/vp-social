@@ -11,7 +11,7 @@ import { CheckCircle2, XCircle, Clock, AlertTriangle, Send } from "lucide-react"
 // status to `lib/productions.ts` doesn't crash the UI before the lookup
 // table is updated.
 type PublishStatus = "published" | "failed" | "skipped" | "pending"
-type ApprovalStatus = "pending" | "approved" | "rejected" | "expired"
+type ApprovalStatus = "pending" | "approved" | "rejected" | "expired" | "tacit"
 
 const PUBLISH_STYLES: Record<PublishStatus, { bg: string; icon: React.ComponentType<{ className?: string }>; label: string }> = {
   published: { bg: "bg-success/15 text-success", icon: CheckCircle2, label: "Publicado" },
@@ -24,7 +24,12 @@ const APPROVAL_STYLES: Record<ApprovalStatus, { bg: string; icon: React.Componen
   pending: { bg: "bg-warning/15 text-warning", icon: Clock, label: "Aguardando" },
   approved: { bg: "bg-success/15 text-success", icon: CheckCircle2, label: "Aprovado" },
   rejected: { bg: "bg-destructive/15 text-destructive", icon: XCircle, label: "Rejeitado" },
-  expired: { bg: "bg-muted text-muted-foreground", icon: AlertTriangle, label: "Expirado" },
+  // 'expired' agora cobre só orphan/cancelado (Notion saiu do "aguardando").
+  // Tom muted pra não competir visualmente com aprovação tácita ou rejeição real.
+  expired: { bg: "bg-muted text-muted-foreground", icon: AlertTriangle, label: "Cancelado" },
+  // 'tacit' = aprovado automaticamente após 30 dias de silêncio (sentVia=meta_cloud).
+  // Tom amber/warning pra distinguir de aprovação explícita (verde).
+  tacit: { bg: "bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-200", icon: Clock, label: "Aprovação tácita" },
 }
 
 // Platform colors — extracted from /history's PLATFORM_COLORS so all

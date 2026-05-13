@@ -14,6 +14,7 @@ import { buildWhatsAppClickToChatUrl } from "@/lib/phone"
 import { dispatchApprovalRequest, getUserWhatsappConfig, isConfigured } from "@/lib/whatsapp-dispatch"
 import { userIsClientOwner } from "@/lib/active-client"
 import { generateId } from "@/lib/utils"
+import { APPROVAL_TTL_DAYS } from "@/lib/approval-link"
 
 // Debug-only endpoint to manually run the approval sweep against ONE
 // post (instead of waiting for the 5-min cron). Mirrors the logic in
@@ -32,7 +33,6 @@ import { generateId } from "@/lib/utils"
 //
 // Auth: owner of the connection's client only (the API key is sensitive).
 
-const APPROVAL_TTL_DAYS = 14
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? ""
 
 export async function POST(req: Request) {

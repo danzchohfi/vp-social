@@ -134,6 +134,13 @@
       "when": 1778684360053,
       "tag": "0018_curvy_shatterstar",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1778695484459,
+      "tag": "0019_stale_mesmero",
+      "breakpoints": true
     }
   ]
 }

@@ -357,10 +357,17 @@ export const approvalLink = pgTable("approval_link", {
   // bumps the round (new row in chain).
   reminderSentAt: timestamp("reminder_sent_at"),
   expiresAt: timestamp("expires_at").notNull(),
-  // null when pending. Set when client decides on the public page.
+  // null when pending. Set when client decides on the public page,
+  // OR when the tacit-approval cron fires after 30d of silence (then
+  // decision='approved' AND tacit=true).
   decision: text("decision"),
   decidedAt: timestamp("decided_at"),
   decidedFromIp: text("decided_from_ip"),
+  // True when decision='approved' was set by the tacit-approval cron
+  // (silence after 30d from sentAt) instead of an explicit client tap.
+  // False (default) for explicit client decisions. Lets the UI distinguish
+  // "Aprovação tácita" badge from regular "Aprovado".
+  tacit: boolean("tacit").notNull().default(false),
   comment: text("comment"),
   // Discriminator + production-flow fields (Wave 1, May 2026). For
   // kind='post' these are NULL/default. For kind='production_script' the

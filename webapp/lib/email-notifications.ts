@@ -100,6 +100,10 @@ type ClientDecisionEmail = {
   comment: string | null
   approvalUrl: string | null
   notionPageId: string | null
+  // True quando aprovação foi tácita (cron auto-decidiu após 30d de silêncio).
+  // Subject do email diferencia "✅ aprovou" (explícito) de "⏱ aprovação
+  // automática" (tácita) pra agency entender a fonte da decisão.
+  tacit?: boolean
 }
 
 export async function notifyClientDecision(
@@ -110,14 +114,20 @@ export async function notifyClientDecision(
   const [u] = await db.select({ email: userTable.email, name: userTable.name }).from(userTable).where(eq(userTable.id, userId))
   if (!u?.email) return
 
-  const verb = decision.decision === "approved" ? "aprovou" : "pediu alterações"
+  const verb = decision.tacit
+    ? "aprovou automaticamente (sem resposta em 30 dias)"
+    : decision.decision === "approved"
+      ? "aprovou"
+      : "pediu alterações"
   const who = decision.contactName || "Cliente"
   const titleSafe = decision.postTitle || "post sem título"
   const clientLabel = clientName ? ` (${clientName})` : ""
 
-  const subject = decision.decision === "approved"
-    ? `✅ ${who} aprovou: ${titleSafe}`
-    : `✏️ ${who} pediu alterações em: ${titleSafe}`
+  const subject = decision.tacit
+    ? `⏱ Aprovação automática: ${titleSafe}`
+    : decision.decision === "approved"
+      ? `✅ ${who} aprovou: ${titleSafe}`
+      : `✏️ ${who} pediu alterações em: ${titleSafe}`
 
   const link = decision.notionPageId
     ? `https://www.notion.so/${decision.notionPageId.replace(/-/g, "")}`

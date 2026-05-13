@@ -11,6 +11,7 @@
 import { and, asc, desc, eq, isNull, max } from "drizzle-orm"
 import * as schema from "./db/schema"
 import { generateId } from "./utils"
+import { APPROVAL_TTL_DAYS } from "./approval-link"
 
 // ─── Status state machine ──────────────────────────────
 
@@ -284,7 +285,6 @@ export async function advanceChain(
     .where(eq(schema.notionConnection.clientId, production.clientId))
     .limit(1)
 
-  const APPROVAL_TTL_DAYS = 14
   const token = generateId() + generateId().replace(/-/g, "")
   const newRow: typeof schema.approvalLink.$inferInsert = {
     id: generateId(),

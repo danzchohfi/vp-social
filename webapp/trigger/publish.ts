@@ -1,7 +1,7 @@
 import { schedules, task, logger } from "@trigger.dev/sdk"
 import { neon } from "@neondatabase/serverless"
 import { drizzle } from "drizzle-orm/neon-http"
-import { and, eq, inArray, isNull, lt } from "drizzle-orm"
+import { and, eq, inArray, isNotNull, isNull, lt, ne } from "drizzle-orm"
 import * as schema from "../lib/db/schema"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "../lib/notion"
 import { publishToPlatform, saveLog, claimPublishSlot, completePublishSlot, hasPriorPublish, isVideo } from "../lib/publisher"
@@ -12,9 +12,9 @@ import { validatePhoneE164 } from "../lib/phone"
 import { dispatchApprovalRequest, isConfigured, type UserWhatsappConfig } from "../lib/whatsapp-dispatch"
 import { generateId } from "../lib/utils"
 import { findApproverByPhone } from "../lib/approvers"
+import { APPROVAL_TTL_DAYS } from "../lib/approval-link"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
-const APPROVAL_TTL_DAYS = 14
 const STORY_CHUNK_PAUSE_MS = 30_000
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))
@@ -734,28 +734,24 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
     logger.warn(`[approval] reroute pass failed: ${e instanceof Error ? e.message : e}`)
   }
 
-  // First pass: release the partial unique index slot for any expired+pending
-  // links. Without this, a post that aged past the 14-day TTL without a
-  // decision would block all future approval cycles (the unique index keeps
-  // one pending row per pageId; the row is pending+expired so neither the
-  // client nor the cron can move it forward). Set decision='expired' — a
-  // synthetic value lookupApprovalLink + the bucketing endpoints recognize
-  // and surface as "expired" in the UI rather than as a real decision.
+  // Time-based release: links que passaram do TTL e NÃO são candidatos a
+  // aprovação tácita (sentVia != 'meta_cloud') ficam como decision='expired'
+  // pra liberar o partial unique index e permitir um novo link no mesmo ciclo.
+  // Pra sentVia='meta_cloud', o cron separado tacitApprovalSweep cuida via
+  // decideApprovalLink mode='tacit' (silêncio = aprovado).
   const now = new Date()
   const expiredRelease = await db
     .update(schema.approvalLink)
     .set({ decision: "expired", decidedAt: now })
     .where(and(
-      // Scope by connectionId — see comment above resolveOwnerClient
-      // re: per-conta routing. clientId varies across links from one
-      // sweep now.
       eq(schema.approvalLink.connectionId, connectionId),
       isNull(schema.approvalLink.decision),
       lt(schema.approvalLink.expiresAt, now),
+      ne(schema.approvalLink.sentVia, "meta_cloud"),
     ))
     .returning({ id: schema.approvalLink.id, postTitle: schema.approvalLink.postTitle })
   if (expiredRelease.length > 0) {
-    logger.warn(`Liberou ${expiredRelease.length} link(s) de aprovação expirado(s) — vai recriar no mesmo ciclo.`)
+    logger.warn(`Liberou ${expiredRelease.length} link(s) de aprovação não-meta (manual/none) expirado(s) — vai recriar no mesmo ciclo.`)
   }
 
   for (const post of posts) {
@@ -1110,5 +1106,73 @@ export const productionApprovalReminders = schedules.task({
     }
 
     logger.info(`[reminders] ${sent} enviado(s), ${skipped} pulado(s)`)
+  },
+})
+
+// ─── Tacit Approval Sweep ──────────────────────────────────────
+// A cada 15 min varre approval_link procurando rows elegíveis pra
+// aprovação tácita: silêncio em 30 dias DESDE O ENVIO via Meta Cloud
+// (sentVia='meta_cloud' garante que a mensagem foi de fato entregue —
+// wa.me manual não conta porque agency pode não ter clicado).
+//
+// Pra cada candidato, chama decideApprovalLink mode='tacit' que:
+//   - Atomicamente seta decision='approved' tacit=true (idempotente)
+//   - Flipa status do post no Notion pra approvedValue
+//   - Postae audit comment "Aprovação automática · sem resposta em 30d"
+//   - Advance chain de produção se kind='production_script'
+//   - Notifica agency via email com subject "⏱ Aprovação automática"
+export const tacitApprovalSweep = schedules.task({
+  id: "tacit-approval-sweep",
+  cron: { pattern: "*/15 * * * *", timezone: "America/Sao_Paulo" },
+  run: async () => {
+    const db = getDb()
+    const threshold = new Date(Date.now() - APPROVAL_TTL_DAYS * 24 * 60 * 60 * 1000)
+
+    const candidates = await db
+      .select()
+      .from(schema.approvalLink)
+      .where(and(
+        isNull(schema.approvalLink.decision),
+        eq(schema.approvalLink.sentVia, "meta_cloud"),
+        isNotNull(schema.approvalLink.sentAt),
+        lt(schema.approvalLink.sentAt, threshold),
+      ))
+
+    if (candidates.length === 0) {
+      logger.info("[tacit] nenhum link elegível, nada a fazer")
+      return
+    }
+
+    logger.info(`[tacit] ${candidates.length} link(s) com 30+ dias sem resposta — aprovando tacitamente`)
+
+    const { decideApprovalLink } = await import("../lib/approval-decide")
+
+    let approved = 0
+    let raced = 0
+    let failed = 0
+    for (const row of candidates) {
+      try {
+        const result = await decideApprovalLink({
+          row,
+          decision: "approved",
+          mode: "tacit",
+        })
+        if (result.ok) {
+          approved++
+          logger.info(`[tacit] ✓ "${row.postTitle}" aprovado tacitamente`)
+        } else if (result.reason === "already_decided") {
+          raced++
+          // Cliente decidiu entre o select e o update — não é erro.
+        } else {
+          failed++
+          logger.warn(`[tacit] falha em ${row.id}: ${result.reason}`)
+        }
+      } catch (e) {
+        failed++
+        logger.error(`[tacit] erro inesperado em ${row.id}: ${e}`)
+      }
+    }
+
+    logger.info(`[tacit] ${approved} aprovado(s), ${raced} race(s) com cliente, ${failed} falha(s)`)
   },
 })

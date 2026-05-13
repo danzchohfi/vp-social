@@ -595,6 +595,7 @@ type ApprovalRow = {
   sentAt: string | null
   decision: "approved" | "rejected" | "revision" | null
   decidedAt: string | null
+  tacit?: boolean
   comment: string | null
   expiresAt: string
   createdAt: string
@@ -608,8 +609,9 @@ function ApprovalHistory({ clientId }: { clientId: string }) {
     pending: ApprovalRow[]
     stale: ApprovalRow[]
     decided: ApprovalRow[]
+    tacit: ApprovalRow[]
     expired: ApprovalRow[]
-    counts: { pending: number; stale: number; decided: number; expired: number }
+    counts: { pending: number; stale: number; decided: number; tacit: number; expired: number }
   } | null>(null)
 
   async function load() {
@@ -650,7 +652,8 @@ function ApprovalHistory({ clientId }: { clientId: string }) {
               · {data.counts.pending} pendente{data.counts.pending !== 1 ? "s" : ""}
               {data.counts.stale > 0 && <span className="text-warning"> ({data.counts.stale} parado{data.counts.stale > 1 ? "s" : ""})</span>}
               {" · "}{data.counts.decided} decidido{data.counts.decided !== 1 ? "s" : ""}
-              {data.counts.expired > 0 && <> · {data.counts.expired} expirado{data.counts.expired > 1 ? "s" : ""}</>}
+              {data.counts.tacit > 0 && <> · <span className="text-warning">{data.counts.tacit} tácita{data.counts.tacit > 1 ? "s" : ""}</span></>}
+              {data.counts.expired > 0 && <> · {data.counts.expired} cancelad{data.counts.expired > 1 ? "os" : "o"}</>}
             </span>
           )}
         </span>
@@ -691,9 +694,17 @@ function ApprovalHistory({ clientId }: { clientId: string }) {
                   tone="decided"
                 />
               )}
+              {data.tacit && data.tacit.length > 0 && (
+                <ApprovalHistorySection
+                  title="Aprovações tácitas (silêncio em 30 dias)"
+                  rows={data.tacit}
+                  staleIds={staleIds}
+                  tone="decided"
+                />
+              )}
               {data.expired.length > 0 && (
                 <ApprovalHistorySection
-                  title="Expirados sem resposta"
+                  title="Cancelados (post saiu do status de aprovação)"
                   rows={data.expired}
                   staleIds={staleIds}
                   tone="expired"
