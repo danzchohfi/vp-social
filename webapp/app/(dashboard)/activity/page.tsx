@@ -16,6 +16,7 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { PostRowSkeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
+import { PageHeader } from "@/components/ui/page-header"
 import {
   Activity as ActivityIcon,
   AlertTriangle,
@@ -146,18 +147,16 @@ export default function ActivityPage() {
 
   return (
     <div className="mx-auto max-w-3xl p-4 sm:p-8">
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div className="min-w-0">
-          <h1 className="text-3xl tracking-tight sm:text-4xl">Atividade</h1>
-          <p className="text-muted-foreground">
-            Tudo que rolou — posts publicados, falhas e decisões dos clientes.
-          </p>
-        </div>
-        <Button variant="outline" size="sm" onClick={() => load()} disabled={loading} className="shrink-0">
-          {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
-          Atualizar
-        </Button>
-      </div>
+      <PageHeader
+        title="Atividade"
+        subtitle="Tudo que rolou — posts publicados, falhas e decisões dos clientes."
+        action={
+          <Button variant="outline" size="sm" onClick={() => load()} disabled={loading}>
+            {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <RefreshCw className="h-3.5 w-3.5" />}
+            Atualizar
+          </Button>
+        }
+      />
 
       <div className="mb-4 flex flex-wrap items-center gap-2">
         <span className="text-sm font-medium uppercase tracking-wider text-muted-foreground">Período</span>
