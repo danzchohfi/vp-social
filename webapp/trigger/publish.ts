@@ -9,7 +9,7 @@ import { createInstagramPublisher, fetchInstagramPermalink } from "../lib/instag
 import { probeVideoDurationSec, splitStoryVideo } from "../lib/video-splitter"
 import { notifyPublishFailureAsync } from "../lib/email-notifications"
 import { validatePhoneE164 } from "../lib/phone"
-import { dispatchApprovalRequest, type UserWhatsappConfig } from "../lib/whatsapp-dispatch"
+import { dispatchApprovalRequest, isConfigured, type UserWhatsappConfig } from "../lib/whatsapp-dispatch"
 import { generateId } from "../lib/utils"
 import { findApproverByPhone } from "../lib/approvers"
 
@@ -879,6 +879,14 @@ async function runApprovalSweep(a: SweepArgs): Promise<void> {
       sentVia = "invalid_phone"
       lastError = `Telefone inválido (${contact.phone}): ${phoneIssue}`
       logger.warn(`[approval] telefone inválido pra "${post.title}" (${contact.phone}): ${phoneIssue}. Agência precisa corrigir a página Contato no Notion.`)
+    } else if (!isConfigured(waConfig)) {
+      // Sem token/phone/template Meta salvos pelo owner em /settings, o
+      // cron degrada silenciosamente pra manual — agency manda via wa.me
+      // em /scheduled. Sem log de erro no /history (não é erro, é "ainda
+      // não configurado"). Quando o owner configurar, o tick seguinte
+      // pula esse branch e cai em dispatchApprovalRequest naturalmente.
+      sentVia = "manual"
+      logger.info(`[approval] sem config Meta — link "${post.title}" marcado como manual, agency envia via wa.me`)
     } else if (contact.phone) {
       // Meta Cloud dispatch. waConfig is agency-level (one WABA per
       // user). When unconfigured, dispatcher returns ok=false with a
