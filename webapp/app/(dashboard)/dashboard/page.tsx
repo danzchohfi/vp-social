@@ -965,7 +965,7 @@ export default async function DashboardPage() {
           existe Top Post (cliente sem histórico de publicação), colapsa
           pra 3 KPIs em linha horizontal — fallback simples. */}
       <div className={cn(
-        "mb-8 grid gap-4",
+        "stagger-children mb-8 grid gap-4",
         showTopPost && topPost
           ? "md:grid-cols-12 md:auto-rows-fr"
           : "sm:grid-cols-3"

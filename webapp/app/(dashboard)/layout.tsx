@@ -12,8 +12,12 @@ export default async function DashboardLayout({ children }: { children: React.Re
 
   return (
     <div className="flex min-h-screen overflow-x-hidden bg-background md:h-screen md:overflow-hidden">
+      <a href="#main-content" className="skip-to-content">Pular para o conteúdo</a>
       <Sidebar />
-      <main className="min-w-0 flex-1 overflow-x-hidden pt-14 pb-[calc(4rem+env(safe-area-inset-bottom))] md:overflow-y-auto md:pt-0 md:pb-0">
+      <main
+        id="main-content"
+        className="min-w-0 flex-1 overflow-x-hidden pt-14 pb-[calc(4rem+env(safe-area-inset-bottom))] md:overflow-y-auto md:pt-0 md:pb-0"
+      >
         <AuthStatusBanner />
         {children}
       </main>

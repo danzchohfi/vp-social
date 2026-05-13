@@ -6,6 +6,7 @@ import { LayoutDashboard, Instagram, Settings, CalendarClock, LogOut, Film, User
 import { signOut, useSession } from "@/lib/auth-client"
 import { useRouter } from "next/navigation"
 import { ClientSwitcher } from "@/components/dashboard/client-switcher"
+import { DensityToggle } from "@/components/dashboard/density-toggle"
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -32,7 +33,7 @@ export function Sidebar() {
   return (
     <aside className="max-md:hidden flex h-full w-60 shrink-0 flex-col overflow-hidden border-r bg-card">
       <div className="flex h-16 items-center gap-2 border-b px-5">
-        <img src="/icon.png" alt="VP Social" className="h-7 w-7 shrink-0 rounded-md" />
+        <img src="/icon.png" alt="VP Social" className="h-7 w-7 shrink-0 rounded-md [view-transition-name:app-logo]" />
         <span className="truncate text-lg tracking-tight">
           <span className="font-semibold">VP</span>
           <span className="ml-1 italic">Social</span>
@@ -43,22 +44,25 @@ export function Sidebar() {
         <ClientSwitcher />
       </div>
 
-      {/* Botão indicando o atalho ⌘K — só ABRE a palette via click;
-          o keydown listener no CommandPalette cobre o atalho. Visual
-          discreto pra power-users descobrirem. */}
-      <button
-        type="button"
-        onClick={() => {
-          // Dispara o mesmo atalho ⌘K manualmente, pra reutilizar a
-          // mesma toggle logic do palette.
-          window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))
-        }}
-        className="mx-3 mt-3 flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
-      >
-        <Search className="h-3.5 w-3.5" />
-        <span className="flex-1 text-left">Buscar...</span>
-        <kbd className="rounded border bg-muted/50 px-1 font-mono text-[11px]">⌘K</kbd>
-      </button>
+      {/* Linha: busca (⌘K) + toggle de densidade. Compact mode entrega
+          ~25% mais info por viewport pra power-users; toggle persiste em
+          localStorage e aplica via data-density no <html>. */}
+      <div className="mx-3 mt-3 flex items-stretch gap-1.5">
+        <button
+          type="button"
+          onClick={() => {
+            window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))
+          }}
+          className="flex flex-1 items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          <Search className="h-3.5 w-3.5" />
+          <span className="flex-1 text-left">Buscar...</span>
+          <kbd className="rounded border bg-muted/50 px-1 font-mono text-[11px]">⌘K</kbd>
+        </button>
+        <div className="flex items-center rounded-md border bg-background">
+          <DensityToggle />
+        </div>
+      </div>
 
       <nav className="flex-1 space-y-1 p-3">
         {nav.map((item) => {
@@ -68,7 +72,7 @@ export function Sidebar() {
               key={item.href}
               href={item.href}
               className={cn(
-                "relative flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors",
+                "relative flex items-center gap-3 rounded-lg px-3 py-2 text-base font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 active
                   ? "bg-primary/10 text-primary before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-primary"
                   : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
