@@ -11,38 +11,15 @@ import { NextResponse } from "next/server"
 // error~"WhatsApp não configurado..." — falsos erros que poluíam
 // /history e o widget de publicações recentes. Idem em approval_link.last_error.
 //
-// GET  → conta linhas que serão afetadas (preview seguro)
-// POST → DELETE + UPDATE no que o GET retornou
+// Auth: qualquer usuário autenticado (sessão Better Auth via cookie).
+// Op é estritamente delete-failures + clear-error-strings, não afeta
+// dados de negócio. Idempotente: segunda chamada retorna 0 affected.
 //
-// Idempotente: rodar duas vezes apenas retorna 0 affected na segunda.
-// Auth: qualquer usuário autenticado. Op é estritamente delete-failures
-// + clear-error-strings, não afeta dados de negócio.
+// GET executa direto (em vez de só preview) pra o owner poder limpar
+// abrindo a URL no navegador, sem curl — endpoint é one-shot e a sessão
+// gateia o acesso. Removo o endpoint após uso.
 
 export async function GET() {
-  const session = await auth.api.getSession({ headers: await headers() })
-  if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-  const [logsCount] = await db.execute<{ count: number }>(sql`
-    SELECT COUNT(*)::int AS count
-    FROM publish_log
-    WHERE platform = 'aprovação'
-      AND status = 'failed'
-      AND error LIKE '%WhatsApp não configurado%'
-  `).then((r) => r.rows as { count: number }[])
-
-  const [linksCount] = await db.execute<{ count: number }>(sql`
-    SELECT COUNT(*)::int AS count
-    FROM approval_link
-    WHERE last_error LIKE '%WhatsApp não configurado%'
-  `).then((r) => r.rows as { count: number }[])
-
-  return NextResponse.json({
-    publishLogRows: logsCount?.count ?? 0,
-    approvalLinkRows: linksCount?.count ?? 0,
-  })
-}
-
-export async function POST() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
