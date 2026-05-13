@@ -175,6 +175,19 @@ body {
   min-height: 100vh;
 }
 
+/* Semantic typography helpers — codifica os 6 combos mais usados (a partir
+   de auditoria: text-sm aparece 317x, text-base 207x, text-[12px] 74x).
+   Usar SEMPRE que possível em código novo; código existente migra
+   gradualmente conforme o autor for editando o arquivo. */
+.t-title-xl { @apply text-3xl font-normal tracking-tight; }      /* page hero */
+.t-title-lg { @apply text-2xl font-normal tracking-tight; }      /* page title */
+.t-title-md { @apply text-base font-semibold; }                  /* section/card heading */
+.t-body { @apply text-sm; }                                       /* default body */
+.t-body-sm { @apply text-[13px] text-muted-foreground; }         /* secondary text */
+.t-caption { @apply text-[12px] uppercase tracking-wider text-muted-foreground; } /* meta/label */
+.t-stat { @apply text-4xl font-semibold leading-none tracking-tight; } /* KPI numbers */
+.t-mono { @apply font-mono text-[13px]; }                        /* code/IDs */
+
 /* Film-grain overlay sutil — 2.5% opacity sobre tudo, mix-blend-mode
    overlay pra escurecer/clarear conforme bg. SVG inline (~250 bytes,
    zero requests, escala em qualquer resolução). Pointer-events:none

@@ -24,7 +24,7 @@ export function EmptyState({
   icon?: React.ComponentType<{ className?: string }>
   title: string
   description?: string
-  action?: { label: string; href?: string; onClick?: () => void }
+  action?: { label: string; href?: string; onClick?: () => void; external?: boolean }
   tone?: Tone
   className?: string
 }) {
@@ -44,12 +44,23 @@ export function EmptyState({
       </div>
       {action && (
         action.href ? (
-          <Link
-            href={action.href}
-            className="mt-2 inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/20"
-          >
-            {action.label}
-          </Link>
+          action.external ? (
+            <a
+              href={action.href}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="mt-2 inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/20"
+            >
+              {action.label}
+            </a>
+          ) : (
+            <Link
+              href={action.href}
+              className="mt-2 inline-flex items-center gap-1 rounded-md border border-primary/30 bg-primary/10 px-3 py-1.5 text-sm font-medium text-primary hover:bg-primary/20"
+            >
+              {action.label}
+            </Link>
+          )
         ) : (
           <button
             onClick={action.onClick}
