@@ -49,7 +49,7 @@ export const verification = pgTable("verification", {
   updatedAt: timestamp("updated_at").defaultNow(),
 })
 
-// ─── Cliente (perfis multi-tenant) ──────────────────────────────
+// ─── Cliente (perfis multi-tenant) ───────────────────────────────
 
 export const client = pgTable("client", {
   id: text("id").primaryKey(),
@@ -155,7 +155,7 @@ export const clientInvite = pgTable("client_invite", {
   createdAt: timestamp("created_at").notNull().defaultNow(),
 })
 
-// ─── Notion connections ──────────────────────────────────
+// ─── Notion connections ────────────────────────────────
 
 export const notionConnection = pgTable("notion_connection", {
   id: text("id").primaryKey(),
@@ -173,7 +173,7 @@ export const notionConnection = pgTable("notion_connection", {
   uniqUserClientWorkspace: uniqueIndex("notion_connection_user_client_workspace_uniq").on(t.userId, t.clientId, t.workspaceId),
 }))
 
-// ─── Instagram / multi-platform accounts ──────────────────────────
+// ─── Instagram / multi-platform accounts ──────────────────────
 
 export const instagramAccount = pgTable("instagram_account", {
   id: text("id").primaryKey(),
@@ -199,7 +199,7 @@ export const instagramAccount = pgTable("instagram_account", {
   uniqUserClientPlatformPage: uniqueIndex("instagram_account_user_client_platform_page_uniq").on(t.userId, t.clientId, t.platform, t.pageId),
 }))
 
-// ─── Field mapping ────────────────────────────────────────
+// ─── Field mapping ───────────────────────────────────────
 
 export const fieldMapping = pgTable("field_mapping", {
   id: text("id").primaryKey(),
@@ -283,7 +283,7 @@ export const fieldMapping = pgTable("field_mapping", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
 
-// ─── Publish log ───────────────────────────────────
+// ─── Publish log ────────────────────────────────────
 
 export const publishLog = pgTable("publish_log", {
   id: text("id").primaryKey(),
@@ -394,7 +394,7 @@ export const approvalLink = pgTable("approval_link", {
   byClient: index("approval_link_client_idx").on(t.clientId, t.createdAt),
 }))
 
-// ─── Production (Wave 1, May 2026) ──────────────────────────────
+// ─── Production (Wave 1, May 2026) ──────────────────────────
 // A long-form video/podcast piece going through brief → script → approval
 // → recording → editing → delivered → published lifecycle. Distinct from
 // `publishLog` (per-platform external publish records) and from Notion
@@ -435,6 +435,14 @@ export const production = pgTable("production", {
   // Optional cross-reference for users who want to mirror the production
   // back into their Notion DB after delivery. Not synced automatically.
   notionPageId: text("notion_page_id"),
+  // Fase 10: entrega de arquivo. Sinaliza se a Notion page tem ao menos
+  // 1 file no campo de mídia vertical/horizontal — o cron sweep
+  // (publishScheduled) atualiza esses flags a cada 5min. Não guardamos
+  // a URL aqui porque URLs do Notion expiram em ~1h; o /api/productions/
+  // [id]/deliverable resolve URL fresca on-demand via Notion API.
+  hasVerticalMedia: boolean("has_vertical_media").notNull().default(false),
+  hasHorizontalMedia: boolean("has_horizontal_media").notNull().default(false),
+  deliverableSyncedAt: timestamp("deliverable_synced_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (t) => ({
@@ -442,7 +450,7 @@ export const production = pgTable("production", {
   byClientStatus: index("production_client_status_idx").on(t.clientId, t.status),
 }))
 
-// ─── Production comment ──────────────────────────────────
+// ─── Production comment ─────────────────────────────────
 // Agency-side thread on a production. End-client comments come in via
 // /approve/[token] when they request changes — those rows have authorUserId
 // NULL and authorName populated from the approval token's contact name
@@ -462,7 +470,7 @@ export const productionComment = pgTable("production_comment", {
   byProduction: index("production_comment_production_idx").on(t.productionId, t.createdAt),
 }))
 
-// ─── Approver (Wave 1, May 2026) ──────────────────────────────
+// ─── Approver (Wave 1, May 2026) ──────────────────────────
 // Reusable contact-with-magic-link entity, scoped to the agency owner
 // (NOT per-client) so the same person (e.g., Marketing Director who
 // approves for Brand A and Brand B) has ONE magic token URL listing all
@@ -490,7 +498,7 @@ export const approver = pgTable("approver", {
   byUser: index("approver_user_idx").on(t.userId),
 }))
 
-// ─── Production ↔ Approver (chain) ────────────────────────────
+// ─── Production ↔ Approver (chain) ───────────────────────────
 // Ordered list of approvers for a production. stepOrder = 1 is dispatched
 // first; advanceChain creates the next stepOrder's approvalLink only after
 // the current one approves.
