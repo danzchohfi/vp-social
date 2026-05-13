@@ -3,7 +3,7 @@ import { useState } from "react"
 import Link from "next/link"
 import { usePathname, useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { Activity, CalendarClock, Film, Grid3x3, Instagram, LayoutDashboard, LogOut, Settings, UserCheck, X } from "lucide-react"
+import { Activity, CalendarClock, Film, Instagram, LayoutDashboard, LogOut, Settings, UserCheck, X } from "lucide-react"
 import { signOut, useSession } from "@/lib/auth-client"
 import { ClientSwitcher } from "./client-switcher"
 
@@ -16,14 +16,14 @@ const tabBar = [
   { href: "/settings", label: "Config", icon: Settings },
 ]
 
-// Full nav — surfaced in the drawer so mobile users can reach Grid /
-// Produções / Aprovadores / Contas without a desktop sidebar.
+// Full nav — surfaced in the drawer so mobile users can reach Produções /
+// Aprovadores / Contas without a desktop sidebar. Preview do grid agora
+// fica embutido em /scheduled (botão na barra de modo), não no menu.
 const drawerNav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/accounts", label: "Contas", icon: Instagram },
   { href: "/scheduled", label: "Publicações", icon: CalendarClock },
   { href: "/activity", label: "Atividade", icon: Activity },
-  { href: "/grid", label: "Preview Grid IG", icon: Grid3x3 },
   { href: "/productions", label: "Produções", icon: Film },
   { href: "/approvers", label: "Aprovadores", icon: UserCheck },
   { href: "/settings", label: "Configurações", icon: Settings },
