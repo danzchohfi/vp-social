@@ -158,9 +158,12 @@ export default function ClientCalendarPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background pb-20">
+    <div className="relative min-h-screen bg-background pb-20">
+      <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[32rem] overflow-hidden">
+        <div className="absolute left-1/2 top-[-10rem] h-[40rem] w-[40rem] -translate-x-1/2 rounded-full aurora-bg" />
+      </div>
       {/* Header */}
-      <div className="border-b bg-card sticky top-0 z-20">
+      <div className="border-b bg-card/70 backdrop-blur-sm sticky top-0 z-20">
         <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-3">
           {data.client.logoUrl ? (
             <img src={data.client.logoUrl} alt="" className="h-9 w-9 rounded-lg object-cover" />

@@ -282,9 +282,12 @@ export default function ApprovalPage() {
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="relative min-h-screen bg-background">
+      <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[36rem] overflow-hidden">
+        <div className="absolute left-1/2 top-[-12rem] h-[44rem] w-[44rem] -translate-x-1/2 rounded-full aurora-bg" />
+      </div>
       {/* Header */}
-      <div className="border-b bg-card">
+      <div className="border-b bg-card/60 backdrop-blur-sm">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4">
           {data.client.logoUrl ? (
             <img src={data.client.logoUrl} alt="" className="h-10 w-10 rounded-lg object-cover" />
@@ -575,9 +578,12 @@ function ProductionScriptApprovalView({
   }
 
   return (
-    <div className="min-h-screen bg-background">
+    <div className="relative min-h-screen bg-background">
+      <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[36rem] overflow-hidden">
+        <div className="absolute left-1/2 top-[-12rem] h-[44rem] w-[44rem] -translate-x-1/2 rounded-full aurora-bg" />
+      </div>
       {/* Header */}
-      <div className="border-b bg-card">
+      <div className="border-b bg-card/60 backdrop-blur-sm">
         <div className="mx-auto flex max-w-3xl items-center gap-3 px-4 py-4">
           {data.client.logoUrl ? (
             <img src={data.client.logoUrl} alt="" className="h-10 w-10 rounded-lg object-cover" />
