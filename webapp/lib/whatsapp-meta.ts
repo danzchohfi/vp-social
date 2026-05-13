@@ -105,6 +105,7 @@ function explainMetaError(err: any): string | null {
   if (code === 132001) return "Idioma do template não bate. O template foi aprovado em outro idioma — confira metaTemplateLanguage."
   if (code === 132005) return "Número de variáveis no template não bate com os parâmetros enviados. Recreate o template com 3 variáveis ({{1}} {{2}} {{3}}) ou ajuste os parâmetros."
   if (code === 132012) return "Categoria do template mudou pra MARKETING e o destinatário não está opt-in. Cria um template UTILITY (aprovação de conteúdo qualifica)."
+  if (code === 133010) return "Número não registrado no Cloud API. Em WhatsApp Manager → Configurações → Verificação em duas etapas, defina um PIN de 6 dígitos; depois POST /v18.0/{phone_number_id}/register com {messaging_product:'whatsapp', pin:'XXXXXX'} usando o mesmo token. Só precisa fazer uma vez."
   if (code === 190) return "Token expirou ou foi revogado. Gere um novo permanent System User token em Meta Business Settings."
   if (subcode === 2018109) return "Phone Number ID não pertence à WABA do token. Confira que ambos vêm da mesma conta no Meta."
   return null
