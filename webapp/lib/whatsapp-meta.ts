@@ -105,7 +105,7 @@ function explainMetaError(err: any): string | null {
   if (code === 132001) return "Idioma do template não bate. O template foi aprovado em outro idioma — confira metaTemplateLanguage."
   if (code === 132005) return "Número de variáveis no template não bate com os parâmetros enviados. Recreate o template com 3 variáveis ({{1}} {{2}} {{3}}) ou ajuste os parâmetros."
   if (code === 132012) return "Categoria do template mudou pra MARKETING e o destinatário não está opt-in. Cria um template UTILITY (aprovação de conteúdo qualifica)."
-  if (code === 133010) return "Número não registrado no Cloud API. Em WhatsApp Manager → Configurações → Verificação em duas etapas, defina um PIN de 6 dígitos; depois POST /v18.0/{phone_number_id}/register com {messaging_product:'whatsapp', pin:'XXXXXX'} usando o mesmo token. Só precisa fazer uma vez."
+  if (code === 133010) return "Número não registrado no Cloud API. WABAs SMB direct: vai em WhatsApp Manager (business.facebook.com/wa/manage/) → seu número → Configurações → Verificação em duas etapas → liga e define PIN de 6 dígitos. WABAs Tech Provider: POST /v18.0/{phone_number_id}/register com {messaging_product:'whatsapp', pin:'XXXXXX'} (botão Registrar em /settings)."
   if (code === 190) return "Token expirou ou foi revogado. Gere um novo permanent System User token em Meta Business Settings."
   if (subcode === 2018109) return "Phone Number ID não pertence à WABA do token. Confira que ambos vêm da mesma conta no Meta."
   return null
@@ -157,6 +157,10 @@ export async function registerMetaPhone(
 
 function explainRegisterError(err: any): string | null {
   const code = err?.code
+  const msg = String(err?.message ?? "").toLowerCase()
+  if (code === 100 && (msg.includes("smb") || msg.includes("not available"))) {
+    return "Sua WABA é SMB direct (você gerencia o número diretamente, sem provedor de tecnologia). /register não se aplica — pra ativar o Cloud API, vai em WhatsApp Manager (business.facebook.com/wa/manage/) → seu número → Configurações → Verificação em duas etapas → liga e define PIN de 6 dígitos. Depois disso o envio funciona sem precisar registrar via API."
+  }
   if (code === 133005) return "PIN não bate com o 2FA já configurado. Use o PIN que foi definido quando o número foi cadastrado (ou desative + reative o 2FA no WhatsApp Manager pra redefinir)."
   if (code === 133006) return "PIN inválido — deve ter 6 dígitos numéricos."
   if (code === 133008) return "Muitas tentativas falhas. Meta bloqueou tentativas de PIN por ~12h. Espera e tenta de novo, ou redefine o 2FA no WhatsApp Manager."
