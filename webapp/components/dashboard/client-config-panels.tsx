@@ -358,6 +358,12 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
   // "test phone vs. real WABA mismatch" trap that surfaces at send time.
   const [metaDiagnosing, setMetaDiagnosing] = useState(false)
   const [metaDiagnoseResult, setMetaDiagnoseResult] = useState<any>(null)
+  // Register-Meta state: one-time Cloud API onboarding for the phone
+  // number. Sets the 2FA PIN to whatever the agency picks (first time)
+  // or asks for the existing one. Until this runs, /messages → 133010.
+  const [metaPin, setMetaPin] = useState("")
+  const [metaRegistering, setMetaRegistering] = useState(false)
+  const [metaRegisterResult, setMetaRegisterResult] = useState<any>(null)
   const [mode, setMode] = useState<"auto_manychat" | "manual_whatsapp">("auto_manychat")
   const [dispatchMode, setDispatchMode] = useState<"auto" | "manual">("auto")
   const [origDispatchMode, setOrigDispatchMode] = useState<"auto" | "manual">("auto")
@@ -535,6 +541,36 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
       setMetaDiagnoseResult({ ok: false, summary: e instanceof Error ? e.message : String(e) })
     } finally {
       setMetaDiagnosing(false)
+    }
+  }
+
+  async function registerMetaPhone() {
+    if (!/^\d{6}$/.test(metaPin.trim())) {
+      toast.error("PIN deve ter exatamente 6 dígitos")
+      return
+    }
+    if (dirty) {
+      toast.error("Salve o token e Phone Number ID primeiro")
+      return
+    }
+    setMetaRegistering(true)
+    setMetaRegisterResult(null)
+    try {
+      const res = await fetch(`/api/clients/${clientId}/meta-register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: metaPin.trim() }),
+      })
+      const data = await res.json()
+      setMetaRegisterResult(data)
+      if (data.ok) {
+        toast.success("Número registrado no Cloud API ✓")
+        setMetaPin("")
+      }
+    } catch (e) {
+      setMetaRegisterResult({ ok: false, reason: e instanceof Error ? e.message : String(e) })
+    } finally {
+      setMetaRegistering(false)
     }
   }
 
@@ -889,6 +925,46 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
               </div>
             )}
             {metaDiagnoseResult && <MetaDiagnoseResult result={metaDiagnoseResult} />}
+          </div>
+
+          <div className="space-y-1.5 rounded-md border bg-muted/20 p-3">
+            <Label className="text-sm">Registrar número no Cloud API <span className="font-normal text-muted-foreground">(uma vez por número)</span></Label>
+            <p className="text-sm text-muted-foreground">
+              Antes do primeiro envio, o número precisa de um POST <code className="font-mono">/register</code>. Escolhe um PIN de 6 dígitos (vira o 2FA da WABA — anota ele) e clica Registrar. Roda com o token + Phone Number ID já salvos. Se já registrou antes, passe o PIN existente.
+            </p>
+            <div className="flex gap-2">
+              <Input
+                inputMode="numeric"
+                pattern="\d{6}"
+                maxLength={6}
+                placeholder="123456"
+                value={metaPin}
+                onChange={(e) => { setMetaPin(e.target.value.replace(/\D/g, "").slice(0, 6)); setMetaRegisterResult(null) }}
+                className="flex-1 font-mono"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={registerMetaPhone}
+                disabled={metaRegistering || dirty || !/^\d{6}$/.test(metaPin)}
+                title={dirty ? "Salve antes de registrar" : "POST /v18.0/{phone_number_id}/register"}
+              >
+                {metaRegistering ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : null}
+                Registrar
+              </Button>
+            </div>
+            {metaRegisterResult && (
+              <div className={cn(
+                "rounded border px-2 py-1.5 text-sm",
+                metaRegisterResult.ok
+                  ? "border-success/30 bg-success/10 text-success"
+                  : "border-destructive/30 bg-destructive/10 text-destructive"
+              )}>
+                {metaRegisterResult.ok
+                  ? <>✓ Número registrado no Cloud API — pode testar &quot;Enviar pra mim&quot; agora.</>
+                  : <>Falhou: {metaRegisterResult.reason}</>}
+              </div>
+            )}
           </div>
 
           <div className="grid gap-3 sm:grid-cols-[2fr_1fr]">

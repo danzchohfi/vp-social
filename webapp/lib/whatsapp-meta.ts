@@ -111,6 +111,60 @@ function explainMetaError(err: any): string | null {
   return null
 }
 
+// One-time onboarding: registers a phone with Cloud API. Required after
+// the number is added/verified on the WABA but before /messages works.
+// First call sets the 2FA PIN to whatever the caller passes; subsequent
+// calls (e.g. re-register after a long pause) must pass the existing
+// PIN. Idempotent on Meta's side — re-calling with the right PIN
+// returns success.
+//
+// PIN must be 6 digits. Meta also blocks brute-force: too many wrong
+// PIN attempts lock the number for ~12h (code 133008).
+export async function registerMetaPhone(
+  token: string,
+  phoneNumberId: string,
+  pin: string,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  if (!token || !phoneNumberId) return { ok: false, reason: "token ou phone_number_id vazios" }
+  if (!/^\d{6}$/.test(pin)) return { ok: false, reason: "PIN deve ter 6 dígitos numéricos" }
+  try {
+    const res = await fetchWithRetry(`${META_BASE}/${phoneNumberId}/register`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ messaging_product: "whatsapp", pin }),
+      logContext: { platform: "meta_wa", op: "register_phone", phoneNumberId },
+      maxRetries: 0,
+      timeoutMs: 15_000,
+    })
+    const data: any = await res.json().catch(() => null)
+    if (!res.ok) {
+      const err = data?.error
+      const msg = err?.message ?? `HTTP ${res.status}`
+      const codeStr = err?.code ? ` [code ${err.code}]` : ""
+      const hint = explainRegisterError(err)
+      return { ok: false, reason: `Meta API: ${msg}${codeStr}.${hint ? ` ${hint}` : ""}` }
+    }
+    // Meta returns { success: true } on register success.
+    if (data?.success === true) return { ok: true }
+    return { ok: false, reason: `Resposta inesperada: ${JSON.stringify(data)}` }
+  } catch (e) {
+    return { ok: false, reason: e instanceof Error ? e.message : String(e) }
+  }
+}
+
+function explainRegisterError(err: any): string | null {
+  const code = err?.code
+  if (code === 133005) return "PIN não bate com o 2FA já configurado. Use o PIN que foi definido quando o número foi cadastrado (ou desative + reative o 2FA no WhatsApp Manager pra redefinir)."
+  if (code === 133006) return "PIN inválido — deve ter 6 dígitos numéricos."
+  if (code === 133008) return "Muitas tentativas falhas. Meta bloqueou tentativas de PIN por ~12h. Espera e tenta de novo, ou redefine o 2FA no WhatsApp Manager."
+  if (code === 133011) return "Número precisa de OTP de verificação primeiro (registrar em Cloud API só rola depois que o número está confirmado na WABA)."
+  if (code === 190) return "Token expirou ou foi revogado."
+  return null
+}
+
 // Validates the credentials without sending a message — calls
 // GET /v18.0/{phoneNumberId} which returns the WABA's metadata. Used
 // by the /settings "Testar credenciais" button before persisting.
@@ -260,13 +314,16 @@ export async function diagnoseMeta(token: string, phoneNumberId: string): Promis
     result.token.reason = e instanceof Error ? e.message : String(e)
   }
 
-  // 2) Phone introspection. We need to know which WABA owns this phone.
-  // The `whatsapp_business_account` edge returns it. Meta's test number
-  // has a fixed WABA ID range, but we detect it by display_phone_number
-  // pattern (+1 555 …) AND a couple of WABA IDs Meta uses for the
-  // sandbox. The reliable signal is: WABA owned by the app vs. by the BM.
+  // 2) Phone introspection. The `whatsapp_business_account` reverse
+  // edge on phone_number was deprecated in newer Graph versions
+  // (returns code 100 "nonexisting field" on v18+). Instead:
+  //   a) get phone basics directly,
+  //   b) for each WABA the token can act on (from granular_scopes),
+  //      list its phone_numbers and check if ours is in there.
+  // Bonus: this also catches "token has WABA X but phone belongs to
+  // WABA Y" without trusting a reverse edge that Meta moved.
   try {
-    const url = `${META_BASE}/${encodeURIComponent(phoneNumberId)}?fields=id,display_phone_number,verified_name,whatsapp_business_account{id,name}`
+    const url = `${META_BASE}/${encodeURIComponent(phoneNumberId)}?fields=id,display_phone_number,verified_name`
     const res = await fetchWithRetry(url, {
       method: "GET",
       headers: { Authorization: `Bearer ${token}` },
@@ -281,27 +338,57 @@ export async function diagnoseMeta(token: string, phoneNumberId: string): Promis
     } else {
       result.phone.displayPhoneNumber = data?.display_phone_number ?? null
       result.phone.verifiedName = data?.verified_name ?? null
-      result.phone.wabaId = data?.whatsapp_business_account?.id
-        ? String(data.whatsapp_business_account.id)
-        : null
-      // Meta's free test number is always +1 555 016 4447. Heuristic: any
-      // display number starting with "+1 555" coming from this Cloud
-      // API context is the test sandbox. Good enough for the warning.
       const display = (result.phone.displayPhoneNumber ?? "").replace(/\s+/g, "")
       result.phone.isMetaTestNumber = display.startsWith("+1555")
-      result.phone.ok = !!result.phone.wabaId
-      if (!result.phone.wabaId) result.phone.reason = "phone_number_id não retornou WABA — Meta pode tê-lo descontinuado"
+      result.phone.ok = !!result.phone.displayPhoneNumber
+      if (!result.phone.displayPhoneNumber) result.phone.reason = "phone_number_id sem dados — confira o ID"
     }
   } catch (e) {
     result.phone.reason = e instanceof Error ? e.message : String(e)
   }
 
-  // 3) Cross-check: phone's WABA must be in the token's messaging targets.
-  if (result.token.ok && result.phone.ok && result.phone.wabaId) {
+  // 2b) Discover phone's WABA by listing phone_numbers of each WABA
+  // the token can reach. Only worth attempting when token has
+  // messaging WABAs (otherwise the cross-check below already fails on
+  // empty targets). Tolerates per-WABA errors — one bad WABA shouldn't
+  // hide info from others.
+  if (result.phone.ok && result.token.messagingTargetWabaIds.length > 0) {
+    for (const wabaId of result.token.messagingTargetWabaIds) {
+      try {
+        const url = `${META_BASE}/${encodeURIComponent(wabaId)}/phone_numbers?fields=id,display_phone_number&limit=50`
+        const res = await fetchWithRetry(url, {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+          logContext: { platform: "meta_wa", op: "list_waba_phones", wabaId },
+          maxRetries: 0,
+          timeoutMs: 10_000,
+        })
+        const data: any = await res.json().catch(() => null)
+        if (!res.ok) continue
+        const phones: any[] = Array.isArray(data?.data) ? data.data : []
+        if (phones.some((p) => String(p?.id) === phoneNumberId)) {
+          result.phone.wabaId = wabaId
+          break
+        }
+      } catch {
+        // ignore — next WABA
+      }
+    }
+  }
+
+  // 3) Cross-check. Three buckets:
+  //   - Token has 0 messaging WABAs → primary failure mode (the
+  //     token either wasn't bound to any WABA at generation time, or
+  //     is a Facebook Login user token with the scope but no asset).
+  //   - We FOUND phone inside a token's WABA → match (wabaId got set
+  //     by the discovery loop in 2b).
+  //   - Token has WABAs but phone wasn't in any of them → real
+  //     mismatch (most often the "test phone / real WABA" trap).
+  if (result.token.ok && result.phone.ok) {
     if (result.token.messagingTargetWabaIds.length === 0) {
       result.match.ok = false
-      result.match.reason = "Token tem o scope whatsapp_business_messaging mas NENHUMA WABA atribuída. Em Business Settings → Usuários do sistema → seu System User → Atribuir ativos → Contas do WhatsApp, marque a WABA com 'Enviar mensagens' e gere um NOVO token."
-    } else if (result.token.messagingTargetWabaIds.includes(result.phone.wabaId)) {
+      result.match.reason = "Token tem o scope whatsapp_business_messaging mas NENHUMA WABA atribuída a esse scope. Esse é o motivo do envio falhar — Meta não sabe em nome de qual WABA mandar. Em Business Settings → Usuários do sistema → seu System User → Atribuir ativos → Contas do WhatsApp, marque a WABA com 'Enviar mensagens' e gere um NOVO token (System User, expiração Nunca)."
+    } else if (result.phone.wabaId && result.token.messagingTargetWabaIds.includes(result.phone.wabaId)) {
       result.match.ok = true
       result.match.reason = `Phone Number ID pertence à WABA ${result.phone.wabaId}, que está nos assets do token.`
     } else {
@@ -309,7 +396,7 @@ export async function diagnoseMeta(token: string, phoneNumberId: string): Promis
       const testHint = result.phone.isMetaTestNumber
         ? " — esse Phone Number ID é do NÚMERO DE TESTE da Meta (+1 555…), que pertence a uma WABA que a Meta administra, não a sua. Troque para o Phone Number ID do seu número real em Meta App → WhatsApp → Configuração da API → dropdown 'De'."
         : ""
-      result.match.reason = `Phone Number ID pertence à WABA ${result.phone.wabaId}, mas o token só pode enviar pelas WABAs ${result.token.messagingTargetWabaIds.join(", ")}.${testHint}`
+      result.match.reason = `Phone Number ID NÃO está em nenhuma das WABAs do token (${result.token.messagingTargetWabaIds.join(", ")}).${testHint}`
     }
   } else {
     result.match.ok = null
