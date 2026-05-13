@@ -406,28 +406,32 @@ export default async function DashboardPage() {
   const statSubtitle = isAgency ? "agregado de todos os clientes" : "total deste cliente"
 
   return (
-    <div className="p-8">
-      <div className="mb-8 flex items-center justify-between">
-        <div>
+    <div className="p-4 sm:p-8">
+      <div className="mb-8 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0">
           <h1 className="text-3xl tracking-tight sm:text-4xl">Dashboard</h1>
-          <p className="text-muted-foreground flex items-center gap-2">
+          <p className="text-muted-foreground flex flex-wrap items-center gap-x-2 gap-y-0.5">
             {isAgency ? (
-              <>
+              <span className="inline-flex items-center gap-1.5">
                 <LayoutGrid className="h-3.5 w-3.5 text-primary" />
                 <span className="font-medium text-primary">{headerLabel}</span>
-              </>
+              </span>
             ) : (
               <span>{headerLabel}</span>
             )}
-            <span>·</span>
+            <span aria-hidden="true">·</span>
             <span>Olá, {session!.user.name} 👋</span>
           </p>
         </div>
-        {!isAgency && isReady && <PublishButton />}
+        {!isAgency && isReady && (
+          <div className="shrink-0">
+            <PublishButton />
+          </div>
+        )}
       </div>
 
       {hasHealthIssues && (
-        <div className="mb-8 rounded-xl border border-warning/40 bg-warning/5 p-5">
+        <div className="mb-8 rounded-xl border border-warning/40 bg-warning/5 p-4 sm:p-5">
           <div className="mb-3 flex items-center gap-2">
             <AlertTriangle className="h-4 w-4 text-warning" />
             <p className="text-base font-semibold">Precisa de atenção</p>
@@ -445,13 +449,27 @@ export default async function DashboardPage() {
                       <li key={f.id} className="flex items-start gap-2 text-base">
                         <XCircle className="mt-0.5 h-3.5 w-3.5 shrink-0 text-destructive" />
                         <div className="min-w-0 flex-1">
-                          <span className="truncate">{f.title || "Post sem título"}</span>
-                          {scope.mode === "all" && owning && (
-                            <span className="ml-1.5 text-sm text-muted-foreground">· {owning.name}</span>
-                          )}
-                          <span className="ml-1.5 text-sm text-muted-foreground">· {f.platform}</span>
+                          {/* Title + meta on one row that wraps; using
+                              block + line-clamp keeps it tidy on mobile
+                              where post titles can be long ("Jaecoo 7
+                              2027 ganha versão de entrada Elite por…").
+                              `truncate` on inline <span> doesn't apply,
+                              so we wrap with line-clamp-1 instead. */}
+                          <p className="line-clamp-1 break-words">
+                            {f.title || "Post sem título"}
+                            {scope.mode === "all" && owning && (
+                              <span className="ml-1.5 text-sm text-muted-foreground">· {owning.name}</span>
+                            )}
+                            <span className="ml-1.5 text-sm text-muted-foreground">· {f.platform}</span>
+                          </p>
                           {f.error && (
-                            <p className="mt-0.5 text-sm text-destructive/80 truncate font-mono">{f.error}</p>
+                            // line-clamp + break-all so long error
+                            // strings (Meta IDs, stack traces) stay
+                            // bounded on mobile instead of pushing the
+                            // arrow icon off-screen.
+                            <p className="mt-0.5 line-clamp-2 break-all font-mono text-sm text-destructive/80">
+                              {f.error}
+                            </p>
                           )}
                         </div>
                         <Link
@@ -480,9 +498,9 @@ export default async function DashboardPage() {
                     const last = lastByClient.get(c.id)
                     const isActiveAlready = scope.mode === "single" && scope.client.id === c.id
                     return (
-                      <li key={c.id} className="flex items-center gap-2 text-base">
+                      <li key={c.id} className="flex flex-wrap items-center gap-x-2 gap-y-1 text-base">
                         <MoonStar className="h-3.5 w-3.5 shrink-0 text-muted-foreground" />
-                        <span>{c.name}</span>
+                        <span className="break-words">{c.name}</span>
                         <span className="text-sm text-muted-foreground">
                           {last ? `· última em ${last.toLocaleDateString("pt-BR")}` : "· nenhuma publicação"}
                         </span>
