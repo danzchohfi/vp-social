@@ -3,6 +3,18 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Density tokens — togglados via data-density no <html>. Comfortable é
+   default (matches o p-6 histórico). Compact reduz padding/gap pra
+   power-users que querem mais info por viewport (Linear/Notion style). */
+:root {
+  --card-padding: 1.5rem;
+  --section-gap: 2rem;
+}
+[data-density="compact"] {
+  --card-padding: 1rem;
+  --section-gap: 1.25rem;
+}
+
 /* View Transitions opt-in pra hard navigations (form submits, full reloads).
    Client-side navigations do App Router são morphadas via <ViewTransition>
    wrapper (next/view-transition, experimental flag em next.config.ts). */

@@ -46,6 +46,13 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap"
             rel="stylesheet"
           />
+          {/* Aplica preferência de densidade ANTES da hydratação pra evitar
+              flash em page load. Síncrono, ~80 bytes, sem deps. */}
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `try{var d=localStorage.getItem("vpsocial_density");if(d==="compact"||d==="comfortable")document.documentElement.dataset.density=d}catch(e){}`,
+            }}
+          />
         </head>
         <body className={`${geist.variable} ${geistMono.variable} font-[family-name:var(--font-geist)] antialiased`}>
           <NextTopLoader
