@@ -4,6 +4,7 @@ import { headers } from "next/headers"
 import { Sidebar } from "@/components/dashboard/sidebar"
 import { MobileNav } from "@/components/dashboard/mobile-nav"
 import { AuthStatusBanner } from "@/components/auth-status-banner"
+import { CommandPalette } from "@/components/dashboard/command-palette"
 
 export default async function DashboardLayout({ children }: { children: React.ReactNode }) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -17,6 +18,7 @@ export default async function DashboardLayout({ children }: { children: React.Re
         {children}
       </main>
       <MobileNav />
+      <CommandPalette />
     </div>
   )
 }

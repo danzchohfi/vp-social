@@ -2,7 +2,7 @@
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { cn } from "@/lib/utils"
-import { LayoutDashboard, Instagram, Settings, CalendarClock, LogOut, Film, UserCheck, Activity } from "lucide-react"
+import { LayoutDashboard, Instagram, Settings, CalendarClock, LogOut, Film, UserCheck, Activity, Search } from "lucide-react"
 import { signOut, useSession } from "@/lib/auth-client"
 import { useRouter } from "next/navigation"
 import { ClientSwitcher } from "@/components/dashboard/client-switcher"
@@ -42,6 +42,23 @@ export function Sidebar() {
       <div className="border-b p-3">
         <ClientSwitcher />
       </div>
+
+      {/* Botão indicando o atalho ⌘K — só ABRE a palette via click;
+          o keydown listener no CommandPalette cobre o atalho. Visual
+          discreto pra power-users descobrirem. */}
+      <button
+        type="button"
+        onClick={() => {
+          // Dispara o mesmo atalho ⌘K manualmente, pra reutilizar a
+          // mesma toggle logic do palette.
+          window.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true }))
+        }}
+        className="mx-3 mt-3 flex items-center gap-2 rounded-md border bg-background px-2.5 py-1.5 text-sm text-muted-foreground transition-colors hover:bg-accent hover:text-accent-foreground"
+      >
+        <Search className="h-3.5 w-3.5" />
+        <span className="flex-1 text-left">Buscar...</span>
+        <kbd className="rounded border bg-muted/50 px-1 font-mono text-[11px]">⌘K</kbd>
+      </button>
 
       <nav className="flex-1 space-y-1 p-3">
         {nav.map((item) => {
