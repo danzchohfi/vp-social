@@ -42,7 +42,7 @@ export function AgencyClientCard({
       onClick={handle}
       disabled={loading}
       className={cn(
-        "flex w-full flex-col gap-3 rounded-xl border bg-card p-4 text-left transition-colors hover:bg-muted/40 disabled:opacity-60",
+        "flex w-full flex-col gap-3 rounded-xl border bg-card p-4 text-left transition-colors hover:border-primary/30 hover:bg-accent/60 disabled:opacity-60",
         inactive && "border-warning/40",
       )}
     >

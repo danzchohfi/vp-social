@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next"
 import { Geist, Geist_Mono } from "next/font/google"
 import { Toaster } from "sonner"
+import NextTopLoader from "nextjs-toploader"
 import "./globals.css"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
@@ -45,6 +46,12 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         />
       </head>
       <body className={`${geist.variable} ${geistMono.variable} font-[family-name:var(--font-geist)] antialiased`}>
+        <NextTopLoader
+          color="oklch(0.72 0.18 285)"
+          height={3}
+          showSpinner={false}
+          shadow="0 0 10px oklch(0.72 0.18 285 / 0.6), 0 0 5px oklch(0.72 0.18 285 / 0.6)"
+        />
         {children}
         <Toaster richColors position="top-right" />
       </body>

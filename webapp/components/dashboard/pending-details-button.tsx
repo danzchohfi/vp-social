@@ -173,7 +173,7 @@ export function PendingDetailsButton({ clientId }: { clientId: string }) {
 
           {data?.awaitingByConnection?.length > 0 && (
             <details className="mt-4 text-sm">
-              <summary className="cursor-pointer font-medium text-muted-foreground">
+              <summary className="cursor-pointer rounded font-medium text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground">
                 {data.awaitingByConnection.length} conexão(ões) Notion deste cliente
               </summary>
               <ul className="mt-2 space-y-1 text-[13px]">

@@ -197,7 +197,7 @@ export function SetupGuide({
 
                   {step.commonErrors && step.commonErrors.length > 0 && (
                     <details className="mt-2 text-[12px]">
-                      <summary className="cursor-pointer font-medium text-muted-foreground hover:text-foreground">
+                      <summary className="cursor-pointer rounded px-1 py-0.5 font-medium text-muted-foreground transition-colors hover:bg-accent/30 hover:text-foreground">
                         ⚠ Erros comuns ({step.commonErrors.length})
                       </summary>
                       <ul className="mt-1 space-y-1.5 pl-2">
