@@ -4,7 +4,7 @@ const TOKEN_URL = "https://oauth2.googleapis.com/token"
 const YOUTUBE_API = "https://www.googleapis.com/youtube/v3"
 const UPLOAD_API = "https://www.googleapis.com/upload/youtube/v3/videos"
 
-async function refreshAccessToken(refreshToken: string): Promise<string> {
+export async function refreshAccessToken(refreshToken: string): Promise<string> {
   const res = await fetchWithRetry(TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },

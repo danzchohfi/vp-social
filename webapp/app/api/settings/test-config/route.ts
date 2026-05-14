@@ -9,6 +9,7 @@ import { getActiveClientId } from "@/lib/active-client"
 import { validateMetaCreds } from "@/lib/whatsapp-meta"
 import { userWhatsappConfig } from "@/lib/db/schema"
 import { Client } from "@notionhq/client"
+import { checkInstagram, checkFacebook, checkLinkedIn } from "@/lib/integration-health"
 
 type CheckResult = {
   id: string
@@ -16,47 +17,6 @@ type CheckResult = {
   status: "ok" | "warn" | "error"
   message: string
   details?: string
-}
-
-// Probe a single integration credential. The error path is per-platform; we
-// don't need full SDKs, just a "GET /me" type call with the saved token.
-async function checkInstagram(token: string, igAccountId: string): Promise<{ ok: boolean; message: string }> {
-  if (!igAccountId) return { ok: false, message: "instagramBusinessAccountId vazio" }
-  try {
-    const res = await fetch(`https://graph.facebook.com/v21.0/${igAccountId}?fields=username,followers_count&access_token=${token}`)
-    const data = await res.json()
-    if (!res.ok || data.error) return { ok: false, message: data.error?.message ?? `HTTP ${res.status}` }
-    return { ok: true, message: data.username ? `@${data.username}` : "OK" }
-  } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : "Network error" }
-  }
-}
-
-async function checkFacebook(token: string, pageId: string): Promise<{ ok: boolean; message: string }> {
-  try {
-    const res = await fetch(`https://graph.facebook.com/v21.0/${pageId}?fields=name&access_token=${token}`)
-    const data = await res.json()
-    if (!res.ok || data.error) return { ok: false, message: data.error?.message ?? `HTTP ${res.status}` }
-    return { ok: true, message: data.name ?? "OK" }
-  } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : "Network error" }
-  }
-}
-
-async function checkLinkedIn(token: string): Promise<{ ok: boolean; message: string }> {
-  try {
-    const res = await fetch("https://api.linkedin.com/v2/me", {
-      headers: { Authorization: `Bearer ${token}` },
-    })
-    if (!res.ok) {
-      const text = await res.text()
-      return { ok: false, message: `HTTP ${res.status}: ${text.slice(0, 100)}` }
-    }
-    const data = await res.json()
-    return { ok: true, message: data.localizedFirstName ? `${data.localizedFirstName} ${data.localizedLastName ?? ""}`.trim() : "OK" }
-  } catch (e) {
-    return { ok: false, message: e instanceof Error ? e.message : "Network error" }
-  }
 }
 
 export async function GET() {

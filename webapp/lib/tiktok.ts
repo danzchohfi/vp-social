@@ -4,7 +4,7 @@ import { fetchWithRetry } from "./fetch-with-retry"
 const TIKTOK_API = "https://open.tiktokapis.com/v2"
 const TOKEN_URL = "https://open.tiktokapis.com/v2/oauth/token/"
 
-async function refreshAccessToken(refreshToken: string): Promise<string> {
+export async function refreshAccessToken(refreshToken: string): Promise<string> {
   const res = await fetchWithRetry(TOKEN_URL, {
     method: "POST",
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
