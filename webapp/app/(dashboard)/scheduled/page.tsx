@@ -6,7 +6,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { CalendarClock, Loader2, RefreshCw, Zap, Clock, CheckCircle2, AlertTriangle, ChevronLeft, ChevronRight, List, Calendar as CalendarIcon, X, XCircle, ExternalLink, Eye, Play, MessageCircle, Copy, ThumbsUp, ThumbsDown, MessageSquareWarning } from "lucide-react"
 import Link from "next/link"
-import { cn } from "@/lib/utils"
+import { cn, firstName } from "@/lib/utils"
 import { toast } from "sonner"
 import { PostRowSkeleton } from "@/components/ui/skeleton"
 import { EmptyState } from "@/components/ui/empty-state"
@@ -1388,8 +1388,12 @@ function ApprovalBanner({
     const phoneDigits = approval.contactPhone.replace(/\D/g, "")
     const tpl = approval.manualWaTemplate?.trim() ||
       `Olá {{contact_name}}! Link pra você aprovar o post "{{post_title}}":\n{{approval_url}}`
+    // {{contact_name}} = primeiro nome ("Daniel"). Pra nome completo
+    // use {{contact_full_name}}. Mensagem direta pro cliente lê melhor
+    // com primeiro nome; audit/email mantém completo (formal).
     const msg = tpl
-      .replace(/\{\{\s*contact_name\s*\}\}/g, approval.contactName || "")
+      .replace(/\{\{\s*contact_name\s*\}\}/g, firstName(approval.contactName))
+      .replace(/\{\{\s*contact_full_name\s*\}\}/g, approval.contactName || "")
       .replace(/\{\{\s*post_title\s*\}\}/g, post.title || "")
       .replace(/\{\{\s*approval_url\s*\}\}/g, approval.approvalUrl || "")
       .replace(/\{\{\s*client_name\s*\}\}/g, approval.ownerClientName || "")

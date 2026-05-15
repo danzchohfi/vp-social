@@ -7,6 +7,7 @@ import { eq } from "drizzle-orm"
 import { db } from "./db"
 import { userWhatsappConfig } from "./db/schema"
 import { sendApprovalRequestMeta } from "./whatsapp-meta"
+import { firstName } from "./utils"
 
 export type UserWhatsappConfig = {
   metaWaToken: string | null
@@ -41,9 +42,11 @@ export async function dispatchApprovalRequest(args: DispatchArgs): Promise<Dispa
     templateName: metaTemplateName,
     templateLanguage: metaTemplateLanguage,
     phone: args.phone,
-    // Template params by position: {{1}} contactName, {{2}} postTitle,
-    // {{3}} approvalUrl. Empty contactName renders blank without error.
-    templateParams: [args.contactName ?? "", args.postTitle, args.approvalUrl],
+    // Template params by position: {{1}} primeiro nome, {{2}} postTitle,
+    // {{3}} approvalUrl. firstName() pega só "Daniel" de "Daniel Zollinger
+    // Chohfi" — mensagem direta ao cliente lê melhor sem nome completo.
+    // Audit/email mantém nome completo.
+    templateParams: [firstName(args.contactName), args.postTitle, args.approvalUrl],
   })
   return result.ok
     ? { ok: true, messageId: result.messageId ?? null }
