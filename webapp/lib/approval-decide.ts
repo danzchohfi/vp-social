@@ -13,6 +13,7 @@ import {
   notionConnection,
   production,
   productionComment,
+  publishLog,
 } from "@/lib/db/schema"
 import { and, eq, isNull } from "drizzle-orm"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping } from "@/lib/notion"
@@ -214,6 +215,26 @@ async function applyPostDecision(
       }
     }
   } catch (e) {
+    // Falha silenciosa antes desse log era invisível: console.error só
+    // aparece nos logs do Vercel. Surfaça em /history pra agency notar
+    // (ex: campo de status renomeado, integração revogada, page deletada).
     console.error(`[decideApprovalLink] Notion side-effect failed for token ${row.token}:`, e)
+    const errorMessage = e instanceof Error ? e.message : String(e)
+    try {
+      await db.insert(publishLog).values({
+        id: generateId(),
+        userId: conn.userId,
+        clientId: row.clientId,
+        connectionId: conn.id,
+        notionPageId: row.notionPageId,
+        postTitle: row.postTitle,
+        conta: row.contactName ?? "—",
+        platform: "aprovação",
+        status: "failed",
+        error: `Falha ao ${decision === "approved" ? "aprovar" : "pedir alterações"} no Notion: ${errorMessage}`,
+      })
+    } catch (logErr) {
+      console.error(`[decideApprovalLink] also failed to write publishLog audit row:`, logErr)
+    }
   }
 }
