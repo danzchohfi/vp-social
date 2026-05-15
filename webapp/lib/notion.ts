@@ -310,6 +310,72 @@ export function createNotionClient(accessToken: string) {
       }
     },
 
+    async listComments(pageId: string): Promise<Array<{
+      id: string
+      text: string
+      createdTime: string
+      // Heurística: comentários do nosso fluxo seguem padrão "[Nome] ..."
+      // (cliente via /approve), "✓ Aprovado por ..." / "🔁 Pedido ..." (audit).
+      // Qualquer outra coisa veio digitado direto no Notion pela agency.
+      kind: "client" | "agency" | "system"
+      // Quando kind='client', nome dentro do "[...]" pra exibir no header.
+      authorLabel: string | null
+    }>> {
+      try {
+        const all: Array<any> = []
+        let cursor: string | undefined = undefined
+        do {
+          const res: any = await client.comments.list({
+            block_id: pageId,
+            start_cursor: cursor,
+            page_size: 100,
+          })
+          all.push(...res.results)
+          cursor = res.has_more ? res.next_cursor : undefined
+        } while (cursor)
+
+        return all
+          .map((c: any) => {
+            const text = (c.rich_text ?? [])
+              .map((rt: any) => rt.plain_text ?? "")
+              .join("")
+            const trimmed = text.trim()
+            let kind: "client" | "agency" | "system" = "agency"
+            let authorLabel: string | null = null
+            let displayText = trimmed
+
+            // Audit/system msgs começam com emoji marker que postSystemComment
+            // gera: "✓ Aprovado por X · ...", "🔁 Pedido alterações ...",
+            // "⏰ Aprovação automática ..." e variações.
+            if (/^[✓🔁⏰⚠✅❌]/.test(trimmed)) {
+              kind = "system"
+            } else {
+              // Padrão "[Nome] mensagem" vem do addClientComment.
+              const m = trimmed.match(/^\[([^\]]+)\]\s*([\s\S]*)$/)
+              if (m) {
+                kind = "client"
+                authorLabel = m[1].trim()
+                displayText = m[2].trim()
+              }
+              // Outros (sem prefixo) = digitado direto na sidebar do Notion.
+            }
+
+            return {
+              id: c.id,
+              text: displayText,
+              createdTime: c.created_time,
+              kind,
+              authorLabel,
+            }
+          })
+          .filter((c) => c.text.length > 0)
+          .sort((a, b) => a.createdTime.localeCompare(b.createdTime))
+      } catch (e) {
+        console.warn(`[notion.listComments] page ${pageId}: ${e instanceof Error ? e.message : e}`)
+        return []
+      }
+    },
+
     async getPostsByStatus(databaseId: string, mapping: FieldMapping, statusValue: string): Promise<NotionPost[]> {
       // Generic by-status query. Used for the approval-pending sweep
       // (statusValue = mapping.awaitingApprovalValue). Filters on the

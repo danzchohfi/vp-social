@@ -3,8 +3,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { CheckCircle2, AlertTriangle, Loader2, Clock, Building2, MessageCircle, Play, FileText, Users } from "lucide-react"
+import { CheckCircle2, AlertTriangle, Loader2, Clock, Building2, MessageCircle, FileText, Users, Send } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { ScriptEditor } from "@/components/productions/script-editor"
@@ -50,6 +49,14 @@ type ChainContext = {
   previousApprovers: Array<{ name: string; approvedAt: string | null }>
 }
 
+type CommentInfo = {
+  id: string
+  text: string
+  createdTime: string
+  kind: "client" | "agency" | "system"
+  authorLabel: string | null
+}
+
 type ApiResponse = {
   state: "ok" | "decided" | "expired"
   decision: "approved" | "changes_requested" | null
@@ -80,6 +87,10 @@ type ApiResponse = {
   post?: PostInfo | null
   production?: ProductionInfo | null
   chainContext?: ChainContext | null
+  // Thread de comentários da página do Notion (lido via listComments).
+  // Inclui audit msgs do sistema + comentários do cliente (prefixados
+  // [Nome]) + replies da agency (digitados direto no Notion sidebar).
+  comments?: CommentInfo[]
   error?: string
 }
 
@@ -126,8 +137,19 @@ export default function ApprovalPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [submitting, setSubmitting] = useState<"approved" | "changes_requested" | null>(null)
-  const [showCommentBox, setShowCommentBox] = useState(false)
+  // 3-state: null (botões de decisão visíveis), "changes" (textarea pra
+  // pedir alterações + envia decisão), "message" (textarea pra comentar
+  // sem decidir — endpoint /comment).
+  const [commentMode, setCommentMode] = useState<null | "changes" | "message">(null)
   const [comment, setComment] = useState("")
+  const [sendingMessage, setSendingMessage] = useState(false)
+
+  async function refetch() {
+    if (!token) return
+    const r = await fetch(`/api/approve/${token}`)
+    const fresh = await r.json().catch(() => null)
+    if (fresh) setData(fresh)
+  }
 
   useEffect(() => {
     if (!token) return
@@ -146,6 +168,35 @@ export default function ApprovalPage() {
       })
       .finally(() => setLoading(false))
   }, [token])
+
+  async function sendMessage() {
+    const text = comment.trim()
+    if (!text) {
+      toast.error("Escreva uma mensagem antes de enviar.")
+      return
+    }
+    setSendingMessage(true)
+    try {
+      const res = await fetch(`/api/approve/${token}/comment`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ comment: text }),
+      })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(json.error ?? "Erro ao enviar mensagem")
+      }
+      toast.success("Mensagem enviada! A agência vai responder em breve.")
+      setComment("")
+      setCommentMode(null)
+      // Refresh comments thread so cliente vê própria mensagem na conversa.
+      await refetch()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Erro")
+    } finally {
+      setSendingMessage(false)
+    }
+  }
 
   async function decide(decision: "approved" | "changes_requested") {
     if (decision === "changes_requested" && !comment.trim()) {
@@ -277,8 +328,8 @@ export default function ApprovalPage() {
         data={data}
         comment={comment}
         setComment={setComment}
-        showCommentBox={showCommentBox}
-        setShowCommentBox={setShowCommentBox}
+        showCommentBox={commentMode === "changes"}
+        setShowCommentBox={(b) => setCommentMode(b ? "changes" : null)}
         submitting={submitting}
         decide={decide}
       />
@@ -401,8 +452,17 @@ export default function ApprovalPage() {
           </CardContent>
         </Card>
 
+        {/* Conversa — thread de comentários do Notion. Mostra mesmo
+            quando vazia se o cliente abre a área "Mandar mensagem", pra
+            ele já visualizar onde sua mensagem vai aparecer. */}
+        <CommentThread
+          comments={data.comments ?? []}
+          contactName={data.contactName}
+          clientName={data.client.name}
+        />
+
         {/* Decision UI */}
-        {!showCommentBox ? (
+        {commentMode === null ? (
           <div className="space-y-3">
             <Button
               size="xl"
@@ -421,17 +481,25 @@ export default function ApprovalPage() {
               size="xl"
               variant="outline"
               className="w-full"
-              onClick={() => setShowCommentBox(true)}
+              onClick={() => setCommentMode("changes")}
               disabled={submitting !== null}
             >
               <MessageCircle className="h-5 w-5" />
               Pedir alterações
             </Button>
-            <p className="mt-4 text-center text-sm text-muted-foreground">
+            <button
+              type="button"
+              onClick={() => setCommentMode("message")}
+              disabled={submitting !== null}
+              className="block w-full pt-1 text-center text-sm font-medium text-muted-foreground underline-offset-2 hover:underline disabled:opacity-50"
+            >
+              Mandar mensagem sem decidir
+            </button>
+            <p className="mt-3 text-center text-sm text-muted-foreground">
               Aprovando, esse post vai pra fila de publicação automática.
             </p>
           </div>
-        ) : (
+        ) : commentMode === "changes" ? (
           <div className="space-y-3">
             <div className="rounded-lg border p-4 bg-card">
               <label className="text-base font-medium block mb-2">O que precisa ajustar?</label>
@@ -469,14 +537,14 @@ export default function ApprovalPage() {
                 disabled={submitting !== null}
               />
               <p className="mt-2 text-sm text-muted-foreground">
-                Esse comentário vai como mensagem pra agência no Notion.
+                Esse comentário vai como mensagem pra agência no Notion + marca o post como precisando de ajustes.
               </p>
             </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 className="flex-1"
-                onClick={() => { setShowCommentBox(false); setComment("") }}
+                onClick={() => { setCommentMode(null); setComment("") }}
                 disabled={submitting !== null}
               >
                 Cancelar
@@ -495,8 +563,132 @@ export default function ApprovalPage() {
               </Button>
             </div>
           </div>
+        ) : (
+          // commentMode === "message" — comentário sem decidir.
+          // POST /api/approve/{token}/comment; post fica pendente.
+          <div className="space-y-3">
+            <div className="rounded-lg border p-4 bg-card">
+              <label className="text-base font-medium block mb-2">Mandar uma mensagem pra agência</label>
+              <textarea
+                autoFocus
+                value={comment}
+                onChange={(e) => setComment(e.target.value)}
+                placeholder="Ex: tem como fazer uma versão mais clara? estou em dúvida sobre a chamada..."
+                rows={5}
+                className="w-full rounded-md border bg-background p-3 text-base focus:outline-none focus:ring-2 focus:ring-primary/30"
+                disabled={sendingMessage}
+              />
+              <p className="mt-2 text-sm text-muted-foreground">
+                A mensagem vai aparecer pra agência como comentário no Notion. O post fica aguardando sua aprovação.
+              </p>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => { setCommentMode(null); setComment("") }}
+                disabled={sendingMessage}
+              >
+                Cancelar
+              </Button>
+              <Button
+                className="flex-1"
+                onClick={sendMessage}
+                disabled={sendingMessage || !comment.trim()}
+              >
+                {sendingMessage ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Send className="h-4 w-4" />
+                )}
+                Enviar mensagem
+              </Button>
+            </div>
+          </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// Renders the chronological Notion-comment thread for the post. Audit
+// messages from the system (✓, 🔁, ⏰) get a subdued style; client
+// messages ([Nome]) are highlighted; agency replies (sem prefixo) ficam
+// neutral. Empty thread renders a single placeholder so the cliente sabe
+// onde a mensagem dele vai aparecer.
+function CommentThread({
+  comments,
+  contactName,
+  clientName,
+}: {
+  comments: CommentInfo[]
+  contactName: string | null
+  clientName: string
+}) {
+  if (comments.length === 0) {
+    return (
+      <div className="mb-4 rounded-lg border border-dashed bg-muted/20 px-4 py-3 text-center text-sm text-muted-foreground">
+        Nenhuma mensagem ainda. Você pode mandar uma mensagem sem decidir se quiser tirar dúvida com a agência.
+      </div>
+    )
+  }
+  return (
+    <div className="mb-4 rounded-lg border bg-card">
+      <div className="border-b px-4 py-2 text-sm font-medium uppercase tracking-wider text-muted-foreground">
+        Conversa
+      </div>
+      <ul className="divide-y">
+        {comments.map((c) => {
+          const isMe = c.kind === "client"
+            && c.authorLabel
+            && contactName
+            && c.authorLabel.toLowerCase() === contactName.toLowerCase()
+          const author = c.kind === "system"
+            ? "Sistema"
+            : c.kind === "client"
+              ? (isMe ? "Você" : (c.authorLabel ?? "Cliente"))
+              : clientName
+          return (
+            <li
+              key={c.id}
+              className={cn(
+                "px-4 py-3",
+                c.kind === "system" && "bg-muted/30",
+                isMe && "bg-primary/5",
+              )}
+            >
+              <div className="mb-1 flex items-center justify-between gap-2">
+                <span
+                  className={cn(
+                    "text-sm font-medium",
+                    c.kind === "system" && "text-muted-foreground italic",
+                    isMe && "text-primary",
+                    c.kind === "agency" && "text-foreground",
+                  )}
+                >
+                  {author}
+                </span>
+                <span className="text-xs text-muted-foreground">
+                  {new Date(c.createdTime).toLocaleString("pt-BR", {
+                    day: "2-digit",
+                    month: "2-digit",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  })}
+                </span>
+              </div>
+              <p
+                className={cn(
+                  "whitespace-pre-wrap text-base",
+                  c.kind === "system" && "text-sm text-muted-foreground",
+                )}
+              >
+                {c.text}
+              </p>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }

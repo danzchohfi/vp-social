@@ -176,6 +176,12 @@ export async function GET(
     post = null
   }
 
+  // Thread de comentários da página — alimenta a "Conversa" no /approve
+  // pra cliente ver histórico (audit msgs + replies da agency) + comentar
+  // sem precisar decidir. Soft-fails: se Notion comments quebra, página
+  // renderiza com thread vazio em vez de 500.
+  const comments = post ? await notion.listComments(row.notionPageId) : []
+
   // Count other pending approvals for this same client — drives the
   // sibling banner ("Você tem 2 outros posts pendentes"). Excludes the
   // current token + any decided/expired rows. Cheap query (per-client
@@ -222,6 +228,7 @@ export async function GET(
           notionUrl: post.notionUrl,
         }
       : null,
+    comments,
   })
 }
 
