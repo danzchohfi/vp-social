@@ -8,6 +8,7 @@ import { CheckCircle2, AlertTriangle, Loader2, Clock, Building2, MessageCircle, 
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { ScriptEditor } from "@/components/productions/script-editor"
+import { PostMockup } from "@/components/post/post-mockup"
 
 // Public approval page — opened by the client from a WhatsApp link.
 // No auth required; the URL token IS the auth. After deciding, redirects
@@ -374,10 +375,11 @@ export default function ApprovalPage() {
             <p className="text-sm text-muted-foreground">@{post.conta}</p>
           </CardHeader>
           <CardContent className="space-y-4">
-            {/* Per-platform mockups */}
-            <div className="grid gap-3 sm:grid-cols-2">
+            {/* Mockup interativo per-platform — carrossel navegável, vídeo
+                playable. Cliente vê o conteúdo em tamanho real antes de aprovar. */}
+            <div className="space-y-3">
               {post.publishTargets.map((t) => (
-                <PlatformPreview key={t.raw} target={t} post={post} />
+                <PostMockup key={t.raw} target={t} post={post} />
               ))}
             </div>
 
@@ -500,74 +502,6 @@ export default function ApprovalPage() {
 }
 
 // Per-platform mockup tile. Picks the right aspect ratio + media URL
-// based on the publish target's tipo. Uses thumbnailUrl with a play
-// overlay for video targets (avoids the broken-image issue we hit before
-// when rendering raw video URLs inside <img>).
-function PlatformPreview({ target, post }: { target: TargetCheck; post: PostInfo }) {
-  const tipo = target.tipo.toLowerCase()
-  const isVideoTarget = tipo === "reel" || tipo === "story" || tipo === "youtube short" || tipo === "youtube"
-
-  const aspect = tipo === "reel" || tipo === "story" || tipo === "youtube short"
-    ? "aspect-[9/16]"
-    : tipo === "youtube"
-      ? "aspect-video"
-      : "aspect-square"
-
-  let mediaUrl: string | null = null
-  let mediaKind: "image" | "video" = "image"
-
-  if (isVideoTarget) {
-    if (post.thumbnailUrl) {
-      mediaUrl = post.thumbnailUrl
-      mediaKind = "image"
-    } else {
-      const url = tipo === "youtube" ? post.horizontalUrls?.[0] : post.verticalUrls?.[0]
-      if (url) {
-        mediaUrl = url
-        mediaKind = "video"
-      }
-    }
-  } else {
-    mediaUrl = post.feedImageUrls?.[0] ?? post.thumbnailUrl ?? post.verticalUrls?.[0] ?? null
-    mediaKind = "image"
-  }
-
-  return (
-    <div className="rounded-lg border bg-card overflow-hidden">
-      <div className="border-b px-3 py-2">
-        <Badge className={cn("text-[12px]", platformClass(target.platform))}>{target.raw}</Badge>
-      </div>
-      <div className={cn("relative bg-muted", aspect)}>
-        {mediaKind === "image" && mediaUrl && (
-          <img src={mediaUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-        )}
-        {mediaKind === "video" && mediaUrl && (
-          <video
-            src={mediaUrl}
-            className="absolute inset-0 h-full w-full object-cover"
-            muted
-            playsInline
-            preload="metadata"
-          />
-        )}
-        {mediaUrl && isVideoTarget && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="rounded-full bg-black/50 p-3">
-              <Play className="h-6 w-6 text-white" fill="white" />
-            </div>
-          </div>
-        )}
-        {!mediaUrl && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
-            <AlertTriangle className="h-6 w-6 mb-1" />
-            <span className="text-sm">Sem mídia</span>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
 // ─── Production-script approval view ─────────────────────────────
 // Mobile-first script reader with chain context up top + read-only TipTap
 // body + same approve/changes-requested UI as the post view.

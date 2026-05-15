@@ -7,6 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { CheckCircle2, AlertTriangle, Loader2, Clock, Building2, MessageCircle, ChevronLeft, ChevronRight, ExternalLink, Play, X } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
+import { PostMockup } from "@/components/post/post-mockup"
 
 // Public client-facing calendar. Client opens this from a permanent
 // WhatsApp link the agency shared once. Token is on the URL. Three
@@ -643,7 +644,7 @@ function ApprovalDialog({
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-6" onClick={onClose}>
-      <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-t-xl border bg-background p-4 sm:rounded-xl sm:p-6" onClick={(e) => e.stopPropagation()}>
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-t-xl border bg-background p-4 sm:rounded-xl sm:p-6" onClick={(e) => e.stopPropagation()}>
         <div className="mb-4 flex items-start justify-between gap-3">
           <div className="min-w-0">
             <p className="text-sm uppercase tracking-wider text-muted-foreground">Aprovação</p>
@@ -655,12 +656,21 @@ function ApprovalDialog({
           </Button>
         </div>
 
-        {/* Per-platform mockups */}
-        <div className="grid gap-3 sm:grid-cols-2 mb-4">
-          {post.publishTargets.map((t) => (
-            <DialogPlatformPreview key={t.raw} target={t} post={post} />
-          ))}
-        </div>
+        {/* Mockup interativo per-platform — carrossel navegável, vídeo
+            playable, feed com imagem em tamanho real. Cliente avalia o
+            conteúdo na forma final antes de aprovar. */}
+        {post.publishTargets.length > 0 ? (
+          <div className="mb-4 space-y-3">
+            {post.publishTargets.map((t) => (
+              <PostMockup key={t.raw} target={t} post={post} />
+            ))}
+          </div>
+        ) : (
+          <div className="mb-4 rounded-lg border border-warning/30 bg-warning/5 p-4 text-center">
+            <AlertTriangle className="mx-auto mb-2 h-6 w-6 text-warning" />
+            <p className="text-sm text-warning">Campo &quot;Publicar em&quot; vazio no Notion — sem plataformas pra prever.</p>
+          </div>
+        )}
 
         {/* Caption */}
         {post.fullCaption && (
@@ -725,62 +735,6 @@ function ApprovalDialog({
                 Enviar comentário
               </Button>
             </div>
-          </div>
-        )}
-      </div>
-    </div>
-  )
-}
-
-function DialogPlatformPreview({ target, post }: { target: TargetCheck; post: SlimPost }) {
-  const tipo = target.tipo.toLowerCase()
-  const isVideoTarget = tipo === "reel" || tipo === "story" || tipo === "youtube short" || tipo === "youtube"
-  const aspect = tipo === "reel" || tipo === "story" || tipo === "youtube short"
-    ? "aspect-[9/16]"
-    : tipo === "youtube"
-      ? "aspect-video"
-      : "aspect-square"
-
-  let mediaUrl: string | null = null
-  let mediaKind: "image" | "video" = "image"
-
-  if (isVideoTarget) {
-    if (post.thumbnailUrl) {
-      mediaUrl = post.thumbnailUrl
-    } else {
-      const url = tipo === "youtube" ? post.horizontalUrls?.[0] : post.verticalUrls?.[0]
-      if (url) {
-        mediaUrl = url
-        mediaKind = "video"
-      }
-    }
-  } else {
-    mediaUrl = post.feedImageUrls?.[0] ?? post.thumbnailUrl ?? post.verticalUrls?.[0] ?? null
-  }
-
-  return (
-    <div className="rounded-lg border bg-card overflow-hidden">
-      <div className="border-b px-3 py-2">
-        <Badge className={cn("text-[12px]", platformClass(target.platform))}>{target.raw}</Badge>
-      </div>
-      <div className={cn("relative bg-muted", aspect)}>
-        {mediaKind === "image" && mediaUrl && (
-          <img src={mediaUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-        )}
-        {mediaKind === "video" && mediaUrl && (
-          <video src={mediaUrl} className="absolute inset-0 h-full w-full object-cover" muted playsInline preload="metadata" />
-        )}
-        {mediaUrl && isVideoTarget && (
-          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-            <div className="rounded-full bg-black/50 p-3">
-              <Play className="h-6 w-6 text-white" fill="white" />
-            </div>
-          </div>
-        )}
-        {!mediaUrl && (
-          <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
-            <AlertTriangle className="h-6 w-6 mb-1" />
-            <span className="text-sm">Sem mídia</span>
           </div>
         )}
       </div>
