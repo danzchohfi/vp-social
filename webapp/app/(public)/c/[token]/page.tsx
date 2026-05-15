@@ -533,23 +533,46 @@ function PublishedList({ past }: { past: PastPost[] }) {
 function PostThumb({ post }: { post: SlimPost }) {
   const tipo = post.publishTargets[0]?.tipo.toLowerCase() ?? "feed"
   const isVideo = ["reel", "story", "youtube short", "youtube"].includes(tipo)
-  const url = post.thumbnailUrl
-    ?? post.feedImageUrls?.[0]
-    ?? (isVideo ? null : post.verticalUrls?.[0] ?? null)
+
+  // Prefer imagens estáticas (thumbnail dedicada > feed). Pra video targets
+  // sem thumbnail, cai pro próprio arquivo de vídeo renderizado como
+  // <video preload="metadata"> que mostra o primeiro frame — mesmo
+  // comportamento do DialogPlatformPreview quando expandido. Antes
+  // mostrava AlertTriangle e o aprovador não via o conteúdo.
+  const imgUrl = post.thumbnailUrl ?? post.feedImageUrls?.[0] ?? null
+  const videoUrl = !imgUrl && isVideo
+    ? (tipo === "youtube" ? post.horizontalUrls?.[0] : post.verticalUrls?.[0]) ?? null
+    : null
+  // Pra non-video target sem imagem, ainda tenta vertical/horizontal como
+  // imagem (caso seja foto vertical/horizontal exportada em formato img).
+  const fallbackImg = !imgUrl && !isVideo
+    ? (post.verticalUrls?.[0] ?? post.horizontalUrls?.[0] ?? null)
+    : null
+
+  const showPlay = isVideo && (imgUrl || videoUrl)
+
   return (
     <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md bg-muted">
-      {url ? (
-        <>
-          <img src={url} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          {isVideo && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-              <Play className="h-4 w-4 text-white drop-shadow" fill="white" />
-            </div>
-          )}
-        </>
+      {imgUrl ? (
+        <img src={imgUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : videoUrl ? (
+        <video
+          src={videoUrl}
+          className="absolute inset-0 h-full w-full object-cover"
+          muted
+          playsInline
+          preload="metadata"
+        />
+      ) : fallbackImg ? (
+        <img src={fallbackImg} alt="" className="absolute inset-0 h-full w-full object-cover" />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
           <AlertTriangle className="h-4 w-4" />
+        </div>
+      )}
+      {showPlay && (
+        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+          <Play className="h-4 w-4 text-white drop-shadow" fill="white" />
         </div>
       )}
     </div>
