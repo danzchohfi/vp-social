@@ -375,7 +375,13 @@ function CarouselSlides({ post }: { post: PostMedia }) {
 
   const [idx, setIdx] = useState(0)
 
-  if (slides.length === 0) return <NoMediaPlaceholder />
+  if (slides.length === 0) {
+    // Sem imagens — talvez o post tenha só preview link (improvável pra
+    // carrossel, mas garante que algo aparece em vez de placeholder).
+    const previewUrl = pickPreviewUrl(post, "carrossel")
+    if (previewUrl) return <PreviewExternal url={previewUrl} />
+    return <NoMediaPlaceholder />
+  }
 
   const prev = () => setIdx((i) => (i - 1 + slides.length) % slides.length)
   const next = () => setIdx((i) => (i + 1) % slides.length)
@@ -479,10 +485,11 @@ function SingleImageOrVideo({ post, tipo }: { post: PostMedia; tipo: string }) {
       />
     )
   }
-  if (isVideo) {
-    const previewUrl = pickPreviewUrl(post, tipo)
-    if (previewUrl) return <PreviewExternal url={previewUrl} />
-  }
+  // Preview link (YouTube unlisted etc.) tem prioridade sobre imagem
+  // estática quando NÃO temos arquivo de vídeo — o link é uma referência
+  // melhor pro cliente avaliar do que uma thumb estática.
+  const previewUrl = pickPreviewUrl(post, tipo)
+  if (previewUrl) return <PreviewExternal url={previewUrl} />
   if (imgUrl) {
     return (
       // eslint-disable-next-line @next/next/no-img-element

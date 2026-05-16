@@ -856,9 +856,13 @@ async function parsePage(page: any, m: FieldMapping, client: Client): Promise<No
   const thumbnailUrl = getFiles(p[m.thumbnailField])[0] ?? null
 
   // Preview links (YouTube unlisted / Drive / Vimeo). Detecta por nome
-  // do campo — "Preview Vertical" / "Preview Horizontal" e variações.
+  // do campo — qualquer prop com "preview" no nome (case-insensitive).
+  // Quando "vertical" ou "horizontal" também estiver no nome, separa por
+  // orientação; senão usa o mesmo URL pros dois (preview genérico).
   // Property pode ser url, rich_text com link ou rich_text com URL no
-  // texto. extractAnyUrl cobre os 3 casos.
+  // texto. extractAnyUrl cobre os 3 casos. Como fallback final, se NÃO
+  // achamos campo "preview", scan por qualquer URL property que aponte
+  // pra YouTube/Vimeo/Drive — agências usam nomes tipo "Link do vídeo".
   let previewVerticalUrl: string | null = null
   let previewHorizontalUrl: string | null = null
   for (const [fieldName, prop] of Object.entries(p as Record<string, any>)) {
@@ -866,8 +870,27 @@ async function parsePage(page: any, m: FieldMapping, client: Client): Promise<No
     if (!lower.includes("preview")) continue
     const url = extractAnyUrl(prop)
     if (!url) continue
-    if (lower.includes("vertical") && !previewVerticalUrl) previewVerticalUrl = url
-    else if (lower.includes("horizontal") && !previewHorizontalUrl) previewHorizontalUrl = url
+    const hasVertical = lower.includes("vertical")
+    const hasHorizontal = lower.includes("horizontal")
+    if (hasVertical && !previewVerticalUrl) previewVerticalUrl = url
+    if (hasHorizontal && !previewHorizontalUrl) previewHorizontalUrl = url
+    if (!hasVertical && !hasHorizontal) {
+      // "Preview" genérico — usa pros dois quando ainda não temos
+      // específico, sem sobrescrever.
+      if (!previewVerticalUrl) previewVerticalUrl = url
+      if (!previewHorizontalUrl) previewHorizontalUrl = url
+    }
+  }
+  if (!previewVerticalUrl && !previewHorizontalUrl) {
+    for (const prop of Object.values(p as Record<string, any>)) {
+      const url = extractAnyUrl(prop)
+      if (!url) continue
+      if (/(youtube\.com|youtu\.be|vimeo\.com|drive\.google\.com)/i.test(url)) {
+        previewVerticalUrl = url
+        previewHorizontalUrl = url
+        break
+      }
+    }
   }
 
   // Defensive fallback — quando mapping não bate com os nomes reais dos
