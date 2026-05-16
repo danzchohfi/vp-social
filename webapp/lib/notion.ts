@@ -809,6 +809,31 @@ async function parsePage(page: any, m: FieldMapping, client: Client): Promise<No
     .map(parsePublishTarget)
     .filter((t): t is PublishTarget => t !== null)
 
+  // Defensive fallback — quando o "Publicar em" mapeado não bate com o
+  // nome real do campo no workspace (ou o cliente esqueceu de preencher),
+  // varre TODAS as multi_select/select props da página procurando valores
+  // reconhecíveis ("Instagram Carrossel", "YouTube Shorts" etc.). Garante
+  // que o /c/[token] consiga renderizar o mockup mesmo sem mapping ideal.
+  if (publishTargets.length === 0) {
+    for (const [fieldName, prop] of Object.entries(p as Record<string, any>)) {
+      if (fieldName === m.publicarEmField) continue
+      const values: string[] = []
+      if (prop?.type === "multi_select") {
+        for (const o of prop.multi_select ?? []) {
+          if (o?.name) values.push(o.name)
+        }
+      } else if (prop?.type === "select" && prop.select?.name) {
+        values.push(prop.select.name)
+      }
+      for (const v of values) {
+        const t = parsePublishTarget(v)
+        if (t && !publishTargets.find((x) => x.raw === t.raw)) {
+          publishTargets.push(t)
+        }
+      }
+    }
+  }
+
   // Read status from approvalStatusField when set, fall back to
   // statusField. Both can be status type or select type, so try
   // both shapes.

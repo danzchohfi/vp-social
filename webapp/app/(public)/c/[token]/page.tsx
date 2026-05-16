@@ -75,6 +75,46 @@ type CalendarData = {
   productions?: ProductionItem[]
 }
 
+// Infere um target plausível pelo título do post (+ shape da mídia
+// disponível) quando o campo "Publicar em" não tem valores reconhecíveis.
+// Sem isso, o dialog mostra só aviso sem mídia — frustrante quando o
+// cliente vê "Carrossel" no título mas nada renderiza.
+function inferFallbackTarget(post: SlimPost): TargetCheck {
+  const title = (post.title ?? "").toLowerCase()
+  const hasVertical = (post.verticalUrls?.length ?? 0) > 0
+  const hasFeed = (post.feedImageUrls?.length ?? 0) > 0
+  const hasMultipleImages =
+    (post.feedImageUrls?.length ?? 0) > 1
+    || (post.allMediaUrls?.length ?? 0) > 1
+    || (post.verticalUrls?.length ?? 0) > 1
+
+  let tipo = "feed"
+  if (/carross?el/.test(title)) tipo = "carrossel"
+  else if (/shorts?/.test(title)) tipo = "youtube short"
+  else if (/reels?/.test(title)) tipo = "reel"
+  else if (/stor(y|ies)/.test(title)) tipo = "story"
+  else if (hasMultipleImages) tipo = "carrossel"
+  else if (hasVertical && !hasFeed) tipo = "reel"
+
+  let platform = "instagram"
+  if (/shorts?/.test(title) || /youtube/.test(title)) platform = "youtube"
+  else if (/tiktok/.test(title)) platform = "tiktok"
+  else if (/linkedin/.test(title)) platform = "linkedin"
+  else if (/facebook/.test(title)) platform = "facebook"
+
+  const raw =
+    platform === "instagram" && tipo === "carrossel" ? "Instagram Carrossel" :
+    platform === "instagram" && tipo === "reel" ? "Instagram Reels" :
+    platform === "instagram" && tipo === "story" ? "Instagram Story" :
+    platform === "instagram" ? "Instagram Feed" :
+    platform === "youtube" && tipo === "youtube short" ? "YouTube Shorts" :
+    platform === "youtube" ? "YouTube" :
+    platform === "tiktok" ? "TikTok" :
+    platform === "linkedin" ? "LinkedIn" :
+    "Facebook"
+  return { raw, platform, tipo }
+}
+
 const PLATFORM_COLORS: Record<string, string> = {
   instagram: "bg-pink-100 text-pink-700",
   facebook: "bg-blue-100 text-blue-700",
@@ -682,17 +722,24 @@ function PreviewDialog({
           <div className="py-12 flex items-center justify-center">
             <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
           </div>
-        ) : post.publishTargets.length > 0 ? (
-          <div className="space-y-3">
-            {post.publishTargets.map((t) => (
-              <PostMockup key={t.raw} target={t} post={post} />
-            ))}
-          </div>
         ) : (
-          <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 text-center">
-            <AlertTriangle className="mx-auto mb-2 h-6 w-6 text-warning" />
-            <p className="text-sm text-warning">Sem plataformas configuradas pra esse post.</p>
-          </div>
+          (() => {
+            const targets = post.publishTargets.length > 0
+              ? post.publishTargets
+              : [inferFallbackTarget(post)]
+            return (
+              <div className="space-y-3">
+                {targets.map((t) => (
+                  <PostMockup key={t.raw} target={t} post={post} />
+                ))}
+                {post.publishTargets.length === 0 && (
+                  <p className="text-xs text-muted-foreground text-center px-2">
+                    Sem &quot;Publicar em&quot; no Notion — preview inferido pelo título.
+                  </p>
+                )}
+              </div>
+            )
+          })()
         )}
 
         {!loading && post.fullCaption && (
@@ -784,19 +831,25 @@ function ApprovalDialog({
 
         {/* Mockup interativo per-platform — carrossel navegável, vídeo
             playable, feed com imagem em tamanho real. Cliente avalia o
-            conteúdo na forma final antes de aprovar. */}
-        {post.publishTargets.length > 0 ? (
-          <div className="mb-4 space-y-3">
-            {post.publishTargets.map((t) => (
-              <PostMockup key={t.raw} target={t} post={post} />
-            ))}
-          </div>
-        ) : (
-          <div className="mb-4 rounded-lg border border-warning/30 bg-warning/5 p-4 text-center">
-            <AlertTriangle className="mx-auto mb-2 h-6 w-6 text-warning" />
-            <p className="text-sm text-warning">Campo &quot;Publicar em&quot; vazio no Notion — sem plataformas pra prever.</p>
-          </div>
-        )}
+            conteúdo na forma final antes de aprovar. Quando "Publicar em"
+            vier vazio, inferimos pelo título pra não bloquear o preview. */}
+        {(() => {
+          const targets = post.publishTargets.length > 0
+            ? post.publishTargets
+            : [inferFallbackTarget(post)]
+          return (
+            <div className="mb-4 space-y-3">
+              {targets.map((t) => (
+                <PostMockup key={t.raw} target={t} post={post} />
+              ))}
+              {post.publishTargets.length === 0 && (
+                <p className="text-xs text-muted-foreground text-center px-2">
+                  Sem &quot;Publicar em&quot; no Notion — preview inferido pelo título.
+                </p>
+              )}
+            </div>
+          )
+        })()}
 
         {/* Caption */}
         {post.fullCaption && (
