@@ -119,12 +119,22 @@ function PreviewExternal({ url }: { url: string }) {
   )
 }
 
+const looksLikeVideoUrl = (url: string) => /\.(mp4|mov|m4v|webm)(\?|#|$)/i.test(url)
+
 function pickMedia(post: PostMedia, isVideo: boolean, tipo: string) {
-  const videoUrl = isVideo
+  // O campo "Mídia Vertical/Horizontal" pode conter imagem OU vídeo —
+  // Stories estáticos, capas de Reel etc. Inspeciona a extensão antes de
+  // decidir. Sem isso, <video src=imagem.jpg> renderiza um player preto.
+  const rawCandidate = isVideo
     ? (tipo === "youtube" ? post.horizontalUrls?.[0] : post.verticalUrls?.[0])
     : null
+  const candidateIsVideo = rawCandidate ? looksLikeVideoUrl(rawCandidate) : false
+  const videoUrl = candidateIsVideo ? rawCandidate : null
+  const imgFromOrientationField = rawCandidate && !candidateIsVideo ? rawCandidate : null
+
   const imgUrl = post.thumbnailUrl
     ?? post.feedImageUrls?.[0]
+    ?? imgFromOrientationField
     ?? (!isVideo ? post.verticalUrls?.[0] ?? post.horizontalUrls?.[0] : null)
     ?? null
 
@@ -134,12 +144,14 @@ function pickMedia(post: PostMedia, isVideo: boolean, tipo: string) {
   const anyMedia = !videoUrl && !imgUrl && post.allMediaUrls?.length
     ? post.allMediaUrls[0]
     : null
-  const looksLikeVideo = (url: string) => /\.(mp4|mov|m4v|webm)(\?|#|$)/i.test(url)
-  const fallbackIsVideo = anyMedia ? looksLikeVideo(anyMedia) : false
+  const fallbackIsVideo = anyMedia ? looksLikeVideoUrl(anyMedia) : false
 
   return {
     videoUrl: videoUrl ?? (fallbackIsVideo ? anyMedia : null),
     imgUrl: imgUrl ?? (anyMedia && !fallbackIsVideo ? anyMedia : null),
+    // True quando a imagem que estamos renderizando é o conteúdo do post
+    // (não uma capa pra um vídeo que não temos). Drives o play overlay.
+    imgIsContent: !!(imgFromOrientationField || (anyMedia && !fallbackIsVideo) || (!isVideo && imgUrl)),
   }
 }
 
@@ -433,7 +445,7 @@ function CarouselSlides({ post }: { post: PostMedia }) {
 }
 
 function VideoOrPoster({ post, tipo }: { post: PostMedia; tipo: string }) {
-  const { videoUrl, imgUrl } = pickMedia(post, true, tipo)
+  const { videoUrl, imgUrl, imgIsContent } = pickMedia(post, true, tipo)
 
   if (videoUrl) {
     return (
@@ -453,15 +465,19 @@ function VideoOrPoster({ post, tipo }: { post: PostMedia; tipo: string }) {
   const previewUrl = pickPreviewUrl(post, tipo)
   if (previewUrl) return <PreviewExternal url={previewUrl} />
   if (imgUrl) {
+    // Play overlay só quando a imagem é uma CAPA de vídeo (thumbnail).
+    // Story estático / Reel com promo image → sem overlay enganoso.
     return (
       <>
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src={imgUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-        <div className="absolute inset-0 flex items-center justify-center">
-          <div className="rounded-full bg-black/50 p-3">
-            <span className="block h-0 w-0 border-y-[10px] border-l-[14px] border-y-transparent border-l-white" />
+        {!imgIsContent && (
+          <div className="absolute inset-0 flex items-center justify-center">
+            <div className="rounded-full bg-black/50 p-3">
+              <span className="block h-0 w-0 border-y-[10px] border-l-[14px] border-y-transparent border-l-white" />
+            </div>
           </div>
-        </div>
+        )}
       </>
     )
   }

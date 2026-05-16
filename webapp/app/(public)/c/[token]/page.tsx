@@ -689,17 +689,27 @@ function PostThumb({ post }: { post: SlimPost }) {
   // <video preload="metadata"> que mostra o primeiro frame. allMediaUrls
   // é o catch-all defensivo quando o field mapping não bate com os
   // nomes reais dos campos do workspace.
+  // Stories estáticos / Reels com imagem promocional ficam no campo
+  // "Mídia Vertical" como JPG/PNG — não como vídeo. Detecta por extensão
+  // pra renderizar <img> em vez de <video src=imagem.jpg> que dá player
+  // preto.
+  const looksLikeVideo = (url: string) => /\.(mp4|mov|m4v|webm)(\?|#|$)/i.test(url)
+  const orientationCandidate = isVideo
+    ? (tipo === "youtube" ? post.horizontalUrls?.[0] : post.verticalUrls?.[0]) ?? null
+    : null
+  const orientationIsVideo = orientationCandidate ? looksLikeVideo(orientationCandidate) : false
+
   const imgUrl = post.thumbnailUrl
     ?? post.feedImageUrls?.[0]
+    ?? (orientationCandidate && !orientationIsVideo ? orientationCandidate : null)
     ?? (!isVideo ? (post.verticalUrls?.[0] ?? post.horizontalUrls?.[0]) : null)
     ?? null
 
-  const videoUrl = !imgUrl && isVideo
-    ? (tipo === "youtube" ? post.horizontalUrls?.[0] : post.verticalUrls?.[0]) ?? null
+  const videoUrl = !imgUrl && isVideo && orientationIsVideo
+    ? orientationCandidate
     : null
 
   // Fallback final: qualquer mídia disponível em campos não-mapeados.
-  const looksLikeVideo = (url: string) => /\.(mp4|mov|m4v|webm)(\?|#|$)/i.test(url)
   const anyMedia = !imgUrl && !videoUrl ? post.allMediaUrls?.[0] ?? null : null
   const anyIsVideo = anyMedia ? looksLikeVideo(anyMedia) : false
 
