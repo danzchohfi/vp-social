@@ -45,6 +45,14 @@ export interface NotionPost {
   horizontalUrls: string[]   // 16:9 → YouTube
   feedImageUrls: string[]    // 1:1 ou 4:5 → Feed e Carrossel
   thumbnailUrl: string | null // capa do Reel / YouTube
+  // Preview externo (YouTube unlisted, Drive, Vimeo) usado quando agência
+  // ainda não fez o upload do arquivo final mas quer que o cliente
+  // aprove o conteúdo em si. Lê de campos URL chamados "Preview Vertical"
+  // / "Preview Horizontal" (ou variações: "preview" + orientação). É
+  // separado de verticalUrls/horizontalUrls porque não vai pro publish —
+  // é só pra exibir no /c/[token].
+  previewVerticalUrl: string | null
+  previewHorizontalUrl: string | null
   // Defensive catch-all: URLs de QUALQUER campo file-type não mapeado.
   // Quando o workspace usa nomes diferentes ("Capa" vs "Thumbnail",
   // "Imagem" vs "Imagens Feed"), os campos mapeados ficam vazios e o
@@ -847,6 +855,21 @@ async function parsePage(page: any, m: FieldMapping, client: Client): Promise<No
   const feedImageUrls = getFiles(p[m.mediaFeedField])
   const thumbnailUrl = getFiles(p[m.thumbnailField])[0] ?? null
 
+  // Preview links (YouTube unlisted / Drive / Vimeo). Detecta por nome
+  // do campo — "Preview Vertical" / "Preview Horizontal" e variações.
+  // Property pode ser url, rich_text com link ou rich_text com URL no
+  // texto. extractAnyUrl cobre os 3 casos.
+  let previewVerticalUrl: string | null = null
+  let previewHorizontalUrl: string | null = null
+  for (const [fieldName, prop] of Object.entries(p as Record<string, any>)) {
+    const lower = fieldName.toLowerCase()
+    if (!lower.includes("preview")) continue
+    const url = extractAnyUrl(prop)
+    if (!url) continue
+    if (lower.includes("vertical") && !previewVerticalUrl) previewVerticalUrl = url
+    else if (lower.includes("horizontal") && !previewHorizontalUrl) previewHorizontalUrl = url
+  }
+
   // Defensive fallback — quando mapping não bate com os nomes reais dos
   // campos do workspace, varre TODAS as props file-type da página pra
   // pegar QUALQUER mídia uploadada. Garantia mínima de que o cliente
@@ -874,6 +897,8 @@ async function parsePage(page: any, m: FieldMapping, client: Client): Promise<No
     horizontalUrls,
     feedImageUrls,
     thumbnailUrl,
+    previewVerticalUrl,
+    previewHorizontalUrl,
     allMediaUrls,
     scheduledDate: getDate(p[m.dateField]),
     fullCaption: caption,
@@ -881,6 +906,27 @@ async function parsePage(page: any, m: FieldMapping, client: Client): Promise<No
     socialVpUrl: m.socialVpField ? getUrl(p[m.socialVpField]) : null,
     notionStatus,
   }
+}
+
+// Extrai a primeira URL plausível de uma property Notion. Cobre o
+// formato `url`, `rich_text` com link embutido (rt.text.link.url) e
+// `rich_text` cujo plain_text é a URL crua. Retorna trimmed string ou
+// null. Usado pra ler campos "Preview Vertical/Horizontal" que podem
+// estar configurados como URL property ou como rich text.
+function extractAnyUrl(prop: any): string | null {
+  if (!prop) return null
+  if (typeof prop.url === "string" && prop.url.trim()) return prop.url.trim()
+  const arr = prop.rich_text ?? prop.title
+  if (Array.isArray(arr)) {
+    for (const rt of arr) {
+      const linkUrl = rt?.text?.link?.url ?? rt?.href
+      if (typeof linkUrl === "string" && linkUrl.trim()) return linkUrl.trim()
+    }
+    const joined = arr.map((rt: any) => rt?.plain_text ?? "").join(" ").trim()
+    const match = joined.match(/https?:\/\/\S+/)
+    if (match) return match[0].replace(/[)\].,;]+$/, "")
+  }
+  return null
 }
 
 async function resolveAccount(prop: any, client: Client): Promise<string> {

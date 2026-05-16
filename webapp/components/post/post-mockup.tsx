@@ -36,6 +36,11 @@ type PostMedia = {
   feedImageUrls: string[]
   verticalUrls: string[]
   horizontalUrls: string[]
+  // Link externo (YouTube unlisted / Drive / Vimeo) usado quando agência
+  // só tem o preview e ainda não exportou o arquivo final. Renderiza
+  // como iframe embed quando reconhecemos o host; senão vira link.
+  previewVerticalUrl?: string | null
+  previewHorizontalUrl?: string | null
   allMediaUrls?: string[]
   fullCaption?: string
   conta?: string
@@ -48,6 +53,70 @@ function videoSeek(url: string): string {
   if (!url) return url
   if (url.includes("#t=")) return url
   return `${url}#t=0.5`
+}
+
+// Converte URL de YouTube (watch / youtu.be / shorts) em URL embed.
+// Retorna null quando não é YouTube — caller cai pra link clicável.
+function toYouTubeEmbed(url: string): string | null {
+  try {
+    const u = new URL(url)
+    const host = u.hostname.replace(/^www\./, "")
+    if (host === "youtu.be") {
+      const id = u.pathname.replace(/^\//, "").split("/")[0]
+      return id ? `https://www.youtube.com/embed/${id}` : null
+    }
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      if (u.pathname === "/watch") {
+        const id = u.searchParams.get("v")
+        return id ? `https://www.youtube.com/embed/${id}` : null
+      }
+      const shortsMatch = u.pathname.match(/^\/shorts\/([^/?]+)/)
+      if (shortsMatch) return `https://www.youtube.com/embed/${shortsMatch[1]}`
+      if (u.pathname.startsWith("/embed/")) return url
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+// Pick external preview URL apropriado pro shape do mockup. YouTube
+// long usa horizontal (16:9); shorts/reel/story/tiktok usam vertical (9:16);
+// senão prefere vertical mas cai pra horizontal.
+function pickPreviewUrl(post: PostMedia, tipo: string): string | null {
+  const isHorizontal = tipo === "youtube"
+  if (isHorizontal) {
+    return post.previewHorizontalUrl ?? post.previewVerticalUrl ?? null
+  }
+  return post.previewVerticalUrl ?? post.previewHorizontalUrl ?? null
+}
+
+// Embed reconhecido = iframe; senão = card-link pra abrir noutra aba
+// (Drive, Vimeo etc).
+function PreviewExternal({ url }: { url: string }) {
+  const embed = toYouTubeEmbed(url)
+  if (embed) {
+    return (
+      <iframe
+        src={embed}
+        className="absolute inset-0 h-full w-full"
+        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+        allowFullScreen
+        title="Preview do vídeo"
+      />
+    )
+  }
+  return (
+    <a
+      href={url}
+      target="_blank"
+      rel="noopener noreferrer"
+      className="absolute inset-0 flex flex-col items-center justify-center gap-1.5 bg-muted p-4 text-center hover:bg-muted/80"
+    >
+      <span className="text-sm font-medium">Abrir preview do vídeo</span>
+      <span className="text-[11px] text-muted-foreground break-all line-clamp-2">{url}</span>
+    </a>
+  )
 }
 
 function pickMedia(post: PostMedia, isVideo: boolean, tipo: string) {
@@ -373,6 +442,10 @@ function VideoOrPoster({ post, tipo }: { post: PostMedia; tipo: string }) {
       />
     )
   }
+  // Sem arquivo de vídeo, mas com preview link (YouTube unlisted etc.) →
+  // embed pro cliente aprovar o conteúdo bruto antes da exportação final.
+  const previewUrl = pickPreviewUrl(post, tipo)
+  if (previewUrl) return <PreviewExternal url={previewUrl} />
   if (imgUrl) {
     return (
       <>
@@ -405,6 +478,10 @@ function SingleImageOrVideo({ post, tipo }: { post: PostMedia; tipo: string }) {
         preload="metadata"
       />
     )
+  }
+  if (isVideo) {
+    const previewUrl = pickPreviewUrl(post, tipo)
+    if (previewUrl) return <PreviewExternal url={previewUrl} />
   }
   if (imgUrl) {
     return (

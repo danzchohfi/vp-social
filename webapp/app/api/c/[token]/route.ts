@@ -207,6 +207,8 @@ export async function GET(
       feedImageUrls: p.feedImageUrls,
       verticalUrls: p.verticalUrls,
       horizontalUrls: p.horizontalUrls,
+      previewVerticalUrl: p.previewVerticalUrl,
+      previewHorizontalUrl: p.previewHorizontalUrl,
       allMediaUrls: p.allMediaUrls,
       fullCaption: p.fullCaption,
     }

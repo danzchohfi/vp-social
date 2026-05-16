@@ -30,6 +30,8 @@ type SlimPost = {
   feedImageUrls: string[]
   verticalUrls: string[]
   horizontalUrls: string[]
+  previewVerticalUrl?: string | null
+  previewHorizontalUrl?: string | null
   allMediaUrls?: string[]
   fullCaption: string
 }
@@ -164,6 +166,8 @@ export default function ClientCalendarPage() {
       feedImageUrls: [],
       verticalUrls: [],
       horizontalUrls: [],
+      previewVerticalUrl: null,
+      previewHorizontalUrl: null,
       allMediaUrls: [],
       fullCaption: "",
     })
@@ -638,6 +642,23 @@ function PublishedList({ past, onOpen }: { past: PastPost[]; onOpen: (p: PastPos
 
 // ─── Thumbs ────────────────────────────────
 
+function youTubeIdFromUrl(url: string | null | undefined): string | null {
+  if (!url) return null
+  try {
+    const u = new URL(url)
+    const host = u.hostname.replace(/^www\./, "")
+    if (host === "youtu.be") return u.pathname.replace(/^\//, "").split("/")[0] || null
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      if (u.pathname === "/watch") return u.searchParams.get("v")
+      const m = u.pathname.match(/^\/(shorts|embed)\/([^/?]+)/)
+      if (m) return m[2]
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 function PostThumb({ post }: { post: SlimPost }) {
   const tipo = post.publishTargets[0]?.tipo.toLowerCase() ?? "feed"
   const isVideo = ["reel", "story", "youtube short", "youtube"].includes(tipo)
@@ -661,9 +682,20 @@ function PostThumb({ post }: { post: SlimPost }) {
   const anyMedia = !imgUrl && !videoUrl ? post.allMediaUrls?.[0] ?? null : null
   const anyIsVideo = anyMedia ? looksLikeVideo(anyMedia) : false
 
-  const finalImg = imgUrl ?? (anyMedia && !anyIsVideo ? anyMedia : null)
+  // Preview externo (YouTube unlisted etc.) — quando reconhecemos YouTube,
+  // usamos a thumb pública (img.youtube.com/vi/{id}/hqdefault.jpg) como
+  // imagem do thumb 56x56. Funciona pra qualquer vídeo, listed ou
+  // unlisted, sem CORS.
+  const previewUrl = !imgUrl && !videoUrl && !anyMedia
+    ? (tipo === "youtube" ? post.previewHorizontalUrl : post.previewVerticalUrl)
+      ?? post.previewVerticalUrl ?? post.previewHorizontalUrl ?? null
+    : null
+  const youTubeId = youTubeIdFromUrl(previewUrl)
+  const youTubeThumb = youTubeId ? `https://img.youtube.com/vi/${youTubeId}/hqdefault.jpg` : null
+
+  const finalImg = imgUrl ?? (anyMedia && !anyIsVideo ? anyMedia : null) ?? youTubeThumb
   const finalVideo = videoUrl ?? (anyMedia && anyIsVideo ? anyMedia : null)
-  const showPlay = isVideo && (finalImg || finalVideo)
+  const showPlay = (isVideo || !!previewUrl) && (finalImg || finalVideo)
 
   // iOS Safari não renderiza primeiro frame de cross-origin video sem
   // seek explícito — #t=0.5 força.

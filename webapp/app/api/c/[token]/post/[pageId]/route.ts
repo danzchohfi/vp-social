@@ -94,6 +94,8 @@ export async function GET(
     feedImageUrls: foundPost.feedImageUrls,
     verticalUrls: foundPost.verticalUrls,
     horizontalUrls: foundPost.horizontalUrls,
+    previewVerticalUrl: foundPost.previewVerticalUrl,
+    previewHorizontalUrl: foundPost.previewHorizontalUrl,
     allMediaUrls: foundPost.allMediaUrls,
     fullCaption: foundPost.fullCaption,
   })
