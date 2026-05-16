@@ -192,7 +192,14 @@ In Vercel: Build env vars must be marked for the **Build** environment (not just
 
 Default branch is `main`. Vercel auto-deploys production from `main` (verify Branch Tracking points at `main`, not a stale feature branch).
 
-**Edits in this environment push to a local sandbox proxy, NOT GitHub directly.** To reach the user's machine:
+**User preference (2026-05-16): always push directly to `main`.** The harness boots sessions on a feature branch (`claude/continue-development-*`), but user wants production deploys per commit — no PR step. Workflow:
+
+1. Make changes, commit on whatever branch you're on (often the feature branch by default).
+2. `git checkout main && git merge --ff-only <feature-branch>` (or fast-forward however).
+3. `git push origin main`.
+4. If non-fast-forward (main has a divergent merge commit from a prior PR), merge `origin/main` into local main: `git merge origin/main --no-edit -m "merge origin/main"`, then push.
+
+**Edits in this environment push to a local sandbox proxy that DOES forward to GitHub** (verified 2026-05-16 — commits authored as "Claude / noreply@anthropic.com" show up on github.com via MCP `list_commits`). Use MCP only as a fallback if `git push` errors persist:
 
 - Use `mcp__github__push_files` / `create_or_update_file` / `delete_file` to push to GitHub `main`.
 - Local `git push` can 503 (proxy upstream is flaky on `git-receive-pack`). Mitigations already applied:
