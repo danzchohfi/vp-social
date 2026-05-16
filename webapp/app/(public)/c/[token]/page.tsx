@@ -77,44 +77,65 @@ type CalendarData = {
   productions?: ProductionItem[]
 }
 
-// Infere um target plausível pelo título do post (+ shape da mídia
-// disponível) quando o campo "Publicar em" não tem valores reconhecíveis.
-// Sem isso, o dialog mostra só aviso sem mídia — frustrante quando o
-// cliente vê "Carrossel" no título mas nada renderiza.
-function inferFallbackTarget(post: SlimPost): TargetCheck {
+// Infere targets plausíveis pelo título do post (+ shape da mídia)
+// quando "Publicar em" não tem valores reconhecíveis. Sem isso, o dialog
+// mostra só aviso sem mídia. Retorna ARRAY — título pode mencionar várias
+// plataformas ("Reels + Shorts + TikTok") e cada uma vira um mockup.
+function inferFallbackTargets(post: SlimPost): TargetCheck[] {
   const title = (post.title ?? "").toLowerCase()
   const hasVertical = (post.verticalUrls?.length ?? 0) > 0
   const hasFeed = (post.feedImageUrls?.length ?? 0) > 0
+  const hasHorizontal = (post.horizontalUrls?.length ?? 0) > 0
+  const hasPreviewVertical = !!post.previewVerticalUrl
+  const hasPreviewHorizontal = !!post.previewHorizontalUrl
   const hasMultipleImages =
     (post.feedImageUrls?.length ?? 0) > 1
     || (post.allMediaUrls?.length ?? 0) > 1
     || (post.verticalUrls?.length ?? 0) > 1
 
-  let tipo = "feed"
-  if (/carross?el/.test(title)) tipo = "carrossel"
-  else if (/shorts?/.test(title)) tipo = "youtube short"
-  else if (/reels?/.test(title)) tipo = "reel"
-  else if (/stor(y|ies)/.test(title)) tipo = "story"
-  else if (hasMultipleImages) tipo = "carrossel"
-  else if (hasVertical && !hasFeed) tipo = "reel"
+  const targets: TargetCheck[] = []
+  const push = (raw: string, platform: string, tipo: string) => {
+    if (!targets.find((t) => t.raw === raw)) targets.push({ raw, platform, tipo })
+  }
 
-  let platform = "instagram"
-  if (/shorts?/.test(title) || /youtube/.test(title)) platform = "youtube"
-  else if (/tiktok/.test(title)) platform = "tiktok"
-  else if (/linkedin/.test(title)) platform = "linkedin"
-  else if (/facebook/.test(title)) platform = "facebook"
+  // Cada keyword no título adiciona um target. Pode ter vários.
+  if (/instagram\s*carross?el/.test(title) || /\bcarross?el\b/.test(title)) push("Instagram Carrossel", "instagram", "carrossel")
+  if (/instagram\s*reels?/.test(title) || /\breels?\b/.test(title)) push("Instagram Reels", "instagram", "reel")
+  if (/instagram\s*stor(y|ies)/.test(title) || /\bstor(y|ies)\b/.test(title)) push("Instagram Story", "instagram", "story")
+  if (/instagram\s*feed/.test(title) || (/\binstagram\b/.test(title) && !/carross|reels?|stor/.test(title))) push("Instagram Feed", "instagram", "feed")
+  if (/youtube\s*shorts?/.test(title) || /\bshorts?\b/.test(title)) push("YouTube Shorts", "youtube", "youtube short")
+  if (/youtube\s*long/.test(title) || (/\byoutube\b/.test(title) && !/shorts?/.test(title))) push("YouTube", "youtube", "youtube")
+  if (/\btiktok\b/.test(title)) push("TikTok", "tiktok", "feed")
+  if (/\blinkedin\b/.test(title)) push("LinkedIn", "linkedin", "feed")
+  if (/\bfacebook\b/.test(title)) push("Facebook", "facebook", "feed")
 
-  const raw =
-    platform === "instagram" && tipo === "carrossel" ? "Instagram Carrossel" :
-    platform === "instagram" && tipo === "reel" ? "Instagram Reels" :
-    platform === "instagram" && tipo === "story" ? "Instagram Story" :
-    platform === "instagram" ? "Instagram Feed" :
-    platform === "youtube" && tipo === "youtube short" ? "YouTube Shorts" :
-    platform === "youtube" ? "YouTube" :
-    platform === "tiktok" ? "TikTok" :
-    platform === "linkedin" ? "LinkedIn" :
-    "Facebook"
-  return { raw, platform, tipo }
+  if (targets.length > 0) return targets
+
+  // Sem keywords no título — infere 1 target pelo shape da mídia disponível.
+  // Quando há preview tanto vertical quanto horizontal, é forte sinal de
+  // "vai pra YouTube + Reel/Short/TikTok" — gera os 2.
+  if (hasPreviewVertical && hasPreviewHorizontal) {
+    push("YouTube", "youtube", "youtube")
+    push("Instagram Reels", "instagram", "reel")
+    return targets
+  }
+
+  let tipo: string
+  let platform: string
+  let raw: string
+  if (hasMultipleImages) {
+    tipo = "carrossel"; platform = "instagram"; raw = "Instagram Carrossel"
+  } else if (hasHorizontal || (hasPreviewHorizontal && !hasPreviewVertical)) {
+    tipo = "youtube"; platform = "youtube"; raw = "YouTube"
+  } else if (hasVertical || hasPreviewVertical) {
+    tipo = "reel"; platform = "instagram"; raw = "Instagram Reels"
+  } else if (hasFeed) {
+    tipo = "feed"; platform = "instagram"; raw = "Instagram Feed"
+  } else {
+    tipo = "feed"; platform = "instagram"; raw = "Instagram Feed"
+  }
+  push(raw, platform, tipo)
+  return targets
 }
 
 const PLATFORM_COLORS: Record<string, string> = {
@@ -758,7 +779,7 @@ function PreviewDialog({
           (() => {
             const targets = post.publishTargets.length > 0
               ? post.publishTargets
-              : [inferFallbackTarget(post)]
+              : inferFallbackTargets(post)
             return (
               <div className="space-y-3">
                 {targets.map((t) => (
@@ -868,7 +889,7 @@ function ApprovalDialog({
         {(() => {
           const targets = post.publishTargets.length > 0
             ? post.publishTargets
-            : [inferFallbackTarget(post)]
+            : inferFallbackTargets(post)
           return (
             <div className="mb-4 space-y-3">
               {targets.map((t) => (
