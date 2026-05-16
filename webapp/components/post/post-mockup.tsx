@@ -281,16 +281,27 @@ function GenericMockup({ tipo, target, post }: { tipo: string; target: Target; p
 // ─── Media renderers ──────────────────────────────────────
 
 function CarouselSlides({ post }: { post: PostMedia }) {
-  // Carrossel: 1 slide por imagem do feed. Se houver thumbnail dedicada
-  // E feed images, usa thumb como capa (primeiro slide).
+  // Carrossel: 1 slide por imagem. Usa feedImageUrls quando agência
+  // separou direitinho; cai pra vertical/horizontal quando o upload foi
+  // num campo de outro aspect ratio (caso comum: cliente sobe carrossel
+  // no campo "Mídia Vertical" porque é o único que conhece). Filtra
+  // vídeos — carrossel = só imagens. allMediaUrls é o último recurso
+  // quando o workspace usa nomes de campo fora do mapping.
+  const looksLikeVideo = (url: string) => /\.(mp4|mov|m4v|webm)(\?|#|$)/i.test(url)
   const slides: string[] = []
-  if (post.thumbnailUrl && !post.feedImageUrls.includes(post.thumbnailUrl)) {
-    slides.push(post.thumbnailUrl)
+  function pushUnique(url: string) {
+    if (looksLikeVideo(url)) return
+    if (slides.includes(url)) return
+    slides.push(url)
   }
-  for (const u of post.feedImageUrls) slides.push(u)
-  // Fallback: se sem feedImages, usa allMediaUrls
+  if (post.thumbnailUrl) pushUnique(post.thumbnailUrl)
+  for (const u of post.feedImageUrls) pushUnique(u)
+  if (slides.length === 0) {
+    for (const u of post.verticalUrls) pushUnique(u)
+    for (const u of post.horizontalUrls) pushUnique(u)
+  }
   if (slides.length === 0 && post.allMediaUrls?.length) {
-    slides.push(...post.allMediaUrls)
+    for (const u of post.allMediaUrls) pushUnique(u)
   }
 
   const [idx, setIdx] = useState(0)
