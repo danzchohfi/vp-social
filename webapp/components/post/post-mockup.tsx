@@ -446,18 +446,30 @@ function CarouselSlides({ post }: { post: PostMedia }) {
 
 function VideoOrPoster({ post, tipo }: { post: PostMedia; tipo: string }) {
   const { videoUrl, imgUrl, imgIsContent } = pickMedia(post, true, tipo)
+  // Story no IG não corta: imagem quadrada vira "fit dentro do 9:16" com
+  // fundo desfocado da própria imagem (ou preto se não houver). Outros
+  // verticais (Reel, Short, TikTok) tipicamente são 9:16 nativos, então
+  // object-cover é fiel.
+  const isStory = tipo === "story"
+  const fitClass = isStory ? "object-contain" : "object-cover"
 
   if (videoUrl) {
     return (
-      <video
-        src={videoSeek(videoUrl)}
-        poster={imgUrl ?? undefined}
-        className="absolute inset-0 h-full w-full object-cover"
-        controls
-        muted
-        playsInline
-        preload="metadata"
-      />
+      <>
+        {isStory && imgUrl && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={imgUrl} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover blur-xl scale-110 opacity-70" />
+        )}
+        <video
+          src={videoSeek(videoUrl)}
+          poster={imgUrl ?? undefined}
+          className={cn("absolute inset-0 h-full w-full", fitClass)}
+          controls
+          muted
+          playsInline
+          preload="metadata"
+        />
+      </>
     )
   }
   // Sem arquivo de vídeo, mas com preview link (YouTube unlisted etc.) →
@@ -465,12 +477,14 @@ function VideoOrPoster({ post, tipo }: { post: PostMedia; tipo: string }) {
   const previewUrl = pickPreviewUrl(post, tipo)
   if (previewUrl) return <PreviewExternal url={previewUrl} />
   if (imgUrl) {
-    // Play overlay só quando a imagem é uma CAPA de vídeo (thumbnail).
-    // Story estático / Reel com promo image → sem overlay enganoso.
     return (
       <>
+        {isStory && (
+          /* eslint-disable-next-line @next/next/no-img-element */
+          <img src={imgUrl} alt="" aria-hidden className="absolute inset-0 h-full w-full object-cover blur-xl scale-110 opacity-70" />
+        )}
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src={imgUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <img src={imgUrl} alt="" className={cn("absolute inset-0 h-full w-full", fitClass)} />
         {!imgIsContent && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="rounded-full bg-black/50 p-3">
