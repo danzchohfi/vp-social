@@ -45,6 +45,12 @@ export interface NotionPost {
   horizontalUrls: string[]   // 16:9 → YouTube
   feedImageUrls: string[]    // 1:1 ou 4:5 → Feed e Carrossel
   thumbnailUrl: string | null // capa do Reel / YouTube
+  // Defensive catch-all: URLs de QUALQUER campo file-type não mapeado.
+  // Quando o workspace usa nomes diferentes ("Capa" vs "Thumbnail",
+  // "Imagem" vs "Imagens Feed"), os campos mapeados ficam vazios e o
+  // cliente abre o /c/[token] sem mídia pra aprovar. Este fallback evita
+  // isso varrendo todos os file-type props da página.
+  allMediaUrls: string[]
   scheduledDate: string | null
   // Caption final usada nas publicações (hashtags entram direto na legenda)
   fullCaption: string
@@ -811,16 +817,39 @@ async function parsePage(page: any, m: FieldMapping, client: Client): Promise<No
   const notionStatus: string | null =
     statusProp?.status?.name ?? statusProp?.select?.name ?? null
 
+  const verticalUrls = getFiles(p[m.mediaVerticalField])
+  const horizontalUrls = getFiles(p[m.mediaHorizontalField])
+  const feedImageUrls = getFiles(p[m.mediaFeedField])
+  const thumbnailUrl = getFiles(p[m.thumbnailField])[0] ?? null
+
+  // Defensive fallback — quando mapping não bate com os nomes reais dos
+  // campos do workspace, varre TODAS as props file-type da página pra
+  // pegar QUALQUER mídia uploadada. Garantia mínima de que o cliente
+  // sempre vê algo no /c/[token] sem depender da agency configurar
+  // mapping perfeito.
+  const mappedFieldNames = new Set(
+    [m.mediaVerticalField, m.mediaHorizontalField, m.mediaFeedField, m.thumbnailField].filter(Boolean)
+  )
+  const allMediaUrls: string[] = []
+  for (const [fieldName, prop] of Object.entries(p as Record<string, any>)) {
+    if (mappedFieldNames.has(fieldName)) continue
+    if (prop?.type !== "files") continue
+    for (const url of getFiles(prop)) {
+      if (!allMediaUrls.includes(url)) allMediaUrls.push(url)
+    }
+  }
+
   return {
     pageId: page.id,
     title: getRichText(p[m.titleField], "title"),
     conta,
     caption,
     publishTargets,
-    verticalUrls: getFiles(p[m.mediaVerticalField]),
-    horizontalUrls: getFiles(p[m.mediaHorizontalField]),
-    feedImageUrls: getFiles(p[m.mediaFeedField]),
-    thumbnailUrl: getFiles(p[m.thumbnailField])[0] ?? null,
+    verticalUrls,
+    horizontalUrls,
+    feedImageUrls,
+    thumbnailUrl,
+    allMediaUrls,
     scheduledDate: getDate(p[m.dateField]),
     fullCaption: caption,
     notionUrl: page.url,

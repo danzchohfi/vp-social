@@ -30,6 +30,7 @@ type SlimPost = {
   feedImageUrls: string[]
   verticalUrls: string[]
   horizontalUrls: string[]
+  allMediaUrls?: string[]
   fullCaption: string
 }
 
@@ -105,6 +106,43 @@ export default function ClientCalendarPage() {
   const [error, setError] = useState<string | null>(null)
   const [tab, setTab] = useState<Tab>("pendentes")
   const [selectedPending, setSelectedPending] = useState<PendingPost | null>(null)
+  // Preview-only (sem botão de decidir). Usado pra Agendados (post já
+  // vem com mídia) e Publicados (busca live no Notion). Quando pageId
+  // é setado mas a mídia ainda não veio, mostramos loading.
+  const [previewPost, setPreviewPost] = useState<SlimPost | null>(null)
+  const [previewLoading, setPreviewLoading] = useState(false)
+
+  async function openPreviewByPageId(pageId: string, fallback: { title: string; conta: string }) {
+    setPreviewLoading(true)
+    setPreviewPost({
+      pageId,
+      title: fallback.title,
+      conta: fallback.conta,
+      scheduledDate: null,
+      publishTargets: [],
+      thumbnailUrl: null,
+      feedImageUrls: [],
+      verticalUrls: [],
+      horizontalUrls: [],
+      allMediaUrls: [],
+      fullCaption: "",
+    })
+    try {
+      const res = await fetch(`/api/c/${token}/post/${pageId}`)
+      if (!res.ok) {
+        toast.error("Não foi possível carregar o post.")
+        setPreviewPost(null)
+        return
+      }
+      const json = await res.json()
+      setPreviewPost(json)
+    } catch {
+      toast.error("Erro ao carregar.")
+      setPreviewPost(null)
+    } finally {
+      setPreviewLoading(false)
+    }
+  }
 
   async function load() {
     try {
@@ -218,8 +256,13 @@ export default function ClientCalendarPage() {
 
         {/* Tab content */}
         {tab === "pendentes" && <PendingList pending={data.pending} onOpen={setSelectedPending} />}
-        {tab === "agendados" && <ScheduledList scheduled={data.scheduled} />}
-        {tab === "publicados" && <PublishedList past={data.past} />}
+        {tab === "agendados" && <ScheduledList scheduled={data.scheduled} onOpen={(p) => setPreviewPost(p)} />}
+        {tab === "publicados" && (
+          <PublishedList
+            past={data.past}
+            onOpen={(p) => openPreviewByPageId(p.pageId, { title: p.title, conta: p.conta })}
+          />
+        )}
         {tab === "producoes" && <ProductionsList productions={data.productions ?? []} />}
       </div>
 
@@ -229,6 +272,15 @@ export default function ClientCalendarPage() {
           post={selectedPending}
           onClose={() => setSelectedPending(null)}
           onDecided={() => { setSelectedPending(null); load() }}
+        />
+      )}
+
+      {/* Preview dialog (read-only) */}
+      {previewPost && (
+        <PreviewDialog
+          post={previewPost}
+          loading={previewLoading}
+          onClose={() => setPreviewPost(null)}
         />
       )}
     </div>
@@ -435,7 +487,7 @@ function PendingList({ pending, onOpen }: { pending: PendingPost[]; onOpen: (p: 
   )
 }
 
-function ScheduledList({ scheduled }: { scheduled: ScheduledPost[] }) {
+function ScheduledList({ scheduled, onOpen }: { scheduled: ScheduledPost[]; onOpen: (p: ScheduledPost) => void }) {
   if (scheduled.length === 0) {
     return (
       <Card>
@@ -454,7 +506,11 @@ function ScheduledList({ scheduled }: { scheduled: ScheduledPost[] }) {
   return (
     <div className="space-y-2">
       {sorted.map((p) => (
-        <div key={p.pageId} className="rounded-lg border bg-card p-3">
+        <button
+          key={p.pageId}
+          onClick={() => onOpen(p)}
+          className="w-full rounded-lg border bg-card p-3 text-left transition-colors hover:bg-muted/40"
+        >
           <div className="flex items-start gap-3">
             <PostThumb post={p} />
             <div className="min-w-0 flex-1">
@@ -473,13 +529,13 @@ function ScheduledList({ scheduled }: { scheduled: ScheduledPost[] }) {
               )}
             </div>
           </div>
-        </div>
+        </button>
       ))}
     </div>
   )
 }
 
-function PublishedList({ past }: { past: PastPost[] }) {
+function PublishedList({ past, onOpen }: { past: PastPost[]; onOpen: (p: PastPost) => void }) {
   if (past.length === 0) {
     return (
       <Card>
@@ -493,24 +549,16 @@ function PublishedList({ past }: { past: PastPost[] }) {
   return (
     <div className="space-y-2">
       {past.map((p) => (
-        <div key={p.pageId + p.date} className="rounded-lg border bg-card p-3">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0 flex-1">
+        <div key={p.pageId + p.date} className="rounded-lg border bg-card overflow-hidden">
+          <button
+            onClick={() => onOpen(p)}
+            className="w-full p-3 text-left transition-colors hover:bg-muted/40"
+          >
+            <div className="min-w-0">
               <div className="flex flex-wrap items-center gap-1.5 mb-1">
                 {p.platforms.map((pl) => {
                   const platform = pl.raw.toLowerCase().split(/[\s-]+/)[0]
-                  return pl.postUrl ? (
-                    <a
-                      key={pl.raw}
-                      href={pl.postUrl}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-medium hover:underline", platformClass(platform))}
-                    >
-                      {pl.raw}
-                      <ExternalLink className="h-2.5 w-2.5" />
-                    </a>
-                  ) : (
+                  return (
                     <Badge key={pl.raw} className={cn("text-[9px]", platformClass(platform))}>{pl.raw}</Badge>
                   )
                 })}
@@ -522,7 +570,26 @@ function PublishedList({ past }: { past: PastPost[] }) {
                 {new Date(p.date).toLocaleString("pt-BR", { day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit" })}
               </p>
             </div>
-          </div>
+          </button>
+          {p.platforms.some((pl) => pl.postUrl) && (
+            <div className="flex flex-wrap gap-1.5 border-t bg-muted/20 px-3 py-2">
+              {p.platforms.filter((pl) => pl.postUrl).map((pl) => {
+                const platform = pl.raw.toLowerCase().split(/[\s-]+/)[0]
+                return (
+                  <a
+                    key={pl.raw}
+                    href={pl.postUrl!}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={cn("inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[12px] font-medium hover:underline", platformClass(platform))}
+                  >
+                    Ver no {pl.raw}
+                    <ExternalLink className="h-2.5 w-2.5" />
+                  </a>
+                )
+              })}
+            </div>
+          )}
         </div>
       ))}
     </div>
@@ -537,35 +604,43 @@ function PostThumb({ post }: { post: SlimPost }) {
 
   // Prefer imagens estáticas (thumbnail dedicada > feed). Pra video targets
   // sem thumbnail, cai pro próprio arquivo de vídeo renderizado como
-  // <video preload="metadata"> que mostra o primeiro frame — mesmo
-  // comportamento do DialogPlatformPreview quando expandido. Antes
-  // mostrava AlertTriangle e o aprovador não via o conteúdo.
-  const imgUrl = post.thumbnailUrl ?? post.feedImageUrls?.[0] ?? null
+  // <video preload="metadata"> que mostra o primeiro frame. allMediaUrls
+  // é o catch-all defensivo quando o field mapping não bate com os
+  // nomes reais dos campos do workspace.
+  const imgUrl = post.thumbnailUrl
+    ?? post.feedImageUrls?.[0]
+    ?? (!isVideo ? (post.verticalUrls?.[0] ?? post.horizontalUrls?.[0]) : null)
+    ?? null
+
   const videoUrl = !imgUrl && isVideo
     ? (tipo === "youtube" ? post.horizontalUrls?.[0] : post.verticalUrls?.[0]) ?? null
     : null
-  // Pra non-video target sem imagem, ainda tenta vertical/horizontal como
-  // imagem (caso seja foto vertical/horizontal exportada em formato img).
-  const fallbackImg = !imgUrl && !isVideo
-    ? (post.verticalUrls?.[0] ?? post.horizontalUrls?.[0] ?? null)
-    : null
 
-  const showPlay = isVideo && (imgUrl || videoUrl)
+  // Fallback final: qualquer mídia disponível em campos não-mapeados.
+  const looksLikeVideo = (url: string) => /\.(mp4|mov|m4v|webm)(\?|#|$)/i.test(url)
+  const anyMedia = !imgUrl && !videoUrl ? post.allMediaUrls?.[0] ?? null : null
+  const anyIsVideo = anyMedia ? looksLikeVideo(anyMedia) : false
+
+  const finalImg = imgUrl ?? (anyMedia && !anyIsVideo ? anyMedia : null)
+  const finalVideo = videoUrl ?? (anyMedia && anyIsVideo ? anyMedia : null)
+  const showPlay = isVideo && (finalImg || finalVideo)
+
+  // iOS Safari não renderiza primeiro frame de cross-origin video sem
+  // seek explícito — #t=0.5 força.
+  const videoSrc = finalVideo ? `${finalVideo}${finalVideo.includes("#t=") ? "" : "#t=0.5"}` : null
 
   return (
     <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md bg-muted">
-      {imgUrl ? (
-        <img src={imgUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
-      ) : videoUrl ? (
+      {finalImg ? (
+        <img src={finalImg} alt="" className="absolute inset-0 h-full w-full object-cover" />
+      ) : videoSrc ? (
         <video
-          src={videoUrl}
+          src={videoSrc}
           className="absolute inset-0 h-full w-full object-cover"
           muted
           playsInline
           preload="metadata"
         />
-      ) : fallbackImg ? (
-        <img src={fallbackImg} alt="" className="absolute inset-0 h-full w-full object-cover" />
       ) : (
         <div className="absolute inset-0 flex items-center justify-center text-muted-foreground">
           <AlertTriangle className="h-4 w-4" />
@@ -576,6 +651,57 @@ function PostThumb({ post }: { post: SlimPost }) {
           <Play className="h-4 w-4 text-white drop-shadow" fill="white" />
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── Preview Dialog (read-only) ────────────────────────────
+
+function PreviewDialog({
+  post, loading, onClose,
+}: {
+  post: SlimPost
+  loading: boolean
+  onClose: () => void
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 sm:items-center sm:p-6" onClick={onClose}>
+      <div className="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-t-xl border bg-background p-4 sm:rounded-xl sm:p-6" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-4 flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <p className="text-sm uppercase tracking-wider text-muted-foreground">Preview</p>
+            <h3 className="text-xl truncate">{post.title || "Sem título"}</h3>
+            <p className="text-sm text-muted-foreground">@{post.conta}</p>
+          </div>
+          <Button variant="ghost" size="sm" onClick={onClose} aria-label="Fechar">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        {loading ? (
+          <div className="py-12 flex items-center justify-center">
+            <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : post.publishTargets.length > 0 ? (
+          <div className="space-y-3">
+            {post.publishTargets.map((t) => (
+              <PostMockup key={t.raw} target={t} post={post} />
+            ))}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-warning/30 bg-warning/5 p-4 text-center">
+            <AlertTriangle className="mx-auto mb-2 h-6 w-6 text-warning" />
+            <p className="text-sm text-warning">Sem plataformas configuradas pra esse post.</p>
+          </div>
+        )}
+
+        {!loading && post.fullCaption && (
+          <div className="mt-4 rounded-lg border bg-muted/30 p-3">
+            <p className="text-sm uppercase tracking-wider text-muted-foreground mb-1">Legenda</p>
+            <p className="whitespace-pre-wrap text-base">{post.fullCaption}</p>
+          </div>
+        )}
+      </div>
     </div>
   )
 }

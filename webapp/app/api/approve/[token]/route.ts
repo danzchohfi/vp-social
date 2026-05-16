@@ -223,6 +223,7 @@ export async function GET(
           verticalUrls: post.verticalUrls,
           horizontalUrls: post.horizontalUrls,
           thumbnailUrl: post.thumbnailUrl,
+          allMediaUrls: post.allMediaUrls,
           publishTargets: post.publishTargets,
           scheduledDate: post.scheduledDate,
           notionUrl: post.notionUrl,

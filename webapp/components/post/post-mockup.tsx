@@ -1,20 +1,27 @@
 "use client"
 
 import { useState } from "react"
-import { ChevronLeft, ChevronRight, AlertTriangle } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
+import {
+  ChevronLeft, ChevronRight, AlertTriangle,
+  Heart, MessageCircle, Send, Bookmark, MoreHorizontal,
+  ThumbsUp, Repeat2,
+} from "lucide-react"
 import { cn } from "@/lib/utils"
 
 // Mockup interativo per-platform pro cliente avaliar o conteúdo antes
-// de aprovar. Cada target (Instagram Feed, Carrossel, Reel, Story,
-// YouTube, etc.) renderiza em formato que simula a aparência real:
+// de aprovar. Cada target renderiza com chrome (header + footer) que
+// simula a UI nativa da plataforma. Cliente vê o post como se já
+// estivesse publicado.
 //
-//   - Carrossel: navegável (prev/next + dots) através de feedImageUrls
-//   - Vídeo (Reel/Story/Short/YouTube): <video controls> playable
-//   - Feed simples: imagem única em aspect square
+//   - IG Feed / Carrossel: header com @conta + caption + ícones like/comment
+//   - IG Reel / Story / YT Short / TikTok: vertical, controls de play,
+//     overlay com @conta + caption
+//   - YouTube: 16:9 + título embaixo + nome do canal
+//   - Facebook: header de página + caption acima + image + reactions
+//   - LinkedIn: header de empresa + caption + image + reactions
 //
-// Compartilhado por /c/[token] (dialog de aprovação) e /approve/[token]
-// (link direto via WhatsApp). Ambos precisam dessa view rica.
+// Compartilhado por /c/[token] (dialog de aprovação/preview) e
+// /approve/[token] (link direto via WhatsApp).
 
 type Platform = "instagram" | "facebook" | "youtube" | "tiktok" | "linkedin"
 
@@ -29,50 +36,191 @@ type PostMedia = {
   feedImageUrls: string[]
   verticalUrls: string[]
   horizontalUrls: string[]
+  allMediaUrls?: string[]
+  fullCaption?: string
+  conta?: string
 }
 
-const PLATFORM_BG: Record<string, string> = {
-  instagram: "bg-pink-100 text-pink-700 dark:bg-pink-900/40 dark:text-pink-300",
-  facebook: "bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300",
-  youtube: "bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300",
-  tiktok: "bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300",
-  linkedin: "bg-sky-100 text-sky-700 dark:bg-sky-900/40 dark:text-sky-300",
+// iOS Safari não renderiza primeiro frame de vídeo cross-origin sem
+// um hint explícito. Adicionar #t=0.5 força seek inicial pra exibir
+// o frame mesmo com preload=metadata.
+function videoSeek(url: string): string {
+  if (!url) return url
+  if (url.includes("#t=")) return url
+  return `${url}#t=0.5`
+}
+
+function pickMedia(post: PostMedia, isVideo: boolean, tipo: string) {
+  const videoUrl = isVideo
+    ? (tipo === "youtube" ? post.horizontalUrls?.[0] : post.verticalUrls?.[0])
+    : null
+  const imgUrl = post.thumbnailUrl
+    ?? post.feedImageUrls?.[0]
+    ?? (!isVideo ? post.verticalUrls?.[0] ?? post.horizontalUrls?.[0] : null)
+    ?? null
+
+  // Fallback final: qualquer mídia que tenhamos do post (file fields
+  // não mapeados pegos via allMediaUrls). Comum quando agency usa nomes
+  // de campo customizados no Notion.
+  const anyMedia = !videoUrl && !imgUrl && post.allMediaUrls?.length
+    ? post.allMediaUrls[0]
+    : null
+  const looksLikeVideo = (url: string) => /\.(mp4|mov|m4v|webm)(\?|#|$)/i.test(url)
+  const fallbackIsVideo = anyMedia ? looksLikeVideo(anyMedia) : false
+
+  return {
+    videoUrl: videoUrl ?? (fallbackIsVideo ? anyMedia : null),
+    imgUrl: imgUrl ?? (anyMedia && !fallbackIsVideo ? anyMedia : null),
+  }
 }
 
 export function PostMockup({ target, post }: { target: Target; post: PostMedia }) {
   const tipo = target.tipo.toLowerCase()
-  const isVideo = tipo === "reel" || tipo === "story" || tipo === "youtube short" || tipo === "youtube"
+  const platform = target.platform.toLowerCase().split(/[\s-]+/)[0] as Platform
+
+  if (platform === "instagram") return <InstagramMockup tipo={tipo} target={target} post={post} />
+  if (platform === "facebook") return <FacebookMockup tipo={tipo} target={target} post={post} />
+  if (platform === "youtube") return <YouTubeMockup tipo={tipo} target={target} post={post} />
+  if (platform === "tiktok") return <TikTokMockup tipo={tipo} target={target} post={post} />
+  if (platform === "linkedin") return <LinkedInMockup tipo={tipo} target={target} post={post} />
+
+  // Fallback genérico
+  return <GenericMockup tipo={tipo} target={target} post={post} />
+}
+
+// ─── Instagram ──────────────────────────────────────────────
+
+function InstagramMockup({ tipo, target, post }: { tipo: string; target: Target; post: PostMedia }) {
+  const isReelOrStory = tipo === "reel" || tipo === "story"
   const isCarousel = tipo === "carrossel"
-
-  const aspect = tipo === "reel" || tipo === "story" || tipo === "youtube short"
-    ? "aspect-[9/16]"
-    : tipo === "youtube"
-      ? "aspect-video"
-      : "aspect-square"
-
-  const platformKey = target.platform.toLowerCase().split(/[\s-]+/)[0]
-  const platformClass = PLATFORM_BG[platformKey] ?? "bg-muted text-muted-foreground"
-
-  const containerWidthClass = tipo === "reel" || tipo === "story" || tipo === "youtube short"
-    ? "max-w-sm mx-auto"
-    : "w-full"
+  const aspect = isReelOrStory ? "aspect-[9/16]" : "aspect-square"
+  const containerWidth = isReelOrStory ? "max-w-[280px] mx-auto" : "w-full max-w-md mx-auto"
 
   return (
-    <div className="rounded-lg border bg-card overflow-hidden">
-      <div className="border-b px-3 py-2 flex items-center gap-2">
-        <Badge className={cn("text-[12px]", platformClass)}>{target.raw}</Badge>
+    <div className={cn("rounded-lg border bg-card overflow-hidden", containerWidth)}>
+      {/* Header — avatar + username */}
+      <div className="flex items-center gap-2 px-3 py-2 border-b">
+        <div className="h-7 w-7 rounded-full bg-gradient-to-tr from-yellow-400 via-pink-500 to-purple-600 p-[2px]">
+          <div className="h-full w-full rounded-full bg-card flex items-center justify-center text-[10px] font-bold text-foreground">
+            {(post.conta ?? "?").charAt(0).toUpperCase()}
+          </div>
+        </div>
+        <span className="text-sm font-medium truncate flex-1">{post.conta || target.raw}</span>
+        <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
       </div>
-      <div className={containerWidthClass}>
-        <div className={cn("relative bg-muted", aspect)}>
-          {isCarousel ? (
-            <CarouselSlides urls={post.feedImageUrls} thumbnail={post.thumbnailUrl} />
-          ) : isVideo ? (
-            <VideoPlayer
-              urls={tipo === "youtube" ? post.horizontalUrls : post.verticalUrls}
-              poster={post.thumbnailUrl}
-            />
-          ) : (
-            <SingleImage urls={post.feedImageUrls} fallback={post.thumbnailUrl ?? post.verticalUrls?.[0] ?? null} />
+
+      {/* Media */}
+      <div className={cn("relative bg-muted", aspect)}>
+        {isCarousel ? (
+          <CarouselSlides post={post} />
+        ) : isReelOrStory ? (
+          <VideoOrPoster post={post} tipo={tipo} />
+        ) : (
+          <SingleImageOrVideo post={post} tipo={tipo} />
+        )}
+      </div>
+
+      {/* Footer — ações + caption */}
+      <div className="px-3 py-2 space-y-1.5">
+        <div className="flex items-center gap-3">
+          <Heart className="h-5 w-5" />
+          <MessageCircle className="h-5 w-5" />
+          <Send className="h-5 w-5" />
+          <Bookmark className="ml-auto h-5 w-5" />
+        </div>
+        {post.fullCaption && (
+          <p className="text-xs whitespace-pre-wrap line-clamp-3">
+            <span className="font-semibold">{post.conta || "username"}</span>{" "}
+            {post.fullCaption}
+          </p>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// ─── Facebook ──────────────────────────────────────────────
+
+function FacebookMockup({ tipo, target, post }: { tipo: string; target: Target; post: PostMedia }) {
+  const isReel = tipo === "reel"
+  const aspect = isReel ? "aspect-[9/16]" : "aspect-square"
+  const containerWidth = isReel ? "max-w-[280px] mx-auto" : "w-full max-w-md mx-auto"
+
+  return (
+    <div className={cn("rounded-lg border bg-card overflow-hidden", containerWidth)}>
+      <div className="flex items-center gap-2 px-3 py-2">
+        <div className="h-9 w-9 rounded-full bg-blue-600 flex items-center justify-center text-white text-sm font-bold">
+          {(post.conta ?? "?").charAt(0).toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold truncate">{post.conta || target.raw}</p>
+          <p className="text-[11px] text-muted-foreground">Patrocinado · 🌐</p>
+        </div>
+        <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+      </div>
+
+      {post.fullCaption && (
+        <p className="px-3 pb-2 text-sm whitespace-pre-wrap line-clamp-4">{post.fullCaption}</p>
+      )}
+
+      <div className={cn("relative bg-muted", aspect)}>
+        {isReel ? <VideoOrPoster post={post} tipo="reel" /> : <SingleImageOrVideo post={post} tipo={tipo} />}
+      </div>
+
+      <div className="flex items-center justify-around px-3 py-2 border-t text-sm text-muted-foreground">
+        <span className="flex items-center gap-1.5"><ThumbsUp className="h-4 w-4" /> Curtir</span>
+        <span className="flex items-center gap-1.5"><MessageCircle className="h-4 w-4" /> Comentar</span>
+        <span className="flex items-center gap-1.5"><Send className="h-4 w-4" /> Compartilhar</span>
+      </div>
+    </div>
+  )
+}
+
+// ─── YouTube ──────────────────────────────────────────────
+
+function YouTubeMockup({ tipo, target, post }: { tipo: string; target: Target; post: PostMedia }) {
+  const isShort = tipo === "youtube short"
+  const aspect = isShort ? "aspect-[9/16]" : "aspect-video"
+  const containerWidth = isShort ? "max-w-[280px] mx-auto" : "w-full max-w-2xl mx-auto"
+
+  return (
+    <div className={cn("rounded-lg border bg-card overflow-hidden", containerWidth)}>
+      <div className={cn("relative bg-black", aspect)}>
+        <VideoOrPoster post={post} tipo={isShort ? "youtube short" : "youtube"} />
+      </div>
+      <div className="px-3 py-2 space-y-1">
+        <p className="text-sm font-semibold line-clamp-2">{post.fullCaption ? post.fullCaption.split("\n")[0] : target.raw}</p>
+        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+          <div className="h-6 w-6 rounded-full bg-red-600 flex items-center justify-center text-white text-[10px] font-bold">
+            {(post.conta ?? "?").charAt(0).toUpperCase()}
+          </div>
+          <span className="truncate">{post.conta || "canal"}</span>
+          <span>·</span>
+          <span>agora</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── TikTok ──────────────────────────────────────────────
+
+function TikTokMockup({ tipo: _tipo, target: _target, post }: { tipo: string; target: Target; post: PostMedia }) {
+  return (
+    <div className="rounded-lg border bg-black overflow-hidden max-w-[280px] mx-auto">
+      <div className="relative aspect-[9/16] bg-black">
+        <VideoOrPoster post={post} tipo="reel" />
+        {/* Right rail actions */}
+        <div className="absolute right-2 bottom-20 flex flex-col gap-3 items-center text-white">
+          <Heart className="h-6 w-6 drop-shadow" />
+          <MessageCircle className="h-6 w-6 drop-shadow" />
+          <Send className="h-6 w-6 drop-shadow" />
+        </div>
+        {/* Bottom caption overlay */}
+        <div className="absolute inset-x-0 bottom-0 p-3 bg-gradient-to-t from-black/80 to-transparent text-white space-y-1">
+          <p className="text-sm font-semibold">@{post.conta || "usuario"}</p>
+          {post.fullCaption && (
+            <p className="text-xs whitespace-pre-wrap line-clamp-2">{post.fullCaption}</p>
           )}
         </div>
       </div>
@@ -80,13 +228,70 @@ export function PostMockup({ target, post }: { target: Target; post: PostMedia }
   )
 }
 
-function CarouselSlides({ urls, thumbnail }: { urls: string[]; thumbnail: string | null }) {
-  // Pra carrossel preferimos as imagens do feed (cada slide = 1 feedImage).
-  // Se a agency upload uma thumbnail E múltiplas imagens, mostra thumb como
-  // primeiro slide (capa do carrossel) seguida das feedImages.
+// ─── LinkedIn ──────────────────────────────────────────────
+
+function LinkedInMockup({ tipo, target, post }: { tipo: string; target: Target; post: PostMedia }) {
+  const aspect = tipo === "video" ? "aspect-video" : "aspect-square"
+  return (
+    <div className="rounded-lg border bg-card overflow-hidden w-full max-w-md mx-auto">
+      <div className="flex items-center gap-2 px-3 py-2">
+        <div className="h-10 w-10 rounded bg-sky-700 flex items-center justify-center text-white text-sm font-bold">
+          {(post.conta ?? "?").charAt(0).toUpperCase()}
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold truncate">{post.conta || target.raw}</p>
+          <p className="text-[11px] text-muted-foreground">Empresa · agora</p>
+        </div>
+        <MoreHorizontal className="h-4 w-4 text-muted-foreground" />
+      </div>
+
+      {post.fullCaption && (
+        <p className="px-3 pb-2 text-sm whitespace-pre-wrap line-clamp-4">{post.fullCaption}</p>
+      )}
+
+      <div className={cn("relative bg-muted", aspect)}>
+        <SingleImageOrVideo post={post} tipo={tipo} />
+      </div>
+
+      <div className="flex items-center justify-around px-3 py-2 border-t text-sm text-muted-foreground">
+        <span className="flex items-center gap-1.5"><ThumbsUp className="h-4 w-4" /> Reagir</span>
+        <span className="flex items-center gap-1.5"><MessageCircle className="h-4 w-4" /> Comentar</span>
+        <span className="flex items-center gap-1.5"><Repeat2 className="h-4 w-4" /> Repostar</span>
+      </div>
+    </div>
+  )
+}
+
+// ─── Generic fallback ──────────────────────────────────────
+
+function GenericMockup({ tipo, target, post }: { tipo: string; target: Target; post: PostMedia }) {
+  const aspect = tipo === "reel" || tipo === "story" || tipo === "youtube short"
+    ? "aspect-[9/16]"
+    : tipo === "youtube" ? "aspect-video" : "aspect-square"
+  return (
+    <div className="rounded-lg border bg-card overflow-hidden">
+      <div className="px-3 py-2 border-b text-sm font-medium">{target.raw}</div>
+      <div className={cn("relative bg-muted", aspect)}>
+        <SingleImageOrVideo post={post} tipo={tipo} />
+      </div>
+    </div>
+  )
+}
+
+// ─── Media renderers ──────────────────────────────────────
+
+function CarouselSlides({ post }: { post: PostMedia }) {
+  // Carrossel: 1 slide por imagem do feed. Se houver thumbnail dedicada
+  // E feed images, usa thumb como capa (primeiro slide).
   const slides: string[] = []
-  if (thumbnail && !urls.includes(thumbnail)) slides.push(thumbnail)
-  for (const u of urls) slides.push(u)
+  if (post.thumbnailUrl && !post.feedImageUrls.includes(post.thumbnailUrl)) {
+    slides.push(post.thumbnailUrl)
+  }
+  for (const u of post.feedImageUrls) slides.push(u)
+  // Fallback: se sem feedImages, usa allMediaUrls
+  if (slides.length === 0 && post.allMediaUrls?.length) {
+    slides.push(...post.allMediaUrls)
+  }
 
   const [idx, setIdx] = useState(0)
 
@@ -103,28 +308,24 @@ function CarouselSlides({ urls, thumbnail }: { urls: string[]; thumbnail: string
         alt={`Slide ${idx + 1}`}
         className="absolute inset-0 h-full w-full object-cover"
       />
-      {/* Slide indicator (dots) */}
-      {slides.length > 1 && (
-        <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
-          {slides.map((_, i) => (
-            <span
-              key={i}
-              className={cn(
-                "h-1.5 w-1.5 rounded-full transition-all",
-                i === idx ? "bg-white" : "bg-white/40",
-              )}
-            />
-          ))}
-        </div>
-      )}
-      {/* Navigation buttons */}
       {slides.length > 1 && (
         <>
+          <div className="absolute bottom-2 left-1/2 flex -translate-x-1/2 gap-1">
+            {slides.map((_, i) => (
+              <span
+                key={i}
+                className={cn(
+                  "h-1.5 w-1.5 rounded-full transition-all",
+                  i === idx ? "bg-white" : "bg-white/40",
+                )}
+              />
+            ))}
+          </div>
           <button
             type="button"
             onClick={prev}
             aria-label="Slide anterior"
-            className="absolute left-2 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white transition-colors hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="absolute left-2 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
           >
             <ChevronLeft className="h-5 w-5" />
           </button>
@@ -132,73 +333,83 @@ function CarouselSlides({ urls, thumbnail }: { urls: string[]; thumbnail: string
             type="button"
             onClick={next}
             aria-label="Próximo slide"
-            className="absolute right-2 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white transition-colors hover:bg-black/70 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white"
+            className="absolute right-2 top-1/2 -translate-y-1/2 flex h-9 w-9 items-center justify-center rounded-full bg-black/50 text-white hover:bg-black/70"
           >
             <ChevronRight className="h-5 w-5" />
           </button>
+          <div className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white">
+            {idx + 1}/{slides.length}
+          </div>
         </>
-      )}
-      {/* Slide counter */}
-      {slides.length > 1 && (
-        <div className="absolute right-2 top-2 rounded-full bg-black/60 px-2 py-0.5 text-[11px] font-medium text-white">
-          {idx + 1}/{slides.length}
-        </div>
       )}
     </>
   )
 }
 
-function VideoPlayer({ urls, poster }: { urls: string[]; poster: string | null }) {
-  const url = urls?.[0]
-  if (!url) {
-    // Sem vídeo mas com thumbnail → mostra thumbnail como fallback (parecido com Instagram quando ainda não tem o arquivo final)
-    if (poster) {
-      return (
-        <>
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={poster} alt="" className="absolute inset-0 h-full w-full object-cover" />
-          <div className="absolute inset-0 flex items-center justify-center">
-            <div className="rounded-full bg-black/50 p-3">
-              <span className="block h-0 w-0 border-y-[10px] border-l-[14px] border-y-transparent border-l-white" />
-            </div>
-          </div>
-        </>
-      )
-    }
-    return <NoMediaPlaceholder />
-  }
+function VideoOrPoster({ post, tipo }: { post: PostMedia; tipo: string }) {
+  const { videoUrl, imgUrl } = pickMedia(post, true, tipo)
 
-  return (
-    <video
-      src={url}
-      poster={poster ?? undefined}
-      className="absolute inset-0 h-full w-full object-cover"
-      controls
-      muted
-      playsInline
-      preload="metadata"
-    />
-  )
+  if (videoUrl) {
+    return (
+      <video
+        src={videoSeek(videoUrl)}
+        poster={imgUrl ?? undefined}
+        className="absolute inset-0 h-full w-full object-cover"
+        controls
+        muted
+        playsInline
+        preload="metadata"
+      />
+    )
+  }
+  if (imgUrl) {
+    return (
+      <>
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={imgUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+        <div className="absolute inset-0 flex items-center justify-center">
+          <div className="rounded-full bg-black/50 p-3">
+            <span className="block h-0 w-0 border-y-[10px] border-l-[14px] border-y-transparent border-l-white" />
+          </div>
+        </div>
+      </>
+    )
+  }
+  return <NoMediaPlaceholder />
 }
 
-function SingleImage({ urls, fallback }: { urls: string[]; fallback: string | null }) {
-  const url = urls?.[0] ?? fallback
-  if (!url) return <NoMediaPlaceholder />
-  return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img
-      src={url}
-      alt=""
-      className="absolute inset-0 h-full w-full object-cover"
-    />
-  )
+function SingleImageOrVideo({ post, tipo }: { post: PostMedia; tipo: string }) {
+  const isVideo = tipo === "reel" || tipo === "story" || tipo === "youtube short" || tipo === "youtube" || tipo === "video"
+  const { videoUrl, imgUrl } = pickMedia(post, isVideo, tipo)
+
+  if (videoUrl) {
+    return (
+      <video
+        src={videoSeek(videoUrl)}
+        poster={imgUrl ?? undefined}
+        className="absolute inset-0 h-full w-full object-cover"
+        controls
+        muted
+        playsInline
+        preload="metadata"
+      />
+    )
+  }
+  if (imgUrl) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img src={imgUrl} alt="" className="absolute inset-0 h-full w-full object-cover" />
+    )
+  }
+  return <NoMediaPlaceholder />
 }
 
 function NoMediaPlaceholder() {
   return (
-    <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground">
+    <div className="absolute inset-0 flex flex-col items-center justify-center text-muted-foreground p-4 text-center">
       <AlertTriangle className="h-6 w-6 mb-1" />
-      <span className="text-sm">Sem mídia</span>
+      <span className="text-sm font-medium">Mídia ainda não disponível</span>
+      <span className="text-xs mt-0.5">A agência precisa fazer upload no Notion</span>
     </div>
   )
 }

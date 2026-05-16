@@ -29,6 +29,7 @@ type PostInfo = {
   verticalUrls: string[]
   horizontalUrls: string[]
   thumbnailUrl: string | null
+  allMediaUrls?: string[]
   publishTargets: TargetCheck[]
   scheduledDate: string | null
   notionUrl: string
