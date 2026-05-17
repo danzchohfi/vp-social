@@ -1,5 +1,6 @@
 import Link from "next/link"
-import { ThemeToggle } from "@/components/dashboard/theme-toggle"
+import { PublicHeader } from "@/components/public/header"
+import { PublicFooter } from "@/components/public/footer"
 
 export default function LandingPage() {
   return (
@@ -11,32 +12,7 @@ export default function LandingPage() {
         style={{ maskImage: "radial-gradient(ellipse at center, black 20%, transparent 75%)" }}
       />
 
-      {/* Nav */}
-      <header className="relative z-10 border-b border-border/70 backdrop-blur-sm">
-        <div className="mx-auto flex max-w-[1180px] items-center justify-between px-8 py-6">
-          <Link href="/" className="font-display text-[26px] font-medium tracking-tight">
-            producao<span className="text-primary text-[22px]">.app</span>
-          </Link>
-          <nav className="hidden gap-8 text-[15px] text-muted-foreground md:flex">
-            <Link href="#produto" className="transition-colors hover:text-foreground">Produto</Link>
-            <Link href="#como" className="transition-colors hover:text-foreground">Como funciona</Link>
-            <Link href="#integracoes" className="transition-colors hover:text-foreground">Integrações</Link>
-            <Link href="#preco" className="transition-colors hover:text-foreground">Preço</Link>
-            <Link href="/login" className="transition-colors hover:text-foreground">Entrar</Link>
-          </nav>
-          <div className="flex items-center gap-2">
-            <div className="hidden items-center rounded-md border border-border bg-background sm:flex">
-              <ThemeToggle />
-            </div>
-            <Link
-              href="/signup"
-              className="rounded-full bg-foreground px-[18px] py-[9px] text-[14px] font-medium text-background transition-colors hover:bg-primary"
-            >
-              Pedir demo
-            </Link>
-          </div>
-        </div>
-      </header>
+      <PublicHeader />
 
       <main className="relative flex-1">
         {/* Hero — coral radial atrás + grid sutil + status pulsante */}
@@ -59,13 +35,13 @@ export default function LandingPage() {
             </p>
             <div className="mb-9 flex flex-wrap justify-center gap-[14px]">
               <Link
-                href="/signup"
+                href="/demo"
                 className="rounded-full bg-foreground px-[26px] py-[14px] text-[15px] font-medium text-background transition-colors hover:bg-primary"
               >
                 Pedir demo
               </Link>
               <Link
-                href="#como"
+                href="/como-funciona"
                 className="rounded-full border border-border px-[26px] py-[14px] text-[15px] font-medium text-foreground transition-colors hover:bg-muted"
               >
                 Ver como funciona
@@ -313,7 +289,7 @@ export default function LandingPage() {
                 ))}
               </ul>
               <Link
-                href="/signup"
+                href="/demo"
                 className="block w-full rounded-full bg-foreground py-[14px] text-center text-[15px] font-medium text-background transition-colors hover:bg-primary"
               >
                 Pedir demo de 30 minutos
@@ -333,7 +309,7 @@ export default function LandingPage() {
               <em className="font-light italic text-primary">caçar aprovação no WhatsApp?</em>
             </h2>
             <Link
-              href="/signup"
+              href="/demo"
               className="inline-block rounded-full bg-foreground px-7 py-[14px] text-[15px] font-medium text-background transition-colors hover:bg-primary"
             >
               Pedir demo
@@ -342,23 +318,7 @@ export default function LandingPage() {
         </section>
       </main>
 
-      <footer className="relative border-t border-border/70 bg-card/30 px-8 py-12">
-        <div className="mx-auto flex max-w-[1180px] flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
-          <div>
-            <div className="font-display text-[18px] font-medium">
-              producao<span className="text-primary">.app</span>
-            </div>
-            <div className="mt-1.5 text-[13px] text-muted-foreground">
-              Um produto da Vitamina Publicitária. São Paulo, 2026.
-            </div>
-          </div>
-          <nav className="flex flex-wrap gap-6 text-[14px] text-muted-foreground">
-            <Link href="/terms" className="transition-colors hover:text-foreground">Termos</Link>
-            <Link href="/privacy" className="transition-colors hover:text-foreground">Privacidade</Link>
-            <Link href="/login" className="transition-colors hover:text-foreground">Entrar</Link>
-          </nav>
-        </div>
-      </footer>
+      <PublicFooter />
     </div>
   )
 }

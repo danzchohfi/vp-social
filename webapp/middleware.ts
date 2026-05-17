@@ -9,7 +9,7 @@ import type { NextRequest } from "next/server"
 // acessado via URL tokenizada que agência compartilha) e /a + /api/a
 // (portal magic-link do approver — single token unifica posts +
 // produções pra um aprovador individual, sem login).
-const PUBLIC_PATHS = ["/", "/login", "/signup", "/forgot-password", "/reset-password", "/api/auth", "/api/tiktok-proxy", "/privacy", "/terms", "/invites", "/api/invites", "/approve", "/api/approve", "/c", "/api/c", "/a", "/api/a"]
+const PUBLIC_PATHS = ["/", "/login", "/signup", "/forgot-password", "/reset-password", "/api/auth", "/api/tiktok-proxy", "/privacy", "/terms", "/invites", "/api/invites", "/approve", "/api/approve", "/c", "/api/c", "/a", "/api/a", "/demo", "/api/demo", "/como-funciona", "/integracoes", "/faq", "/setup"]
 
 // Conteúdo que a CSP pode permitir além de 'self':
 //   - YouTube embed nas páginas de approve/c (preview unlisted)
@@ -43,6 +43,7 @@ function buildCSP(nonce: string): string {
       "https://i.ytimg.com",
       "https://*.googleusercontent.com",
       "https://*.notion.so",
+      "https://images.unsplash.com",
     ],
     "media-src": [
       "'self'",

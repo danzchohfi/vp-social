@@ -39,6 +39,55 @@ async function sendEmail(to: string, subject: string, html: string, label: strin
   }
 }
 
+// Lead capture from /demo form. Single recipient (founder inbox)
+// until a CRM/ManyChat integration ships. Best-effort: silently
+// logs in dev (no RESEND_API_KEY) so the form still completes.
+const DEMO_LEAD_EMAIL = process.env.DEMO_LEAD_EMAIL ?? "daniel@vitaminapublicitaria.com.br"
+
+export type DemoLead = {
+  name: string
+  email: string
+  phone: string
+  agencyName?: string | null
+  clientCount?: string | null
+  planningTool?: string | null
+  comments?: string | null
+  source?: string | null
+}
+
+export async function notifyDemoRequest(lead: DemoLead): Promise<void> {
+  const safe = (s: string | null | undefined) =>
+    (s ?? "").toString().replace(/[<>&]/g, (c) => ({ "<": "&lt;", ">": "&gt;", "&": "&amp;" }[c]!))
+
+  const html = `
+<div style="font-family: -apple-system, system-ui, sans-serif; max-width: 560px; margin: 0 auto; padding: 24px; color: #1A1612; background: #F5F1EA;">
+  <h1 style="font-size: 22px; font-weight: 600; margin: 0 0 4px;">Novo lead — pedido de demo</h1>
+  <p style="font-size: 13px; color: #665B52; margin: 0 0 24px;">producao.app/demo · ${new Date().toLocaleString("pt-BR", { timeZone: "America/Sao_Paulo" })}</p>
+
+  <table style="width:100%; border-collapse: collapse; font-size: 14px;">
+    <tr><td style="padding:8px 0; color:#665B52; width:160px;">Nome</td><td style="padding:8px 0; font-weight:500;">${safe(lead.name)}</td></tr>
+    <tr><td style="padding:8px 0; color:#665B52;">E-mail</td><td style="padding:8px 0;"><a href="mailto:${safe(lead.email)}" style="color:#CC785C;">${safe(lead.email)}</a></td></tr>
+    <tr><td style="padding:8px 0; color:#665B52;">WhatsApp</td><td style="padding:8px 0;"><a href="https://wa.me/${safe(lead.phone).replace(/\D/g, "")}" style="color:#CC785C;">${safe(lead.phone)}</a></td></tr>
+    <tr><td style="padding:8px 0; color:#665B52;">Agência</td><td style="padding:8px 0;">${safe(lead.agencyName) || "—"}</td></tr>
+    <tr><td style="padding:8px 0; color:#665B52;">Qtd clientes</td><td style="padding:8px 0;">${safe(lead.clientCount) || "—"}</td></tr>
+    <tr><td style="padding:8px 0; color:#665B52;">Planning hoje</td><td style="padding:8px 0;">${safe(lead.planningTool) || "—"}</td></tr>
+    ${lead.comments ? `<tr><td style="padding:8px 0; color:#665B52; vertical-align:top;">Comentário</td><td style="padding:8px 0; white-space:pre-wrap;">${safe(lead.comments)}</td></tr>` : ""}
+    ${lead.source ? `<tr><td style="padding:8px 0; color:#665B52;">Origem</td><td style="padding:8px 0;">${safe(lead.source)}</td></tr>` : ""}
+  </table>
+
+  <p style="font-size: 12px; color: #665B52; margin-top: 32px; padding-top: 16px; border-top: 1px solid #E5DDD0;">
+    Lead recebido via producao.app · responda em 24h pra maximizar conversão.
+  </p>
+</div>`.trim()
+
+  await sendEmail(
+    DEMO_LEAD_EMAIL,
+    `Demo · ${lead.name}${lead.agencyName ? ` (${lead.agencyName})` : ""}`,
+    html,
+    "demo-lead",
+  )
+}
+
 export async function notifyPublishFailure(
   userId: string,
   clientName: string | null,
