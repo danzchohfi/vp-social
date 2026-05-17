@@ -1,315 +1,274 @@
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import {
-  ArrowRight, Zap, LayoutDashboard, Instagram, Link2,
-  CheckCircle2, Sparkles, Users, BarChart3
-} from "lucide-react"
 
 export default function LandingPage() {
   return (
-    <div className="flex min-h-screen flex-col bg-background">
+    <div className="flex min-h-screen flex-col bg-background text-foreground">
       {/* Nav */}
-      <header className="sticky top-0 z-50 border-b border-border/50 bg-background/80 backdrop-blur-xl">
-        <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-6">
-          <div className="flex items-center gap-2.5">
-            <img
-              src="/icon.png"
-              alt="VP Social"
-              width={36}
-              height={36}
-              className="h-9 w-9 rounded-lg shadow-sm ring-1 ring-black/5"
-            />
-            <span className="text-lg tracking-tight">
-              <span className="font-semibold">VP</span>
-              <span className="ml-1 italic">Social</span>
-            </span>
-          </div>
-          <nav className="hidden items-center gap-8 text-base text-muted-foreground md:flex">
-            <Link href="#features" className="hover:text-foreground transition-colors">Funcionalidades</Link>
-            <Link href="#how" className="hover:text-foreground transition-colors">Como funciona</Link>
-            <Link href="#pricing" className="hover:text-foreground transition-colors">Preços</Link>
+      <header className="border-b border-border">
+        <div className="mx-auto flex max-w-[1180px] items-center justify-between px-8 py-7">
+          <Link href="/" className="font-display text-[26px] font-medium tracking-tight">
+            producao<span className="text-primary text-[22px]">.app</span>
+          </Link>
+          <nav className="hidden gap-8 text-[15px] text-muted-foreground md:flex">
+            <Link href="#produto" className="transition-colors hover:text-foreground">Produto</Link>
+            <Link href="#como" className="transition-colors hover:text-foreground">Como funciona</Link>
+            <Link href="#preco" className="transition-colors hover:text-foreground">Preço</Link>
+            <Link href="/login" className="transition-colors hover:text-foreground">Entrar</Link>
           </nav>
-          <div className="flex items-center gap-3">
-            <Button variant="ghost" size="sm" asChild>
-              <Link href="/login">Entrar</Link>
-            </Button>
-            <Button size="sm" asChild>
-              <Link href="/signup">Começar grátis <ArrowRight /></Link>
-            </Button>
-          </div>
+          <Link
+            href="/signup"
+            className="rounded-full bg-foreground px-[18px] py-[9px] text-[14px] font-medium text-background transition-colors hover:bg-primary"
+          >
+            Pedir demo
+          </Link>
         </div>
       </header>
 
       <main className="flex-1">
         {/* Hero */}
-        <section className="relative overflow-hidden px-6 py-24 text-center md:py-36">
-          <div className="absolute inset-0 -z-10">
-            <div className="absolute left-1/2 top-0 h-[700px] w-[700px] -translate-x-1/2 rounded-full aurora-bg" />
-          </div>
-          <div className="mx-auto max-w-4xl">
-            {/* Brand logo — kept large + above the fold so TikTok / Meta /
-                LinkedIn app reviewers can match it 1:1 against the icon
-                they see on their dev consoles. Without this, reviewers
-                sometimes flag "logo on landing doesn't match submitted
-                icon" even when both come from the same source file. */}
-            <img
-              src="/icon.png"
-              alt="VP Social"
-              width={96}
-              height={96}
-              className="mx-auto mb-8 h-20 w-20 rounded-2xl shadow-lg ring-1 ring-black/5 sm:h-24 sm:w-24 [view-transition-name:hero-logo]"
-            />
-            <Badge variant="secondary" className="mb-6 gap-1.5">
-              <Sparkles className="h-3 w-3" />
-              Feito para agências e criadores
-            </Badge>
-            <h1 className="mb-6 text-5xl font-normal leading-[1.05] tracking-tight md:text-7xl">
-              Publique nas redes
-              <br />
-              <span className="italic text-primary">direto do Notion</span>
+        <section className="px-8 pt-[120px] pb-[100px] text-center">
+          <div className="mx-auto max-w-[1180px]">
+            <span className="mb-7 inline-block rounded-full bg-primary/10 px-[14px] py-[6px] text-[13px] font-medium tracking-wide text-primary">
+              painel de experiência do cliente
+            </span>
+            <h1 className="font-display mx-auto mb-7 max-w-[900px] text-[clamp(52px,7.5vw,104px)] font-normal leading-[1.02] tracking-tight">
+              Mais conteúdo saindo.{" "}
+              <em className="font-normal italic text-primary">
+                Sem ninguém se matando.
+              </em>
             </h1>
-            <p className="mx-auto mb-10 max-w-2xl text-lg text-muted-foreground md:text-xl">
-              Gerencie o calendário editorial dos seus clientes no Notion e publique automaticamente
-              nas redes sociais. Sem copiar e colar. Sem esquecimentos.
+            <p className="mx-auto mb-11 max-w-[620px] text-[21px] leading-[1.5] text-muted-foreground">
+              O painel premium pro cliente da agência aprovar, acompanhar e ver tudo que tá rolando —
+              plugado no que sua agência já usa.
             </p>
-            <div className="flex flex-col items-center gap-4 sm:flex-row sm:justify-center">
-              <Button size="xl" asChild>
-                <Link href="/signup">
-                  Começar gratuitamente <ArrowRight />
-                </Link>
-              </Button>
-              <Button size="xl" variant="outline" asChild>
-                <Link href="#how">Ver como funciona</Link>
-              </Button>
-            </div>
-            <p className="mt-4 text-base text-muted-foreground">Grátis para começar · Sem cartão de crédito</p>
-          </div>
-        </section>
-
-        {/* Social proof */}
-        <section className="border-y border-border/50 bg-muted/30 px-6 py-12">
-          <div className="mx-auto max-w-4xl text-center">
-            <p className="mb-8 text-base font-medium text-muted-foreground uppercase tracking-widest">
-              Funciona com suas ferramentas favoritas
-            </p>
-            <div className="flex flex-wrap items-center justify-center gap-12 text-muted-foreground">
-              {["Notion", "Instagram", "Facebook", "Reels", "Carrossel"].map((tool) => (
-                <span key={tool} className="text-lg font-semibold">{tool}</span>
-              ))}
+            <div className="flex flex-wrap justify-center gap-[14px]">
+              <Link
+                href="/signup"
+                className="rounded-full bg-foreground px-[26px] py-[14px] text-[15px] font-medium text-background transition-colors hover:bg-primary"
+              >
+                Pedir demo
+              </Link>
+              <Link
+                href="#como"
+                className="rounded-full border border-border px-[26px] py-[14px] text-[15px] font-medium text-foreground transition-colors hover:bg-muted"
+              >
+                Ver como funciona
+              </Link>
             </div>
           </div>
         </section>
 
-        {/* Features — Bento layout: HERO (publicação automática, 8col×2row) +
-            2 medium cells (Notion, IG multi) + 3 small cells abaixo. Diferentes
-            tamanhos comunicam hierarquia: o que mais importa ocupa mais espaço.
-            Mobile colapsa pra 1 coluna preservando a ordem. */}
-        <section id="features" className="px-6 py-24">
-          <div className="mx-auto max-w-6xl">
+        {/* Trust */}
+        <section className="border-y border-border px-8 py-[60px]">
+          <div className="mx-auto max-w-[1180px] text-center">
+            <p className="mb-7 text-[13px] font-medium uppercase tracking-[0.08em] text-muted-foreground">
+              agências que já operam no Produção
+            </p>
+            <div className="font-display flex flex-wrap items-center justify-center gap-x-14 gap-y-3 text-[22px] font-medium italic opacity-55">
+              <span>Vitamina</span>
+              <span>Studio Bom</span>
+              <span>Mesa &amp; Co.</span>
+              <span>Boa Praça</span>
+              <span>Conteúdo Sul</span>
+            </div>
+          </div>
+        </section>
+
+        {/* Features */}
+        <section id="produto" className="px-8 py-[110px]">
+          <div className="mx-auto max-w-[1180px]">
             <div className="mb-16 text-center">
-              <h2 className="mb-4 text-4xl font-bold tracking-tight">Tudo que você precisa</h2>
-              <p className="text-lg text-muted-foreground">Uma plataforma completa para gestão de redes sociais</p>
+              <h2 className="font-display mx-auto mb-4 max-w-[700px] text-[clamp(38px,4.5vw,60px)] font-normal leading-[1.08] tracking-tight">
+                Tudo num lugar só —{" "}
+                <em className="font-normal italic text-primary">e nada migrando.</em>
+              </h2>
+              <p className="mx-auto max-w-[540px] text-[19px] text-muted-foreground">
+                Sua agência continua trabalhando como já trabalha. Produção pluga, aprova e publica.
+              </p>
             </div>
-            <div className="stagger-children grid gap-4 md:grid-cols-12 md:grid-rows-[auto_auto_auto] md:gap-5">
-              {/* HERO — Publicação automática */}
-              <div className="group relative overflow-hidden rounded-2xl border bg-card p-6 transition-shadow hover:shadow-lg md:col-span-8 md:row-span-2 md:p-10">
-                <div className="absolute right-0 top-0 -z-0 h-72 w-72 -translate-y-1/3 translate-x-1/3 rounded-full bg-primary/10 blur-3xl" />
-                <div className="relative">
-                  <div className="mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/15 text-primary ring-1 ring-primary/20">
-                    <Zap className="h-7 w-7" />
+            <div className="grid gap-8 md:grid-cols-3">
+              {features.map((f) => (
+                <div key={f.num} className="rounded-[18px] bg-card p-9">
+                  <div className="font-display mb-[18px] text-[28px] italic text-primary">
+                    {f.num}
                   </div>
-                  <h3 className="mb-3 text-3xl font-semibold tracking-tight md:text-4xl">
-                    Publicação <span className="italic text-primary">automática</span>
+                  <h3 className="font-display mb-3 text-[26px] font-medium leading-[1.2] tracking-tight">
+                    {f.title}
                   </h3>
-                  <p className="max-w-xl text-base text-muted-foreground md:text-lg">
-                    Defina o status como &quot;Agendamento&quot; no Notion. O VP Social publica em
-                    Instagram, Facebook, YouTube, TikTok e LinkedIn — sem você abrir um app.
+                  <p className="text-[16px] leading-[1.55] text-muted-foreground">
+                    {f.body}
                   </p>
-                  <div className="mt-6 flex flex-wrap items-center gap-2">
-                    {["Instagram", "Facebook", "Reels", "Stories", "Carrossel", "Vídeo"].map((t) => (
-                      <span key={t} className="rounded-full border border-primary/30 bg-primary/10 px-3 py-1 text-[13px] font-medium text-primary">
-                        {t}
-                      </span>
-                    ))}
-                  </div>
                 </div>
-              </div>
-
-              {/* MEDIUM — Conecte o Notion */}
-              <div className="group rounded-2xl border bg-card p-6 transition-shadow hover:shadow-md md:col-span-4 md:row-span-1">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Link2 className="h-5 w-5" />
-                </div>
-                <h3 className="mb-2 font-semibold">Conecte o Notion</h3>
-                <p className="text-base text-muted-foreground">
-                  Vincule seu banco do Notion em segundos. Suporte a qualquer estrutura de database.
-                </p>
-              </div>
-
-              {/* MEDIUM — Multi-conta Instagram */}
-              <div className="group rounded-2xl border bg-card p-6 transition-shadow hover:shadow-md md:col-span-4 md:row-span-1">
-                <div className="mb-4 flex h-11 w-11 items-center justify-center rounded-xl bg-primary/10 text-primary">
-                  <Instagram className="h-5 w-5" />
-                </div>
-                <h3 className="mb-2 font-semibold">Multi-conta, multi-rede</h3>
-                <p className="text-base text-muted-foreground">
-                  Múltiplos clientes, múltiplas contas IG, FB, YouTube, TikTok, LinkedIn — uma só plataforma.
-                </p>
-              </div>
-
-              {/* SMALL — Dashboard */}
-              <div className="group rounded-2xl border bg-card p-6 transition-shadow hover:shadow-md md:col-span-4">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <LayoutDashboard className="h-4 w-4" />
-                </div>
-                <h3 className="mb-1.5 font-semibold">Dashboard completo</h3>
-                <p className="text-sm text-muted-foreground">
-                  Agendados, publicados e erros em tempo real, com 1 clique pra cada ação.
-                </p>
-              </div>
-
-              {/* SMALL — Para agências */}
-              <div className="group rounded-2xl border bg-card p-6 transition-shadow hover:shadow-md md:col-span-4">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <Users className="h-4 w-4" />
-                </div>
-                <h3 className="mb-1.5 font-semibold">Feito para agências</h3>
-                <p className="text-sm text-muted-foreground">
-                  Estrutura multi-cliente. Cada cliente com suas contas, mapeamentos e aprovadores.
-                </p>
-              </div>
-
-              {/* SMALL — Histórico */}
-              <div className="group rounded-2xl border bg-card p-6 transition-shadow hover:shadow-md md:col-span-4">
-                <div className="mb-3 flex h-10 w-10 items-center justify-center rounded-lg bg-primary/10 text-primary">
-                  <BarChart3 className="h-4 w-4" />
-                </div>
-                <h3 className="mb-1.5 font-semibold">Histórico + métricas</h3>
-                <p className="text-sm text-muted-foreground">
-                  Likes, comentários, alcance e saves — sincronizados do Notion direto pro Instagram.
-                </p>
-              </div>
+              ))}
             </div>
           </div>
         </section>
 
-        {/* How it works */}
-        <section id="how" className="bg-muted/30 px-6 py-24">
-          <div className="mx-auto max-w-4xl">
-            <div className="mb-16 text-center">
-              <h2 className="mb-4 text-4xl font-bold tracking-tight">Como funciona</h2>
-              <p className="text-lg text-muted-foreground">Configuração em minutos, publicação automática para sempre</p>
+        {/* How */}
+        <section id="como" className="bg-secondary px-8 py-[110px] text-secondary-foreground">
+          <div className="mx-auto max-w-[1180px]">
+            <div className="mb-12 text-center">
+              <h2 className="font-display mx-auto mb-4 max-w-[700px] text-[clamp(38px,4.5vw,60px)] font-normal leading-[1.08] tracking-tight text-secondary-foreground">
+                O painel que o seu{" "}
+                <em className="font-normal italic text-primary">cliente abre todo dia</em>.
+              </h2>
+              <p className="mx-auto max-w-[540px] text-[19px] text-secondary-foreground/65">
+                Não é dashboard interno. É a vitrine premium que sua agência entrega.
+              </p>
             </div>
-            <div className="space-y-8">
-              {steps.map((step, i) => (
-                <div key={step.title} className="flex gap-6">
-                  <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary text-primary-foreground font-bold text-lg">
-                    {i + 1}
+            <div className="mt-12 grid gap-12 md:grid-cols-3">
+              {steps.map((s) => (
+                <div key={s.label} className="border-t border-secondary-foreground/15 pt-7">
+                  <div className="font-display mb-4 text-[20px] italic text-primary/80">
+                    {s.label}
                   </div>
-                  <div className="pt-2">
-                    <h3 className="mb-1 font-semibold text-lg">{step.title}</h3>
-                    <p className="text-muted-foreground">{step.description}</p>
-                  </div>
+                  <h4 className="font-display mb-3 text-[28px] font-normal leading-[1.15] tracking-tight">
+                    {s.title}
+                  </h4>
+                  <p className="text-[15px] leading-[1.55] text-secondary-foreground/70">
+                    {s.body}
+                  </p>
                 </div>
               ))}
             </div>
+          </div>
+        </section>
+
+        {/* Testimonial */}
+        <section className="px-8 py-[130px] text-center">
+          <div className="mx-auto max-w-[1180px]">
+            <blockquote className="font-display mx-auto mb-9 max-w-[920px] text-[clamp(28px,3.2vw,42px)] font-light leading-[1.25] tracking-tight">
+              &ldquo;Antes a gente perdia 4 horas por semana caçando aprovação no WhatsApp. Hoje a
+              agência só liga pro cliente quando{" "}
+              <em className="italic">tem coisa boa</em> pra mostrar.&rdquo;
+            </blockquote>
+            <cite className="text-[15px] not-italic text-muted-foreground">
+              <strong className="font-medium text-foreground">Marina Sá</strong>, sócia operacional ·
+              agência de 12 clientes
+            </cite>
           </div>
         </section>
 
         {/* Pricing */}
-        <section id="pricing" className="px-6 py-24">
-          <div className="mx-auto max-w-4xl text-center">
-            <h2 className="mb-4 text-4xl font-bold tracking-tight">Preços simples</h2>
-            <p className="mb-12 text-lg text-muted-foreground">Comece grátis, escale quando precisar</p>
-            <div className="grid gap-6 md:grid-cols-2">
-              {plans.map((plan) => (
-                <div key={plan.name} className={`rounded-2xl border p-8 text-left ${plan.featured ? "border-primary bg-primary/5 ring-1 ring-primary" : "bg-card"}`}>
-                  {plan.featured && <Badge className="mb-4">Mais popular</Badge>}
-                  <h3 className="text-xl font-bold">{plan.name}</h3>
-                  <div className="my-4">
-                    <span className="text-4xl font-bold">{plan.price}</span>
-                    {plan.period && <span className="text-muted-foreground">{plan.period}</span>}
-                  </div>
-                  <p className="mb-6 text-muted-foreground">{plan.description}</p>
-                  <ul className="mb-8 space-y-3">
-                    {plan.features.map((f) => (
-                      <li key={f} className="flex items-center gap-2 text-base">
-                        <CheckCircle2 className="h-4 w-4 text-primary shrink-0" />
-                        {f}
-                      </li>
-                    ))}
-                  </ul>
-                  <Button variant={plan.featured ? "default" : "outline"} className="w-full" asChild>
-                    <Link href="/signup">{plan.cta}</Link>
-                  </Button>
+        <section id="preco" className="border-t border-border px-8 py-[110px]">
+          <div className="mx-auto max-w-[1180px]">
+            <div className="mb-16 text-center">
+              <h2 className="font-display mx-auto mb-4 max-w-[700px] text-[clamp(38px,4.5vw,60px)] font-normal leading-[1.08] tracking-tight">
+                Um preço. <em className="font-normal italic text-primary">Sem ginástica.</em>
+              </h2>
+              <p className="mx-auto max-w-[540px] text-[19px] text-muted-foreground">
+                Menos que uma pessoa operacional. Mais conteúdo do que um time inteiro.
+              </p>
+            </div>
+            <div className="mx-auto max-w-[640px] rounded-[18px] border border-border bg-card p-10">
+              <div className="mb-8 text-center">
+                <div className="t-caption mb-3">Plano único</div>
+                <div className="font-display mb-2 text-[72px] leading-none">
+                  R$ <span className="text-primary">1.500</span>
                 </div>
-              ))}
+                <div className="text-[15px] text-muted-foreground">por mês · 5 clientes inclusos</div>
+              </div>
+              <ul className="mb-9 space-y-3 text-[15px]">
+                {pricingFeatures.map((f) => (
+                  <li key={f} className="flex items-start gap-3">
+                    <span className="mt-[7px] block h-[5px] w-[5px] shrink-0 rounded-full bg-primary" />
+                    <span>{f}</span>
+                  </li>
+                ))}
+              </ul>
+              <Link
+                href="/signup"
+                className="block w-full rounded-full bg-foreground py-[14px] text-center text-[15px] font-medium text-background transition-colors hover:bg-primary"
+              >
+                Pedir demo de 30 minutos
+              </Link>
+              <p className="mt-4 text-center text-[13px] text-muted-foreground">
+                14 dias de teste. Sem cartão.
+              </p>
             </div>
           </div>
         </section>
 
-        {/* CTA */}
-        <section className="bg-primary px-6 py-24 text-center">
-          <div className="mx-auto max-w-2xl">
-            <h2 className="mb-4 text-4xl font-bold tracking-tight text-primary-foreground">
-              Pronto para automatizar?
+        {/* Final CTA */}
+        <section className="border-t border-border px-8 py-[130px] text-center">
+          <div className="mx-auto max-w-[1180px]">
+            <h2 className="font-display mx-auto mb-8 max-w-[780px] text-[clamp(44px,5.5vw,72px)] font-light leading-[1.05] tracking-tight">
+              Pronto pra parar de{" "}
+              <em className="font-light italic text-primary">caçar aprovação no WhatsApp?</em>
             </h2>
-            <p className="mb-8 text-lg text-primary-foreground/80">
-              Junte-se a agências que já economizam horas toda semana.
-            </p>
-            <Button size="xl" variant="secondary" asChild>
-              <Link href="/signup">Criar conta grátis <ArrowRight /></Link>
-            </Button>
+            <Link
+              href="/signup"
+              className="inline-block rounded-full bg-foreground px-7 py-[14px] text-[15px] font-medium text-background transition-colors hover:bg-primary"
+            >
+              Pedir demo
+            </Link>
           </div>
         </section>
       </main>
 
-      <footer className="border-t px-6 py-8">
-        <div className="mx-auto flex max-w-6xl flex-col items-center justify-between gap-4 text-base text-muted-foreground sm:flex-row">
-          <div className="flex items-center gap-2">
-            <img src="/icon.png" alt="VP Social" className="h-6 w-6 rounded" />
-            <span>
-              <span className="font-semibold">VP</span>
-              <span className="ml-1 italic">Social</span>
-            </span>
+      <footer className="border-t border-border px-8 py-12">
+        <div className="mx-auto flex max-w-[1180px] flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">
+          <div>
+            <div className="font-display text-[18px] font-medium">
+              producao<span className="text-primary">.app</span>
+            </div>
+            <div className="mt-1.5 text-[13px] text-muted-foreground">
+              Um produto da Vitamina Publicitária. São Paulo, 2026.
+            </div>
           </div>
-          <nav className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2">
-            <Link href="/privacy" className="hover:text-foreground transition-colors">Política de Privacidade</Link>
-            <Link href="/terms" className="hover:text-foreground transition-colors">Termos de Uso</Link>
+          <nav className="flex flex-wrap gap-6 text-[14px] text-muted-foreground">
+            <Link href="/terms" className="transition-colors hover:text-foreground">Termos</Link>
+            <Link href="/privacy" className="transition-colors hover:text-foreground">Privacidade</Link>
+            <Link href="/login" className="transition-colors hover:text-foreground">Entrar</Link>
           </nav>
-          <p>© 2026 VP Social.</p>
         </div>
       </footer>
     </div>
   )
 }
 
-const steps = [
-  { title: "Crie sua conta", description: "Cadastre-se com e-mail ou faça login com o Facebook diretamente." },
-  { title: "Conecte o Notion", description: "Autorize o acesso ao seu workspace e selecione o banco de dados de conteúdo." },
-  { title: "Conecte o Instagram", description: "Faça login com o Facebook e selecione as contas Instagram dos seus clientes." },
-  { title: "Configure os campos", description: "Mapeie as colunas do Notion para legenda, imagem, data e conta." },
-  { title: "Publique automaticamente", description: "Mude o status para 'Agendamento' no Notion e o VP Social faz o resto." },
+const features = [
+  {
+    num: "01",
+    title: "Plug no planning",
+    body: "Conecta o Notion (ou Sheets, Trello, Airtable) que sua agência já usa. Zero migração, zero ferramenta nova pra aprender.",
+  },
+  {
+    num: "02",
+    title: "Aprovação no WhatsApp",
+    body: "O cliente recebe no WhatsApp, abre o painel no celular e aprova em 1 toque. Se não responder em 30 dias, aprovado.",
+  },
+  {
+    num: "03",
+    title: "Publicação automática",
+    body: "Aprovou? Sai. Instagram, Facebook, YouTube, TikTok, LinkedIn. O conteúdo combinado, publicado. Toda vez.",
+  },
 ]
 
-const plans = [
+const steps = [
   {
-    name: "Grátis",
-    price: "R$0",
-    period: "/mês",
-    description: "Para testar e começar pequeno.",
-    features: ["1 conta Instagram", "1 banco de dados Notion", "50 posts/mês", "Suporte por e-mail"],
-    cta: "Começar grátis",
-    featured: false,
+    label: "passo um",
+    title: "O cliente recebe um link.",
+    body: "WhatsApp com o post pra aprovar. Toque, abre o painel premium da sua agência — com cor, logo e fonte da agência. Zero powered by.",
   },
   {
-    name: "Agência",
-    price: "R$97",
-    period: "/mês",
-    description: "Para agências que gerenciam múltiplos clientes.",
-    features: ["Contas Instagram ilimitadas", "Bancos de dados ilimitados", "Posts ilimitados", "Histórico completo", "Suporte prioritário"],
-    cta: "Começar agora",
-    featured: true,
+    label: "passo dois",
+    title: "Aprova em 1 toque.",
+    body: "Slide pra aprovar. Comentário rápido se quiser. Áudio do WhatsApp embutido como feedback. Sem caçar conversa antiga.",
   },
+  {
+    label: "passo três",
+    title: "Publica. Sozinho.",
+    body: "Sua agência não toca em nada. O post vai pro ar no horário combinado. No fim do mês, story-report bonito pro cliente compartilhar.",
+  },
+]
+
+const pricingFeatures = [
+  "5 clientes ativos inclusos · R$ 197/cliente extra",
+  "Seats ilimitados na agência",
+  "Posts ilimitados em todas as plataformas (IG, FB, YT, TT, LinkedIn)",
+  "Portal premium white-label com domínio próprio",
+  "Aprovação por WhatsApp com cadeia de aprovadores",
+  "Plug em Notion, Sheets, Trello, Airtable",
+  "Suporte humano por WhatsApp",
 ]

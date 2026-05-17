@@ -79,7 +79,7 @@ export default function SignupPage() {
     if (error) {
       toast.error(error.message || "Erro ao criar conta.")
     } else {
-      toast.success("Conta criada! Bem-vindo ao VP Social.")
+      toast.success("Conta criada. Bem-vindo ao Produção.")
       router.push(postAuthTarget())
     }
     setLoading(false)
@@ -96,10 +96,14 @@ export default function SignupPage() {
   }
 
   return (
-    <Card className="w-full max-w-md shadow-lg">
+    <Card className="w-full max-w-md border-border bg-card shadow-sm">
       <CardHeader className="text-center">
-        <CardTitle className="text-3xl font-normal tracking-tight">Criar conta grátis</CardTitle>
-        <CardDescription>Comece a publicar do Notion em minutos</CardDescription>
+        <CardTitle className="[font-family:var(--font-fraunces),Georgia,serif] text-[34px] font-normal leading-tight tracking-tight">
+          Comece a usar Produção.
+        </CardTitle>
+        <CardDescription className="text-[15px]">
+          14 dias de teste. Sem cartão.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <Button variant="outline" className="w-full gap-2" onClick={handleGoogle} disabled={googleLoading}>

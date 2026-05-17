@@ -1,22 +1,39 @@
 import type { Metadata, Viewport } from "next"
-import { Geist, Geist_Mono } from "next/font/google"
+import { Fraunces, Inter, Geist_Mono } from "next/font/google"
 import { Toaster } from "sonner"
 import NextTopLoader from "nextjs-toploader"
 import { ViewTransitions } from "next-view-transitions"
 import { headers } from "next/headers"
 import "./globals.css"
 
-const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
-const geistMono = Geist_Mono({ subsets: ["latin"], variable: "--font-geist-mono" })
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+})
+
+const fraunces = Fraunces({
+  subsets: ["latin"],
+  variable: "--font-fraunces",
+  display: "swap",
+  axes: ["opsz"],
+})
+
+const geistMono = Geist_Mono({
+  subsets: ["latin"],
+  variable: "--font-geist-mono",
+  display: "swap",
+})
 
 export const metadata: Metadata = {
-  title: "VP Social — Publique do Notion para as redes sociais",
-  description: "Gerencie e publique conteúdo das suas redes sociais diretamente do Notion.",
+  title: "Produção — O painel de experiência do cliente pra agências",
+  description:
+    "Mais conteúdo publicado. Menos esforço pra todo mundo. Plugado no que sua agência já usa.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
-    statusBarStyle: "black-translucent",
-    title: "VP Social",
+    statusBarStyle: "default",
+    title: "Produção",
   },
   icons: {
     icon: [
@@ -32,28 +49,23 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#0a0a0a",
+  themeColor: "#F5F1EA",
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
-  // Nonce CSP por request — gerado pelo middleware. Aplicar em todo
-  // <script> inline pra batisar com a directive script-src 'nonce-xxx'.
-  // Sem isso, o CSP completo bloqueia o script de densidade abaixo.
+  // Nonce CSP por request — gerado pelo middleware.
   const nonce = (await headers()).get("x-nonce") ?? undefined
 
   return (
     <ViewTransitions>
-      <html lang="pt-BR" className="dark" suppressHydrationWarning>
+      <html lang="pt-BR" suppressHydrationWarning>
         <head>
-          <meta name="tiktok-developers-site-verification" content="eiekVsERmEwyEjPJ4DNBxmDXYZrilQ3Q" />
-          <link rel="preconnect" href="https://fonts.googleapis.com" />
-          <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-          <link
-            href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&display=swap"
-            rel="stylesheet"
+          <meta
+            name="tiktok-developers-site-verification"
+            content="eiekVsERmEwyEjPJ4DNBxmDXYZrilQ3Q"
           />
           {/* Aplica preferência de densidade ANTES da hydratação pra evitar
-              flash em page load. Síncrono, ~80 bytes, sem deps. */}
+              flash em page load. */}
           <script
             nonce={nonce}
             dangerouslySetInnerHTML={{
@@ -61,15 +73,17 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             }}
           />
         </head>
-        <body className={`${geist.variable} ${geistMono.variable} font-[family-name:var(--font-geist)] antialiased`}>
+        <body
+          className={`${inter.variable} ${fraunces.variable} ${geistMono.variable} font-sans antialiased`}
+        >
           <NextTopLoader
-            color="oklch(0.72 0.18 285)"
+            color="oklch(0.65 0.13 40)"
             height={3}
             showSpinner={false}
-            shadow="0 0 10px oklch(0.72 0.18 285 / 0.6), 0 0 5px oklch(0.72 0.18 285 / 0.6)"
+            shadow="0 0 10px oklch(0.65 0.13 40 / 0.5)"
           />
           {children}
-          <Toaster richColors position="top-right" />
+          <Toaster richColors position="top-right" theme="light" />
         </body>
       </html>
     </ViewTransitions>

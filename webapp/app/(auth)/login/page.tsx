@@ -81,10 +81,14 @@ export default function LoginPage() {
   }
 
   return (
-    <Card className="w-full max-w-md shadow-lg">
+    <Card className="w-full max-w-md border-border bg-card shadow-sm">
       <CardHeader className="text-center">
-        <CardTitle className="text-3xl font-normal tracking-tight">Bem-vindo de volta</CardTitle>
-        <CardDescription>Entre na sua conta para continuar</CardDescription>
+        <CardTitle className="[font-family:var(--font-fraunces),Georgia,serif] text-[34px] font-normal leading-tight tracking-tight">
+          Bem-vindo de volta.
+        </CardTitle>
+        <CardDescription className="text-[15px]">
+          Entre na sua conta pra continuar.
+        </CardDescription>
       </CardHeader>
       <CardContent className="space-y-3">
         <Button variant="outline" className="w-full gap-2" onClick={handleGoogle} disabled={googleLoading}>

@@ -4,8 +4,7 @@
 @custom-variant dark (&:is(.dark *));
 
 /* Density tokens — togglados via data-density no <html>. Comfortable é
-   default (matches o p-6 histórico). Compact reduz padding/gap pra
-   power-users que querem mais info por viewport (Linear/Notion style). */
+   default. Compact reduz padding/gap pra power-users. */
 :root {
   --card-padding: 1.5rem;
   --section-gap: 2rem;
@@ -15,63 +14,12 @@
   --section-gap: 1.25rem;
 }
 
-/* View Transitions opt-in pra hard navigations (form submits, full reloads).
-   Client-side navigations do App Router são morphadas via <ViewTransition>
-   wrapper (next/view-transition, experimental flag em next.config.ts). */
 @view-transition {
   navigation: auto;
 }
 
-/* Custom property registrada pra permitir animação interpolada do hue do
-   conic-gradient (aurora). Sem @property o browser não anima ângulos. */
-@property --aurora-hue {
-  syntax: '<angle>';
-  initial-value: 0deg;
-  inherits: false;
-}
-
-@keyframes aurora-rotate {
-  to { --aurora-hue: 360deg; }
-}
-
-/* Aurora gradient sutil — opt-in via .aurora-bg em divs absolute atrás de
-   hero sections (landing, /a, /c, /approve, /login). Blur grande + opacity
-   baixa = glow ambiente, nunca distrai do conteúdo. */
-.aurora-bg {
-  background: conic-gradient(
-    from var(--aurora-hue),
-    oklch(0.72 0.18 285),
-    oklch(0.65 0.22 200),
-    oklch(0.78 0.16 320),
-    oklch(0.72 0.18 285)
-  );
-  animation: aurora-rotate 20s linear infinite;
-  filter: blur(80px);
-  opacity: 0.22;
-  will-change: transform;
-}
-
-/* Glassmorphism utility. Usar em cards/headers/modais que se beneficiam
-   de profundidade. Fallback em browsers sem backdrop-filter: solid bg. */
-.glass {
-  background-color: oklch(0.16 0 0 / 0.6);
-  backdrop-filter: blur(16px) saturate(150%);
-  -webkit-backdrop-filter: blur(16px) saturate(150%);
-  border: 1px solid oklch(1 0 0 / 0.08);
-}
-
-@supports not (backdrop-filter: blur(16px)) {
-  .glass {
-    background-color: oklch(0.16 0 0 / 0.95);
-  }
-}
-
-/* Respeita preferência de menos animação: pausa aurora, transições
-   instantâneas. Acessibilidade básica. */
 /* Stagger animation utility — aplicar em containers de lista pra cada
-   filho aparecer em cascata. CSS-only via :nth-child delay. backwards
-   fill garante que estado inicial é o "fora-da-tela" (não pisca em
-   estado final por 1 frame antes da animação rodar). */
+   filho aparecer em cascata. */
 @keyframes stagger-fade-in {
   from {
     opacity: 0;
@@ -97,9 +45,7 @@
 .stagger-children > *:nth-child(9)  { animation-delay: 320ms; }
 .stagger-children > *:nth-child(n+10) { animation-delay: 360ms; }
 
-/* cmdk command palette — estilo do heading de cada grupo. cmdk renderiza
-   o heading como elemento com data-attr [cmdk-group-heading], então
-   estilizamos via attribute selector global pra não duplicar markup. */
+/* cmdk command palette */
 [cmdk-group-heading] {
   padding: 0.5rem 0.5rem 0.25rem;
   font-size: 11px;
@@ -109,19 +55,13 @@
   color: var(--color-muted-foreground);
 }
 
-/* Reduced motion: kill global de toda animação/transition. Padrão WCAG
-   AA — usuário com "Reduzir animação" no SO espera 0 motion fora de
-   feedback essencial. .stagger-children precisa também resetar opacity
-   e transform pra não ficar invisível com animação cancelada. */
+/* Reduced motion: kill global de toda animação/transition. WCAG AA. */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
-  }
-  .aurora-bg {
-    animation: none;
   }
   .stagger-children > * {
     animation: none !important;
@@ -135,9 +75,7 @@
   }
 }
 
-/* Skip-link: hidden por default, aparece em foco quando Tab vem do
-   início da página. Pula pro main content evitando re-tab via nav.
-   WCAG 2.4.1 (Bypass Blocks). */
+/* Skip-link: WCAG 2.4.1 */
 .skip-to-content {
   position: fixed;
   top: 0.5rem;
@@ -158,61 +96,84 @@
   outline-offset: 2px;
 }
 
+/* ============================================================
+   PRODUÇÃO — paleta Anthropic-quente (light-mode-first editorial)
+   Cream + coral + marrom-escuro. Aprovado pela direção de marca v1.0.
+   Ver webapp/docs/brand/DIRECAO-DE-MARCA.md
+   ============================================================ */
+
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.09 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.09 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.09 0 0);
-  --primary: oklch(0.52 0.19 285);
-  --primary-foreground: oklch(0.99 0 0);
-  --secondary: oklch(0.96 0 0);
-  --secondary-foreground: oklch(0.09 0 0);
-  --muted: oklch(0.96 0.005 290);
-  --muted-foreground: oklch(0.5 0 0);
-  --accent: oklch(0.95 0.03 290);
-  --accent-foreground: oklch(0.09 0 0);
-  --destructive: oklch(0.58 0.24 27);
-  --destructive-foreground: oklch(0.98 0 0);
-  --success: oklch(0.62 0.16 155);
-  --success-foreground: oklch(0.99 0 0);
-  --warning: oklch(0.75 0.15 75);
-  --warning-foreground: oklch(0.20 0 0);
-  --info: oklch(0.62 0.15 240);
-  --info-foreground: oklch(0.99 0 0);
-  --border: oklch(0.9 0 0);
-  --input: oklch(0.9 0 0);
-  --ring: oklch(0.52 0.19 285);
+  /* Surfaces */
+  --background: oklch(0.965 0.012 78);          /* #F5F1EA cream principal */
+  --foreground: oklch(0.16 0.008 50);           /* #1A1612 marrom-escuro */
+  --card: oklch(0.93 0.016 80);                 /* #EFE9DC cream-soft (cards) */
+  --card-foreground: oklch(0.16 0.008 50);
+  --popover: oklch(0.965 0.012 78);
+  --popover-foreground: oklch(0.16 0.008 50);
+
+  /* Primary = Coral (Claude orange) */
+  --primary: oklch(0.65 0.13 40);               /* #CC785C coral */
+  --primary-foreground: oklch(0.98 0.008 78);
+
+  /* Secondary = marrom-escuro (botões "dark" sobre cream) */
+  --secondary: oklch(0.16 0.008 50);            /* mesmo do foreground */
+  --secondary-foreground: oklch(0.965 0.012 78);
+
+  /* Muted — tons intermediários quentes */
+  --muted: oklch(0.91 0.014 80);                /* #ECE5D6 cream-mid */
+  --muted-foreground: oklch(0.43 0.02 60);      /* #665B52 marrom-médio */
+
+  /* Accent — coral-soft pra hovers/highlights */
+  --accent: oklch(0.92 0.04 50);                /* coral muito suave */
+  --accent-foreground: oklch(0.16 0.008 50);
+
+  /* Status colors — ajustados pra harmonia c/ paleta quente */
+  --destructive: oklch(0.55 0.20 28);           /* vermelho-terroso */
+  --destructive-foreground: oklch(0.98 0.008 78);
+  --success: oklch(0.58 0.12 150);              /* verde-musgo */
+  --success-foreground: oklch(0.98 0.008 78);
+  --warning: oklch(0.72 0.14 65);               /* âmbar */
+  --warning-foreground: oklch(0.16 0.008 50);
+  --info: oklch(0.58 0.10 220);                 /* azul-acinzentado */
+  --info-foreground: oklch(0.98 0.008 78);
+
+  /* Borders & inputs */
+  --border: oklch(0.89 0.015 75);               /* #E5DDD0 */
+  --input: oklch(0.89 0.015 75);
+  --ring: oklch(0.65 0.13 40);                  /* coral */
   --radius: 0.625rem;
 }
 
+/* Dark mode mantido como fallback opcional — desativado por padrão no
+   layout.tsx. A tese de marca atual é light-mode editorial. Se
+   reativar, ajustar pra "dark editorial" não "dark tech" — paleta
+   espelhada quente, não preto-frio. */
 .dark {
-  --background: oklch(0.09 0 0);
-  --foreground: oklch(0.98 0 0);
-  --card: oklch(0.12 0 0);
-  --card-foreground: oklch(0.98 0 0);
-  --popover: oklch(0.12 0 0);
-  --popover-foreground: oklch(0.98 0 0);
-  --primary: oklch(0.72 0.18 285);
-  --primary-foreground: oklch(0.10 0 0);
-  --secondary: oklch(0.17 0 0);
-  --secondary-foreground: oklch(0.98 0 0);
-  --muted: oklch(0.17 0 0);
-  --muted-foreground: oklch(0.6 0 0);
-  --accent: oklch(0.2 0.03 290);
-  --accent-foreground: oklch(0.98 0 0);
-  --destructive: oklch(0.58 0.24 27);
-  --destructive-foreground: oklch(0.98 0 0);
-  --success: oklch(0.70 0.15 155);
-  --success-foreground: oklch(0.10 0 0);
-  --warning: oklch(0.78 0.14 75);
-  --warning-foreground: oklch(0.10 0 0);
-  --info: oklch(0.70 0.14 240);
-  --info-foreground: oklch(0.10 0 0);
-  --border: oklch(0.2 0 0);
-  --input: oklch(0.2 0 0);
-  --ring: oklch(0.72 0.18 285);
+  --background: oklch(0.14 0.008 50);
+  --foreground: oklch(0.94 0.014 78);
+  --card: oklch(0.18 0.010 52);
+  --card-foreground: oklch(0.94 0.014 78);
+  --popover: oklch(0.18 0.010 52);
+  --popover-foreground: oklch(0.94 0.014 78);
+  --primary: oklch(0.72 0.14 42);
+  --primary-foreground: oklch(0.14 0.008 50);
+  --secondary: oklch(0.94 0.014 78);
+  --secondary-foreground: oklch(0.14 0.008 50);
+  --muted: oklch(0.22 0.012 54);
+  --muted-foreground: oklch(0.68 0.018 65);
+  --accent: oklch(0.28 0.04 45);
+  --accent-foreground: oklch(0.94 0.014 78);
+  --destructive: oklch(0.62 0.22 28);
+  --destructive-foreground: oklch(0.94 0.014 78);
+  --success: oklch(0.68 0.14 150);
+  --success-foreground: oklch(0.14 0.008 50);
+  --warning: oklch(0.78 0.14 70);
+  --warning-foreground: oklch(0.14 0.008 50);
+  --info: oklch(0.68 0.12 220);
+  --info-foreground: oklch(0.14 0.008 50);
+  --border: oklch(0.26 0.012 55);
+  --input: oklch(0.26 0.012 55);
+  --ring: oklch(0.72 0.14 42);
 }
 
 @theme inline {
@@ -245,13 +206,14 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --font-sans: var(--font-geist);
+
+  /* Tipografia: Inter no body, Fraunces nos headlines editoriais.
+     Fraunces aliased como --font-display pra utility .font-display
+     funcionar nos headlines existentes que já a usavam. */
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-geist-mono);
-  /* --font-display intentionally aliased to sans — user removed the
-     serif (Instrument Serif) globally in 2026-05-12. Kept as a var so
-     existing utility class .font-display doesn't break callers we
-     haven't migrated yet. */
-  --font-display: var(--font-geist);
+  --font-display: var(--font-fraunces);
+  --font-serif: var(--font-fraunces);
 }
 
 * {
@@ -261,36 +223,57 @@
 body {
   background-color: var(--color-background);
   color: var(--color-foreground);
-  font-feature-settings: "rlig" 1, "calt" 1;
+  font-feature-settings: "rlig" 1, "calt" 1, "ss01" 1;
   position: relative;
   min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-/* Semantic typography helpers — codifica os 6 combos mais usados (a partir
-   de auditoria: text-sm aparece 317x, text-base 207x, text-[12px] 74x).
-   Usar SEMPRE que possível em código novo; código existente migra
-   gradualmente conforme o autor for editando o arquivo. */
-.t-title-xl { @apply text-3xl font-normal tracking-tight; }      /* page hero */
-.t-title-lg { @apply text-2xl font-normal tracking-tight; }      /* page title */
-.t-title-md { @apply text-base font-semibold; }                  /* section/card heading */
-.t-body { @apply text-sm; }                                       /* default body */
-.t-body-sm { @apply text-[13px] text-muted-foreground; }         /* secondary text */
-.t-caption { @apply text-[12px] uppercase tracking-wider text-muted-foreground; } /* meta/label */
-.t-stat { @apply text-4xl font-semibold leading-none tracking-tight; } /* KPI numbers */
-.t-mono { @apply font-mono text-[13px]; }                        /* code/IDs */
-
-/* Film-grain overlay sutil — 2.5% opacity sobre tudo, mix-blend-mode
-   overlay pra escurecer/clarear conforme bg. SVG inline (~250 bytes,
-   zero requests, escala em qualquer resolução). Pointer-events:none
-   pra não interceptar cliques. */
-body::after {
-  content: '';
-  position: fixed;
-  inset: 0;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.5'/%3E%3C/svg%3E");
-  background-size: 200px 200px;
-  opacity: 0.025;
-  pointer-events: none;
-  z-index: 9999;
-  mix-blend-mode: overlay;
+/* Headlines em serif editorial por padrão — utility .font-display.
+   Fraunces tem opsz variable; em headlines grandes (acima de 40px)
+   o opsz aumenta automaticamente pra otimizar letterforms. */
+.font-display {
+  font-family: var(--font-display), Georgia, serif;
+  font-feature-settings: "ss01" 1, "ss03" 1;
+  letter-spacing: -0.022em;
 }
+
+.font-serif {
+  font-family: var(--font-serif), Georgia, serif;
+}
+
+/* Glassmorphism — adaptado pra paleta quente. Cream com transparência. */
+.glass {
+  background-color: oklch(0.965 0.012 78 / 0.7);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
+  border: 1px solid oklch(0.89 0.015 75 / 0.6);
+}
+
+@supports not (backdrop-filter: blur(16px)) {
+  .glass {
+    background-color: oklch(0.965 0.012 78 / 0.95);
+  }
+}
+
+/* Aurora — desativado na marca atual (não combina com editorial-quente).
+   Mantido como classe vazia pra não quebrar callers; vira no-op. */
+.aurora-bg {
+  background: transparent;
+}
+
+/* Semantic typography helpers — usar SEMPRE que possível em código novo.
+   Headlines (.t-title-*) saem em Fraunces serif por default agora. */
+.t-title-xl { @apply text-4xl font-normal tracking-tight; font-family: var(--font-display), Georgia, serif; }
+.t-title-lg { @apply text-3xl font-normal tracking-tight; font-family: var(--font-display), Georgia, serif; }
+.t-title-md { @apply text-base font-semibold; }
+.t-body { @apply text-sm; }
+.t-body-sm { @apply text-[13px] text-muted-foreground; }
+.t-caption { @apply text-[12px] uppercase tracking-wider text-muted-foreground; font-weight: 500; }
+.t-stat { @apply text-5xl font-normal leading-none tracking-tight; font-family: var(--font-display), Georgia, serif; }
+.t-mono { @apply font-mono text-[13px]; }
+
+/* Removido: film-grain overlay. Era dark-tech-vibe. Editorial-quente
+   prefere cream limpa sem ruído. Se sentir falta de textura, voltar
+   como opt-in classe em sections específicas (e.g. .has-grain). */
