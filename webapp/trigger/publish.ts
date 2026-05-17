@@ -988,6 +988,40 @@ export const cleanupStalePending = schedules.task({
   },
 })
 
+// ─── Magic token expiry backfill ─────────────────────────────
+// Diariamente: aprovadores existentes pré-MED-4 ficaram com
+// magic_token_expires_at=NULL (sem TTL). Sem backfill, o fix do MED-4
+// efetivamente só vale pra rows novos. Esse cron pega magicTokenIssuedAt
+// e seta expiresAt = issuedAt + 365d. Rows novos já vêm preenchidos
+// pela lib/approvers, então uma vez backfilled o cron vira no-op.
+// Roda diário pra também cobrir o caso raro de alguém inserir row via
+// SQL direto.
+export const backfillMagicTokenExpiry = schedules.task({
+  id: "backfill-magic-token-expiry",
+  cron: "30 3 * * *", // 03:30 UTC todo dia
+  run: async () => {
+    const db = getDb()
+    const TTL_MS = 365 * 24 * 60 * 60 * 1000
+    const rows = await db
+      .select({ id: schema.approver.id, magicTokenIssuedAt: schema.approver.magicTokenIssuedAt })
+      .from(schema.approver)
+      .where(isNull(schema.approver.magicTokenExpiresAt))
+    if (rows.length === 0) {
+      logger.info("backfillMagicTokenExpiry: nada pra backfill")
+      return
+    }
+    for (const r of rows) {
+      const issued = r.magicTokenIssuedAt ?? new Date()
+      const expires = new Date(issued.getTime() + TTL_MS)
+      await db
+        .update(schema.approver)
+        .set({ magicTokenExpiresAt: expires })
+        .where(eq(schema.approver.id, r.id))
+    }
+    logger.info(`backfillMagicTokenExpiry: backfilled ${rows.length} approvers`)
+  },
+})
+
 // ─── Production-approval stale-link reminders ───────────────────
 // Daily 9am São Paulo: nudges any production-script approval link
 // that's been sitting pending for >3 days without a decision. Sends
