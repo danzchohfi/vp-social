@@ -8,6 +8,7 @@ import { eq } from "drizzle-orm"
 import { NextResponse } from "next/server"
 import { createNotionClient } from "@/lib/notion"
 import { generateId } from "@/lib/utils"
+import { checkRateLimit, clientIp } from "@/lib/rate-limit"
 
 // Public comment-only endpoint. Cliente abre /approve/{token} e quer
 // trocar ideia com a agency antes de decidir — clica "Mandar mensagem
@@ -29,6 +30,14 @@ export async function POST(
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params
+
+  // Comment endpoint é o mais abusável — sem rate limit, atacante podia
+  // spammar milhares de comentários no Notion da agência via 1 IP. 5/min
+  // é folga generosa pro caso legítimo (cliente troca várias mensagens).
+  const ip = clientIp(req)
+  if (checkRateLimit(`comment:${ip}`, { max: 5, windowMs: 60_000 })) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 })
+  }
 
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== "object") {

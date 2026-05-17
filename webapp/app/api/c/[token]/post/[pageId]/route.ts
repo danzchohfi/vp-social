@@ -9,6 +9,7 @@ import { and, eq } from "drizzle-orm"
 import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping } from "@/lib/notion"
 import { listAccessibleClients } from "@/lib/active-client"
+import { checkRateLimit, clientIp } from "@/lib/rate-limit"
 
 // Live single-post fetch pro /c/[token]. Usado pelo Preview Dialog
 // quando cliente clica num post em Publicados (publishLog não cacheia
@@ -25,10 +26,18 @@ import { listAccessibleClients } from "@/lib/active-client"
 //      isso era um guess fraco, removido em 2026-05).
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ token: string; pageId: string }> },
 ) {
   const { token, pageId } = await params
+
+  // 30/min/IP — endpoint dispara live fetch ao Notion (caro) e itera
+  // connections. Cliente legítimo abre poucas vezes; bot enumerador
+  // de pageId fica bloqueado.
+  const ip = clientIp(req)
+  if (checkRateLimit(`c-post:${ip}`, { max: 30, windowMs: 60_000 })) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 })
+  }
 
   const [client] = await db
     .select()

@@ -17,6 +17,7 @@ import {
   lookupApprovalLink,
 } from "@/lib/approval-link"
 import { decideApprovalLink } from "@/lib/approval-decide"
+import { checkRateLimit, clientIp } from "@/lib/rate-limit"
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
 
@@ -239,6 +240,14 @@ export async function POST(
 ) {
   const { token } = await params
 
+  // 30/min é folgado pra usuário legítimo (clicar Aprovar 1x) mas
+  // suficiente pra deter força bruta de token (mesmo com 256-bit
+  // entropy, evita DoS por flood que dispara DB+Notion calls).
+  const ip = clientIp(req)
+  if (checkRateLimit(`approve:${ip}`, { max: 30, windowMs: 60_000 })) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 })
+  }
+
   const body = await req.json().catch(() => null)
   if (!body || typeof body !== "object") {
     return NextResponse.json({ error: "invalid_body" }, { status: 400 })
@@ -279,19 +288,16 @@ export async function POST(
     }
   }
 
-  // x-real-ip vem do proxy do Vercel e não é spoofável pelo cliente.
-  // x-forwarded-for tem o IP REAL na primeira posição, mas o cliente
-  // pode prepender entradas falsas. Trust x-real-ip primeiro.
-  const ip = req.headers.get("x-real-ip")
-    ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    ?? null
+  // ip já capturado acima pra rate limit. clientIp() retorna "unknown"
+  // em vez de null; ApprovalLink aceita null no decidedFromIp.
+  const ipForAudit = ip === "unknown" ? null : ip
 
   const result = await decideApprovalLink({
     row,
     decision: body.decision,
     mode: "explicit",
     comment: comment || null,
-    ip,
+    ip: ipForAudit,
   })
 
   if (!result.ok) {

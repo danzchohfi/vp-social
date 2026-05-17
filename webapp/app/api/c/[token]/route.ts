@@ -13,6 +13,7 @@ import { NextResponse } from "next/server"
 import { createNotionClient, DEFAULT_MAPPING, type FieldMapping, type NotionPost } from "@/lib/notion"
 import { STATUS_LABEL_PT, type ProductionStatus } from "@/lib/productions"
 import { listAccessibleClients } from "@/lib/active-client"
+import { checkRateLimit, clientIp } from "@/lib/rate-limit"
 
 // Public client-calendar API. NO AUTH — the URL token IS the auth. Used
 // by /c/{token} (the page) to render:
@@ -26,10 +27,18 @@ import { listAccessibleClients } from "@/lib/active-client"
 const PAST_WINDOW_DAYS = 90
 
 export async function GET(
-  _req: Request,
+  req: Request,
   { params }: { params: Promise<{ token: string }> }
 ) {
   const { token } = await params
+
+  // 60/min/IP — esse endpoint faz queries Notion + DB caras. Cliente
+  // legítimo abre 1x, talvez auto-refresh. 60/min bloqueia bot scraping
+  // sem incomodar uso humano.
+  const ip = clientIp(req)
+  if (checkRateLimit(`c:${ip}`, { max: 60, windowMs: 60_000 })) {
+    return NextResponse.json({ error: "rate_limited" }, { status: 429 })
+  }
 
   // Look up client by permanent calendar token.
   const [client] = await db
