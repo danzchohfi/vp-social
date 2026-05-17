@@ -277,3 +277,55 @@ body {
 /* Removido: film-grain overlay. Era dark-tech-vibe. Editorial-quente
    prefere cream limpa sem ruído. Se sentir falta de textura, voltar
    como opt-in classe em sections específicas (e.g. .has-grain). */
+
+/* ============================================================
+   Tech-editorial utilities — opt-in pra trazer vibe de IA/tecnologia
+   sem perder o premium-Anthropic. Usar em sections selecionadas
+   (hero, flow diagrams, terminal logs).
+   ============================================================ */
+
+/* Dotted grid muito sutil — vai atrás de heros/sections importantes.
+   Usa border color como cor dos pontos pra harmonizar light/dark. */
+.tech-grid {
+  background-image: radial-gradient(circle, var(--color-border) 1px, transparent 1px);
+  background-size: 32px 32px;
+}
+
+/* Radial gradient coral — glow sutil atrás do hero, sinaliza
+   pontos focais. Combina com paleta Anthropic. */
+.tech-radial {
+  background: radial-gradient(
+    ellipse 60% 50% at 50% 35%,
+    oklch(0.65 0.13 40 / 0.12),
+    transparent 70%
+  );
+}
+
+/* Status dot pulsante — usa em "● 1.847 posts publicados". Coral. */
+@keyframes pulse-dot {
+  0%, 100% { transform: scale(1); opacity: 0.7; }
+  50% { transform: scale(1.6); opacity: 0; }
+}
+.pulse-dot::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: 9999px;
+  background: var(--color-primary);
+  animation: pulse-dot 2.2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Connector lines pra flow diagrams — linha tracejada coral muito sutil */
+.flow-line {
+  background-image: linear-gradient(
+    to right,
+    var(--color-primary) 0,
+    var(--color-primary) 4px,
+    transparent 4px,
+    transparent 10px
+  );
+  background-size: 10px 1px;
+  background-repeat: repeat-x;
+  background-position: center;
+  height: 1px;
+}

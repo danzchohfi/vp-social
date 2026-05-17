@@ -72,7 +72,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <script
             nonce={nonce}
             dangerouslySetInnerHTML={{
-              __html: `try{var d=localStorage.getItem("vpsocial_density");if(d==="compact"||d==="comfortable")document.documentElement.dataset.density=d}catch(e){}try{var t=localStorage.getItem("producao_theme");if(t==="dark"){document.documentElement.classList.add("dark")}else if(t!=="light"){var p=window.location.pathname;var r=["/dashboard","/settings","/productions","/scheduled","/history","/clients","/accounts","/account","/activity","/approvers","/grid","/health","/onboarding","/invites","/posts","/test-approval"];if(r.some(function(x){return p===x||p.indexOf(x+"/")===0}))document.documentElement.classList.add("dark")}}catch(e){}`,
+              __html: `try{var d=localStorage.getItem("vpsocial_density");if(d==="compact"||d==="comfortable")document.documentElement.dataset.density=d}catch(e){}try{var t=localStorage.getItem("producao_theme");var p=window.location.pathname;var whiteLabel=(p==="/c"||p.indexOf("/c/")===0||p==="/a"||p.indexOf("/a/")===0||p==="/approve"||p.indexOf("/approve/")===0);if(whiteLabel){if(t==="dark")document.documentElement.classList.add("dark")}else{if(t!=="light")document.documentElement.classList.add("dark")}}catch(e){}`,
             }}
           />
         </head>
