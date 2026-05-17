@@ -659,12 +659,24 @@ export function createNotionClient(accessToken: string) {
       }
     },
 
-    async getPostById(pageId: string, mapping: FieldMapping): Promise<NotionPost | null> {
-      // One-shot fetch of a single page. Used by the Preview dialog on past
-      // posts where we don't have the original media URLs cached in publishLog.
+    async getPostById(
+      pageId: string,
+      mapping: FieldMapping,
+      // expectedDatabaseId restringe o post a um DB específico. Se a página
+      // existir mas pertencer a outro database (cross-tenant via token
+      // compartilhado), retornamos null. Crítico no /api/c/[token]/post —
+      // sem isso, um pageId qualquer podia vazar dados de outro client
+      // que compartilha o mesmo workspace Notion.
+      expectedDatabaseId?: string | null,
+    ): Promise<NotionPost | null> {
       try {
         const page = await client.pages.retrieve({ page_id: pageId })
         if (!("properties" in page)) return null
+        if (expectedDatabaseId) {
+          const parentDbId = (page as any).parent?.database_id?.replace(/-/g, "")
+          const expected = expectedDatabaseId.replace(/-/g, "")
+          if (!parentDbId || parentDbId !== expected) return null
+        }
         return await parsePage(page as any, mapping, client)
       } catch {
         return null

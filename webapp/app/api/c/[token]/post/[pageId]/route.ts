@@ -14,10 +14,15 @@ import { listAccessibleClients } from "@/lib/active-client"
 // quando cliente clica num post em Publicados (publishLog não cacheia
 // thumb/mídia) e Agendados (signed URLs do Notion expiram em ~1h).
 //
-// Permission: pageId tem que pertencer ao client do token. Aceita se
-// (a) publishLog tem o par (pageId, clientId), OU (b) a conta do post
-// bate com algum conta-claim do client. Verificação (b) só roda DEPOIS
-// de buscar o post no Notion (precisa do valor da conta).
+// Tenant isolation (3 camadas defesa-em-profundidade):
+//   1. publishLog hit + clientId match → confiamos (post foi publicado
+//      por esse client).
+//   2. getPostById com expectedDatabaseId — rejeita páginas em outro
+//      database mesmo se token tiver acesso (cenário cross-tenant via
+//      workspace compartilhado).
+//   3. Conta-ownership: post.conta tem que estar em notionContaValues
+//      DECLARADOS pelo client (não inferimos pelo nome do client —
+//      isso era um guess fraco, removido em 2026-05).
 
 export async function GET(
   _req: Request,
@@ -44,7 +49,9 @@ export async function GET(
     ))
     .limit(1)
 
-  // Connections do client → tenta cada uma até achar o post.
+  // Connections do client → tenta cada uma até achar o post NO database
+  // declarado (expectedDatabaseId). Sem o filtro, um token compartilhado
+  // entre clients (clone) podia retornar página de outro tenant.
   const connections = await db
     .select()
     .from(notionConnection)
@@ -52,6 +59,7 @@ export async function GET(
 
   let foundPost: Awaited<ReturnType<ReturnType<typeof createNotionClient>["getPostById"]>> = null
   for (const conn of connections) {
+    if (!conn.databaseId) continue
     const [mappingRow] = await db
       .select()
       .from(fieldMapping)
@@ -59,7 +67,7 @@ export async function GET(
     const mapping: FieldMapping = mappingRow ?? DEFAULT_MAPPING
 
     const notion = createNotionClient(conn.accessToken)
-    const post = await notion.getPostById(pageId, mapping)
+    const post = await notion.getPostById(pageId, mapping, conn.databaseId)
     if (post) {
       foundPost = post
       break
@@ -70,14 +78,15 @@ export async function GET(
     return NextResponse.json({ error: "not_found" }, { status: 404 })
   }
 
-  // Permission: se não veio do publishLog, exige conta-ownership match.
+  // Permission: se não veio do publishLog, exige conta-ownership EXPLÍCITO.
+  // client.name não é mais usado como fallback — agência precisa declarar
+  // notionContaValues pra dar acesso.
   if (!logHit) {
     const siblings = await listAccessibleClients(client.userId)
     const ownClaim = siblings.find((s) => s.id === client.id)
-    const ownContas = new Set<string>([
-      client.name.trim().toLowerCase(),
-      ...(ownClaim?.notionContaValues ?? []).map((v) => v.trim().toLowerCase()),
-    ])
+    const ownContas = new Set<string>(
+      (ownClaim?.notionContaValues ?? []).map((v) => v.trim().toLowerCase()),
+    )
     const conta = (foundPost.conta ?? "").trim().toLowerCase()
     if (!ownContas.has(conta)) {
       return NextResponse.json({ error: "forbidden" }, { status: 403 })
