@@ -314,6 +314,8 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
   const [origWaTemplate, setOrigWaTemplate] = useState("")
   const [briefingFormUrl, setBriefingFormUrl] = useState("")
   const [origBriefingFormUrl, setOrigBriefingFormUrl] = useState("")
+  const [briefingNotionPageId, setBriefingNotionPageId] = useState("")
+  const [origBriefingNotionPageId, setOrigBriefingNotionPageId] = useState("")
   const [connections, setConnections] = useState<ConnectionStatus[]>([])
   const [status, setStatus] = useState<"configured" | "partial" | "missing" | null>(null)
   const [nextStepHint, setNextStepHint] = useState<string | null>(null)
@@ -341,6 +343,9 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
       const bf = typeof data.briefingFormUrl === "string" ? data.briefingFormUrl : ""
       setBriefingFormUrl(bf)
       setOrigBriefingFormUrl(bf)
+      const bp = typeof data.briefingNotionPageId === "string" ? data.briefingNotionPageId : ""
+      setBriefingNotionPageId(bp)
+      setOrigBriefingNotionPageId(bp)
       const conns: ConnectionStatus[] = Array.isArray(data.connections) ? data.connections : []
       setConnections(conns)
       setStatus(typeof data.status === "string" ? data.status : null)
@@ -369,6 +374,7 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
           approvalDispatchMode: dispatchMode,
           manualWhatsappTemplate: waTemplate,
           briefingFormUrl: briefingFormUrl.trim() || null,
+          briefingNotionPageId: briefingNotionPageId.trim() || null,
         }),
       })
       if (!res.ok) {
@@ -380,6 +386,7 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
       setOrigDispatchMode(dispatchMode)
       setOrigWaTemplate(waTemplate)
       setOrigBriefingFormUrl(briefingFormUrl)
+      setOrigBriefingNotionPageId(briefingNotionPageId)
       await load()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro")
@@ -392,7 +399,8 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
     mode !== origMode ||
     dispatchMode !== origDispatchMode ||
     waTemplate !== origWaTemplate ||
-    briefingFormUrl !== origBriefingFormUrl
+    briefingFormUrl !== origBriefingFormUrl ||
+    briefingNotionPageId !== origBriefingNotionPageId
 
   return (
     <div className="space-y-4">
@@ -480,7 +488,7 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
               "Solicitar produção" no header. Tipicamente um form do
               Notion que escreve direto na DB de Produções. */}
           <div className="space-y-1.5">
-            <Label className="text-sm">URL do form "Solicitar nova produção"</Label>
+            <Label className="text-sm">URL do form &quot;Solicitar nova produção&quot;</Label>
             <p className="text-sm text-muted-foreground">
               Quando setado, o cliente vê um botão no portal que abre este link em nova aba. Tipicamente um form público do Notion que preenche a DB de Produções. Deixe vazio pra esconder o botão.
             </p>
@@ -489,6 +497,23 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
               placeholder="https://notion.so/form/..."
               value={briefingFormUrl}
               onChange={(e) => setBriefingFormUrl(e.target.value)}
+              className="font-mono text-sm"
+            />
+          </div>
+
+          {/* Briefing page Notion — link da page que o cliente preencheu
+              no form de briefing. Quando setado, /c/[token] mostra aba
+              "Briefing" com as propriedades da page renderizadas. */}
+          <div className="space-y-1.5">
+            <Label className="text-sm">Página do briefing respondido (Notion)</Label>
+            <p className="text-sm text-muted-foreground">
+              Cole a URL ou o ID da page do Notion com o briefing preenchido por {clientName}. Portal mostra aba &quot;Briefing&quot; com as respostas como referência pro cliente revisar.
+            </p>
+            <Input
+              type="text"
+              placeholder="https://notion.so/Briefing-xxx ou 32-hex ID"
+              value={briefingNotionPageId}
+              onChange={(e) => setBriefingNotionPageId(e.target.value)}
               className="font-mono text-sm"
             />
           </div>

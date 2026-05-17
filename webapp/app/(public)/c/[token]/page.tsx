@@ -73,7 +73,12 @@ type ProductionItem = {
 }
 
 type CalendarData = {
-  client: { name: string; logoUrl: string | null; briefingFormUrl?: string | null }
+  client: {
+    name: string
+    logoUrl: string | null
+    briefingFormUrl?: string | null
+    hasBriefing?: boolean
+  }
   pending: PendingPost[]
   scheduled: ScheduledPost[]
   past: PastPost[]
@@ -163,7 +168,20 @@ function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
 
-type Tab = "pendentes" | "agendados" | "publicados" | "producoes"
+type Tab = "pendentes" | "agendados" | "publicados" | "producoes" | "briefing"
+
+type BriefingField = {
+  name: string
+  type: string
+  value: string | string[] | number | null
+}
+type BriefingData = {
+  configured: boolean
+  pageUrl?: string | null
+  lastEditedTime?: string | null
+  error?: string
+  fields?: BriefingField[]
+}
 
 export default function ClientCalendarPage() {
   const { token } = useParams<{ token: string }>()
@@ -347,13 +365,14 @@ export default function ClientCalendarPage() {
 
           <div>
             {/* Tabs */}
-            <div className="mb-4 inline-flex rounded-lg border bg-card p-0.5 w-full sm:w-auto">
+            <div className="mb-4 inline-flex rounded-lg border bg-card p-0.5 w-full sm:w-auto flex-wrap">
               {([
-                { v: "pendentes", label: "Pendentes", count: data.pending.length },
-                { v: "agendados", label: "Agendados", count: data.scheduled.length },
-                { v: "publicados", label: "Publicados", count: data.past.length },
-                { v: "producoes", label: "Produções", count: data.productions?.length ?? 0 },
-              ] as const).map((opt) => (
+                { v: "pendentes" as const, label: "Pendentes", count: data.pending.length, show: true },
+                { v: "agendados" as const, label: "Agendados", count: data.scheduled.length, show: true },
+                { v: "publicados" as const, label: "Publicados", count: data.past.length, show: true },
+                { v: "producoes" as const, label: "Produções", count: data.productions?.length ?? 0, show: true },
+                { v: "briefing" as const, label: "Briefing", count: 0, show: !!data.client.hasBriefing, hideCount: true },
+              ] as const).filter((o) => o.show).map((opt) => (
                 <button
                   key={opt.v}
                   onClick={() => setTab(opt.v)}
@@ -363,12 +382,14 @@ export default function ClientCalendarPage() {
                   )}
                 >
                   {opt.label}
-                  <span className={cn(
-                    "rounded-full px-1.5 text-[12px]",
-                    tab === opt.v ? "bg-background" : "bg-muted"
-                  )}>
-                    {opt.count}
-                  </span>
+                  {!("hideCount" in opt && opt.hideCount) && (
+                    <span className={cn(
+                      "rounded-full px-1.5 text-[12px]",
+                      tab === opt.v ? "bg-background" : "bg-muted"
+                    )}>
+                      {opt.count}
+                    </span>
+                  )}
                 </button>
               ))}
             </div>
@@ -376,6 +397,7 @@ export default function ClientCalendarPage() {
             {/* Tab content */}
             {tab === "pendentes" && <PendingList pending={data.pending} onOpen={setSelectedPending} />}
             {tab === "agendados" && <ScheduledList scheduled={data.scheduled} onOpen={(p) => setPreviewPost(p)} />}
+            {tab === "briefing" && <BriefingPanel />}
             {tab === "publicados" && (
               <PublishedList
                 past={data.past}
@@ -1168,6 +1190,127 @@ function ProductionsList({ productions }: { productions: ProductionItem[] }) {
 function shortDate(iso: string): string {
   const d = new Date(iso)
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`
+}
+
+// Aba Briefing — lê /api/c/[token]/briefing on-demand (não vem no fetch
+// inicial pra não atrasar load do calendário). Mostra propriedades da
+// page Notion configurada como key-value pairs, agrupadas por seção
+// implícita do título da prop.
+function BriefingPanel() {
+  const { token } = useParams<{ token: string }>()
+  const [data, setData] = useState<BriefingData | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    fetch(`/api/c/${token}/briefing`)
+      .then((r) => r.json())
+      .then((j) => { if (!cancelled) setData(j) })
+      .catch(() => { if (!cancelled) setData({ configured: true, error: "Erro ao carregar" }) })
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [token])
+
+  if (loading) {
+    return (
+      <div className="py-12 flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+  if (!data?.configured) {
+    return (
+      <Card>
+        <CardContent className="py-10 text-center">
+          <p className="text-base text-muted-foreground">
+            Briefing ainda não configurado. Peça pra agência adicionar o link da página de briefing.
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+  if (data.error) {
+    return (
+      <Card>
+        <CardContent className="py-10 text-center">
+          <AlertTriangle className="mx-auto mb-3 h-10 w-10 text-warning" />
+          <p className="text-base text-muted-foreground">{data.error}</p>
+        </CardContent>
+      </Card>
+    )
+  }
+  const fields = data.fields ?? []
+  return (
+    <div className="space-y-3">
+      {data.lastEditedTime && (
+        <p className="text-[12px] text-muted-foreground">
+          Última atualização: {new Date(data.lastEditedTime).toLocaleString("pt-BR", { day: "2-digit", month: "long", year: "numeric", hour: "2-digit", minute: "2-digit" })}
+          {data.pageUrl && (
+            <> · <a href={data.pageUrl} target="_blank" rel="noopener noreferrer" className="underline hover:text-foreground">Ver no Notion</a></>
+          )}
+        </p>
+      )}
+      {fields.length === 0 ? (
+        <Card>
+          <CardContent className="py-10 text-center text-base text-muted-foreground">
+            Briefing está vazio ainda. Volte aqui depois que você responder pra agência.
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="rounded-lg border bg-card divide-y">
+          {fields.map((f) => (
+            <div key={f.name} className="px-4 py-3">
+              <p className="text-[12px] uppercase tracking-wider text-muted-foreground">{f.name}</p>
+              <BriefingValue value={f.value} type={f.type} />
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BriefingValue({ value, type }: { value: BriefingField["value"]; type: string }) {
+  if (value == null) return <p className="text-sm text-muted-foreground">—</p>
+  if (Array.isArray(value)) {
+    // Files: lista de URLs clicáveis. Outros arrays: pills.
+    const isUrlList = type === "files" && value.every((v) => typeof v === "string" && /^https?:/.test(v))
+    if (isUrlList) {
+      return (
+        <ul className="mt-1 space-y-0.5">
+          {value.map((u, i) => (
+            <li key={i}>
+              <a href={String(u)} target="_blank" rel="noopener noreferrer" className="text-sm underline hover:no-underline break-all">
+                {String(u)}
+              </a>
+            </li>
+          ))}
+        </ul>
+      )
+    }
+    return (
+      <div className="mt-1 flex flex-wrap gap-1">
+        {value.map((v, i) => (
+          <span key={i} className="inline-flex items-center rounded-full bg-muted px-2 py-0.5 text-[12px]">
+            {String(v)}
+          </span>
+        ))}
+      </div>
+    )
+  }
+  if (type === "date" && typeof value === "string") {
+    return <p className="mt-1 text-base">{new Date(value).toLocaleDateString("pt-BR")}</p>
+  }
+  if ((type === "url" || type === "email") && typeof value === "string") {
+    const href = type === "email" ? `mailto:${value}` : value
+    return (
+      <a href={href} target="_blank" rel="noopener noreferrer" className="mt-1 block text-base underline hover:no-underline break-all">
+        {value}
+      </a>
+    )
+  }
+  return <p className="mt-1 whitespace-pre-wrap text-base">{String(value)}</p>
 }
 
 function ProductionCard({

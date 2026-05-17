@@ -280,6 +280,9 @@ export async function GET(
       // que abre esse URL em nova aba (tipicamente um form do Notion
       // que preenche a DB de Produções).
       briefingFormUrl: client.briefingFormUrl ?? null,
+      // Flag pra UI decidir se mostra a aba Briefing. Conteúdo é fetched
+      // sob demanda via /api/c/[token]/briefing (Notion API call).
+      hasBriefing: !!client.briefingNotionPageId,
     },
     pending: pendingPosts.map((p) => ({
       ...slimPost(p),

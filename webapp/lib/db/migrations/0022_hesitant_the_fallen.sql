@@ -1,0 +1,1 @@
+ALTER TABLE "client" ADD COLUMN "briefing_notion_page_id" text;

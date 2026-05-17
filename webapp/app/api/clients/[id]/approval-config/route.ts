@@ -41,6 +41,7 @@ export async function GET(
       approvalDispatchMode: client.approvalDispatchMode,
       manualWhatsappTemplate: client.manualWhatsappTemplate,
       briefingFormUrl: client.briefingFormUrl,
+      briefingNotionPageId: client.briefingNotionPageId,
     })
     .from(client)
     .where(eq(client.id, id))
@@ -148,6 +149,7 @@ export async function GET(
     approvalDispatchMode: row.approvalDispatchMode === "manual" ? "manual" : "auto",
     manualWhatsappTemplate: row.manualWhatsappTemplate ?? "",
     briefingFormUrl: row.briefingFormUrl ?? "",
+    briefingNotionPageId: row.briefingNotionPageId ?? "",
     whatsappConfigured,
     connections: connectionStatus,
     status,

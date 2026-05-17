@@ -82,6 +82,23 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       }
     }
   }
+  // Notion page ID do briefing respondido do cliente. Aceita ID puro
+  // (32 hex) ou URL completa do Notion — normaliza pra UUID.
+  if (body.briefingNotionPageId !== undefined) {
+    if (body.briefingNotionPageId === null || body.briefingNotionPageId === "") {
+      update.briefingNotionPageId = null
+    } else if (typeof body.briefingNotionPageId !== "string") {
+      return NextResponse.json({ error: "briefingNotionPageId deve ser string" }, { status: 400 })
+    } else {
+      const raw = body.briefingNotionPageId.trim()
+      const match = raw.match(/([a-f0-9]{32})/i)
+      if (!match) {
+        return NextResponse.json({ error: "Notion page ID inválido (precisa 32 hex chars)" }, { status: 400 })
+      }
+      const h = match[1]
+      update.briefingNotionPageId = `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
+    }
+  }
 
   await db
     .update(client)

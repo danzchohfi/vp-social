@@ -122,6 +122,11 @@ export const client = pgTable("client", {
   // Por agência define via settings (text input simples). Sem isso, o
   // botão fica escondido.
   briefingFormUrl: text("briefing_form_url"),
+  // Notion page ID da resposta de briefing do cliente. Agência copia o
+  // URL da page (entry da DB "Formulários de Briefing VP") e setamos
+  // aqui. Portal /c/[token] mostra a aba Briefing com as propriedades
+  // da page resolvidas (perguntas + respostas). Sem isso a aba esconde.
+  briefingNotionPageId: text("briefing_notion_page_id"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
