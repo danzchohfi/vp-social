@@ -414,6 +414,8 @@ function LiveStatus() {
 }
 
 // Tech flow diagram horizontal — Notion → Producao → WhatsApp → Plataformas
+// O diagrama mostra o caminho dominante. Os badges abaixo mostram as
+// outras opções de conexão pra cada nó (planning e canal do cliente).
 function TechFlow() {
   return (
     <div className="rounded-[18px] border border-border bg-card/40 p-8 backdrop-blur">
@@ -426,12 +428,17 @@ function TechFlow() {
         <FlowArrow />
         <FlowNode icon="↗" label="5 redes" sub="IG · FB · YT · TT · LI" />
       </div>
-      <div className="mt-6 flex flex-wrap justify-center gap-2">
-        <TechBadge>REST API</TechBadge>
-        <TechBadge>OAuth 2.0</TechBadge>
-        <TechBadge>Webhooks</TechBadge>
-        <TechBadge>WhatsApp Meta Cloud</TechBadge>
-        <TechBadge>SLA 99.9%</TechBadge>
+      <div className="mt-7 flex flex-wrap items-center justify-center gap-x-3 gap-y-2">
+        <span className="font-mono text-[11px] uppercase tracking-[0.12em] text-muted-foreground">
+          também conecta:
+        </span>
+        <TechBadge>Google Sheets</TechBadge>
+        <TechBadge>Trello</TechBadge>
+        <TechBadge>Asana</TechBadge>
+        <TechBadge>Airtable</TechBadge>
+        <span className="font-mono text-[11px] text-muted-foreground/40">·</span>
+        <TechBadge>E-mail</TechBadge>
+        <TechBadge>Slack</TechBadge>
       </div>
     </div>
   )
