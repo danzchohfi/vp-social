@@ -3,19 +3,23 @@ import { instagramAccount } from "@/lib/db/schema"
 import { generateId } from "@/lib/utils"
 import { getActiveClientId } from "@/lib/active-client"
 import { NextResponse } from "next/server"
+import { consumeOAuthState } from "@/lib/oauth-state"
 
 const GRAPH = "https://graph.facebook.com/v19.0"
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get("code")
-  const rawState = searchParams.get("state") ?? ""
-  const [userId, from] = rawState.split(":")
+  const state = searchParams.get("state") ?? ""
   const appUrl = new URL(req.url).origin
+  const verified = await consumeOAuthState(state)
+  const from = verified?.from ?? ""
+  const userId = verified?.userId ?? ""
 
   const successUrl = from ? `${appUrl}/${from}?instagram_connected=true` : `${appUrl}/accounts?connected=instagram`
   const errorBase = from ? `${appUrl}/${from}` : `${appUrl}/accounts`
 
+  if (!verified) return NextResponse.redirect(`${appUrl}/accounts?error=invalid_state`)
   if (!code || !userId) return NextResponse.redirect(`${errorBase}?error=cancelled`)
 
   try {

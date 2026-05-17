@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
+import { createOAuthState } from "@/lib/oauth-state"
 
 const SCOPES = ["openid", "profile", "w_member_social"].join(" ")
 
@@ -12,7 +13,7 @@ export async function GET(req: Request) {
   if (!clientId) return NextResponse.json({ error: "LinkedIn not configured" }, { status: 503 })
 
   const from = new URL(req.url).searchParams.get("from") ?? ""
-  const state = from ? `${session.user.id}:${from}` : session.user.id
+  const state = await createOAuthState(session.user.id, from)
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
 

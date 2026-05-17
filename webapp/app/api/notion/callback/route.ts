@@ -4,16 +4,21 @@ import { generateId } from "@/lib/utils"
 import { getActiveClientId } from "@/lib/active-client"
 import { and, eq, ne } from "drizzle-orm"
 import { NextResponse } from "next/server"
+import { consumeOAuthState } from "@/lib/oauth-state"
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url)
   const code = searchParams.get("code")
-  const rawState = searchParams.get("state") ?? ""
-  const [userId, from] = rawState.split(":")
+  const state = searchParams.get("state") ?? ""
   const appUrl = new URL(req.url).origin
+  const verified = await consumeOAuthState(state)
+  // safeFrom já aplicou allowlist; aqui só ressanitizo pra ter certeza.
+  const from = verified?.from ?? ""
+  const userId = verified?.userId ?? ""
 
   const errorBase = from ? `${appUrl}/${from}` : `${appUrl}/settings`
 
+  if (!verified) return NextResponse.redirect(`${appUrl}/settings?error=invalid_state`)
   if (!code || !userId) return NextResponse.redirect(`${errorBase}?error=cancelled`)
 
   try {

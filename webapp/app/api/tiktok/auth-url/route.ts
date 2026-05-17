@@ -1,6 +1,7 @@
 import { auth } from "@/lib/auth"
 import { headers } from "next/headers"
 import { NextResponse } from "next/server"
+import { createOAuthState } from "@/lib/oauth-state"
 
 export async function GET(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
@@ -10,7 +11,7 @@ export async function GET(req: Request) {
   if (!clientKey) return NextResponse.json({ error: "TikTok not configured" }, { status: 503 })
 
   const from = new URL(req.url).searchParams.get("from") ?? ""
-  const state = from ? `${session.user.id}:${from}` : session.user.id
+  const state = await createOAuthState(session.user.id, from)
 
   const appUrl = process.env.NEXT_PUBLIC_APP_URL
 
