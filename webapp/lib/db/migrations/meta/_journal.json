@@ -169,6 +169,13 @@
       "when": 1779021261466,
       "tag": "0023_lethal_vector",
       "breakpoints": true
+    },
+    {
+      "idx": 24,
+      "version": "7",
+      "when": 1779021846336,
+      "tag": "0024_quiet_scrambler",
+      "breakpoints": true
     }
   ]
 }

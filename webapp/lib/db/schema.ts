@@ -227,6 +227,11 @@ export const fieldMapping = pgTable("field_mapping", {
   statusReadyValue: text("status_ready_value").notNull().default("Agendamento"),
   statusPublishedValue: text("status_published_value").notNull().default("Publicado"),
   statusErrorValue: text("status_error_value").notNull().default("Erro"),
+  // Nome do campo "Status (Produção)" na DB de Produções do Notion.
+  // Lido pelo cron syncProductionDeliverables pra mostrar status detalhado
+  // no portal do cliente. Default = "Status (Produção)" — padrão do
+  // flowchart da VP. Nullable pra ficar opt-in.
+  productionStatusField: text("production_status_field").default("Status (Produção)"),
   // Agendamento e conta
   dateField: text("date_field").notNull().default("Dia para fazer"),
   accountField: text("account_field").notNull().default("Conta"),
@@ -458,6 +463,14 @@ export const production = pgTable("production", {
   hasVerticalMedia: boolean("has_vertical_media").notNull().default(false),
   hasHorizontalMedia: boolean("has_horizontal_media").notNull().default(false),
   deliverableSyncedAt: timestamp("deliverable_synced_at"),
+  // Status fine-grained do campo "Status (Produção)" da DB Notion da
+  // agência (ou nome configurado em fieldMapping.productionStatusField).
+  // É TEXTO LIVRE — mantém qualquer label que a agência usar ("Roteiro",
+  // "Aguardando Alinhamento", "Edição Vertical" etc). Atualizado pelo
+  // mesmo cron syncProductionDeliverables a cada 5min. Mostrado no
+  // /c/[token] abaixo do status abstrato pra cliente ver detalhe.
+  notionStatus: text("notion_status"),
+  notionStatusSyncedAt: timestamp("notion_status_synced_at"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 }, (t) => ({

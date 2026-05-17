@@ -83,6 +83,7 @@ export interface FieldMapping {
   statusReadyValue: string
   statusPublishedValue: string
   statusErrorValue: string
+  productionStatusField?: string | null
   dateField: string
   accountField: string
   likesField?: string | null
@@ -130,6 +131,7 @@ export const DEFAULT_MAPPING: FieldMapping = {
   statusReadyValue: "Agendamento",
   statusPublishedValue: "Publicado",
   statusErrorValue: "Erro",
+  productionStatusField: "Status (Produção)",
   dateField: "Dia para fazer",
   accountField: "Conta",
   socialVpField: "Social VP",
@@ -655,6 +657,24 @@ export function createNotionClient(accessToken: string) {
         return { name, email: emailVal, phone: phoneVal, multipleContacts }
       } catch (e) {
         console.warn(`[notion.resolveContact] failed for ${pageId}: ${e}`)
+        return null
+      }
+    },
+
+    /**
+     * Lê APENAS o valor de uma property tipo status/select de uma page.
+     * Usado pelo cron de sync de status de produção — não queremos
+     * baixar toda a page só pra ler 1 campo. Retorna null se a property
+     * não existir, não for status/select, ou estiver vazia.
+     */
+    async readStatusProperty(pageId: string, fieldName: string): Promise<string | null> {
+      try {
+        const page = await client.pages.retrieve({ page_id: pageId })
+        if (!("properties" in page)) return null
+        const prop = (page as any).properties?.[fieldName]
+        if (!prop) return null
+        return prop.status?.name ?? prop.select?.name ?? null
+      } catch {
         return null
       }
     },

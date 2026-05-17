@@ -86,8 +86,16 @@ export const publishScheduled = schedules.task({
 // Disparado pelo cron `publishScheduled`. Cada produção ativa com
 // notionPageId gera 1 read do Notion (pesa pouco — é 1 req por produção
 // por 5min, e só roda em produções não-arquivadas/publicadas).
+// Status onde a sync ainda faz sentido. archived/published já estão
+// "terminal" — não vale o custo de cada Notion call. brief_pending +
+// script_drafting + revision_requested estão incluídos pra capturar o
+// status fine-grained do Notion ("Roteiro", "Aguardando Alinhamento"
+// etc) que não tem mapeamento 1:1 com nosso enum interno.
 const ACTIVE_DELIVERABLE_STATUSES = [
+  "brief_pending",
+  "script_drafting",
   "awaiting_approval",
+  "revision_requested",
   "approved",
   "recording",
   "editing",
@@ -139,15 +147,25 @@ export const syncProductionDeliverables = task({
       const mapping = (mappingRow ?? DEFAULT_MAPPING) as FieldMapping
 
       const notion = createNotionClient(conn.accessToken)
+      const prodStatusField = mapping.productionStatusField?.trim() || "Status (Produção)"
       for (const prod of prods) {
         try {
           const post = await notion.getPostById(prod.notionPageId!, mapping)
           if (!post) continue
           const hasVertical = post.verticalUrls.length > 0
           const hasHorizontal = post.horizontalUrls.length > 0
-          if (
+          // Status fine-grained do Notion: lê SEPARADAMENTE porque o
+          // statusField de parsePage é o do POST (publish status),
+          // não o de produção. Field name vem do mapping ou default.
+          const notionStatus = prodStatusField
+            ? await notion.readStatusProperty(prod.notionPageId!, prodStatusField)
+            : null
+          const allSameAsBefore =
             hasVertical === prod.hasVerticalMedia &&
             hasHorizontal === prod.hasHorizontalMedia &&
+            notionStatus === prod.notionStatus
+          if (
+            allSameAsBefore &&
             prod.deliverableSyncedAt &&
             Date.now() - new Date(prod.deliverableSyncedAt).getTime() < 60 * 60 * 1000
           ) {
@@ -159,6 +177,8 @@ export const syncProductionDeliverables = task({
             .set({
               hasVerticalMedia: hasVertical,
               hasHorizontalMedia: hasHorizontal,
+              notionStatus,
+              notionStatusSyncedAt: new Date(),
               deliverableSyncedAt: new Date(),
               updatedAt: new Date(),
             })

@@ -67,6 +67,8 @@ type ProductionItem = {
   finalVideoUrl: string | null
   hasVerticalMedia?: boolean
   hasHorizontalMedia?: boolean
+  notionStatus?: string | null
+  notionStatusSyncedAt?: string | null
   createdAt?: string
   updatedAt: string
   pendingApprovalToken: string | null
@@ -1489,6 +1491,13 @@ function ProductionCard({
               <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium", tone)}>
                 {p.statusLabel}
               </span>
+              {p.notionStatus && p.notionStatus !== p.statusLabel && (
+                /* Status detalhado do Notion ("Edição Vertical",
+                   "Aguardando Alinhamento" etc) — texto livre, fonte
+                   leve. Pareado com pill de status pro cliente entender
+                   contexto. */
+                <span className="text-[12px] text-muted-foreground">· {p.notionStatus}</span>
+              )}
               {p.specialistName && (
                 <span className="text-[12px] text-muted-foreground">· {p.specialistName}</span>
               )}

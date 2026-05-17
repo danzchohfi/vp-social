@@ -243,6 +243,10 @@ export async function GET(
       // produção foi entregue, o card mostra botão "Baixar V/H".
       hasVerticalMedia: production.hasVerticalMedia,
       hasHorizontalMedia: production.hasHorizontalMedia,
+      // Status fine-grained do Notion ("Roteiro", "Edição Vertical" etc).
+      // Cached pelo cron syncProductionDeliverables a cada 5min.
+      notionStatus: production.notionStatus,
+      notionStatusSyncedAt: production.notionStatusSyncedAt,
       createdAt: production.createdAt,
       updatedAt: production.updatedAt,
     })
@@ -308,6 +312,8 @@ export async function GET(
       finalVideoUrl: p.finalVideoUrl,
       hasVerticalMedia: p.hasVerticalMedia,
       hasHorizontalMedia: p.hasHorizontalMedia,
+      notionStatus: p.notionStatus,
+      notionStatusSyncedAt: p.notionStatusSyncedAt,
       createdAt: p.createdAt,
       updatedAt: p.updatedAt,
       pendingApprovalToken: tokenByProduction.get(p.id) ?? null,
