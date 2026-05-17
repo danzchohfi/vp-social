@@ -47,7 +47,9 @@ export async function POST(req: Request) {
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const userId = session.user.id
-  const { name, logoUrl } = await req.json()
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "invalid_body" }, { status: 400 })
+  const { name, logoUrl } = body as { name?: string; logoUrl?: string | null }
   if (!name?.trim()) return NextResponse.json({ error: "Nome obrigatório" }, { status: 400 })
 
   const newClient = {

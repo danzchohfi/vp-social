@@ -10,7 +10,9 @@ export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { clientId } = await req.json()
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "invalid_body" }, { status: 400 })
+  const { clientId } = body as { clientId?: string }
   if (!clientId) return NextResponse.json({ error: "clientId obrigatório" }, { status: 400 })
 
   // Agency view: cookie stores the sentinel and read-only routes will resolve

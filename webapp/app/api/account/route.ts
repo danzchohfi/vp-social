@@ -10,8 +10,9 @@ export async function PATCH(req: Request) {
   const session = await auth.api.getSession({ headers: hdrs })
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const body = await req.json()
-  const { name, email, currentPassword, newPassword } = body
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "invalid_body" }, { status: 400 })
+  const { name, email, currentPassword, newPassword } = body as Record<string, unknown>
 
   if (typeof name === "string" && name.trim() && name.trim() !== session.user.name) {
     await db

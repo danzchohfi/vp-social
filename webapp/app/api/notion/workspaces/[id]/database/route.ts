@@ -23,7 +23,10 @@ export async function POST(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id: connectionId } = await params
-  const { url } = await req.json()
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "invalid_body" }, { status: 400 })
+  const { url } = body as { url?: string }
+  if (typeof url !== "string") return NextResponse.json({ error: "url obrigatório" }, { status: 400 })
 
   const [connection] = await db
     .select()

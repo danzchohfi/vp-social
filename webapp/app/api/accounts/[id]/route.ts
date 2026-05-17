@@ -12,7 +12,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id } = await params
-  const body = await req.json()
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "invalid_body" }, { status: 400 })
 
   const [target] = await db.select().from(instagramAccount).where(eq(instagramAccount.id, id))
   if (!target) return NextResponse.json({ error: "Não encontrada" }, { status: 404 })

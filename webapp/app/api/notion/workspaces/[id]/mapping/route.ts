@@ -70,7 +70,8 @@ export async function POST(
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const { id: connectionId } = await params
-  const ui = await req.json()
+  const ui = await req.json().catch(() => null)
+  if (!ui || typeof ui !== "object") return NextResponse.json({ error: "invalid_body" }, { status: 400 })
 
   const dbFields = {
     statusField: ui.statusField,

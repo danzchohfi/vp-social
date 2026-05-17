@@ -1,15 +1,24 @@
 import { NextResponse } from "next/server"
+import { headers } from "next/headers"
+import { auth } from "@/lib/auth"
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
 
-function maskEnv(value: string | undefined): string {
-  if (!value) return "MISSING"
-  if (value.length < 8) return `SET (length ${value.length})`
-  return `SET (${value.length} chars, starts with "${value.slice(0, 4)}", ends with "${value.slice(-4)}")`
+// Endpoint de debug — usado pelo painel admin pra verificar qual commit
+// está em prod e quais env vars estão setadas. Exige sessão autenticada
+// (qualquer user logado serve — não vaza segredos cross-tenant; só
+// confirma presença + comprimento). Prefixos foram removidos pra não
+// dar dicas de validação de credenciais por força bruta.
+function maskEnv(value: string | undefined): { set: boolean; length: number } {
+  return { set: !!value, length: value?.length ?? 0 }
 }
 
 export async function GET() {
+  const session = await auth.api.getSession({ headers: await headers() })
+  if (!session) {
+    return NextResponse.json({ error: "unauthorized" }, { status: 401 })
+  }
   return NextResponse.json(
     {
       build: "r5",

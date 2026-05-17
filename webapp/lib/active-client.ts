@@ -174,7 +174,14 @@ export async function isAgencyMode(): Promise<boolean> {
 export async function setActiveClientCookie(clientId: string) {
   const cookieStore = await cookies()
   cookieStore.set(COOKIE_NAME, clientId, {
+    // Cliente-side JS lê esse cookie pra mostrar qual client está ativo
+    // no header — não é credencial de auth, é só estado de UI. Mas como
+    // mutating routes resolvem tenant via getActiveClientId(userId) que
+    // lê esse cookie, ele influencia ESCRITAS. Pra reduzir blast radius
+    // de XSS, mantemos httpOnly:false (lido por JS) mas adicionamos
+    // secure (HTTPS only) e sameSite=lax pra preventir CSRF cross-site.
     httpOnly: false,
+    secure: process.env.NODE_ENV === "production",
     sameSite: "lax",
     path: "/",
     maxAge: 60 * 60 * 24 * 365,

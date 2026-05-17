@@ -25,8 +25,10 @@ export async function POST(req: Request) {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  const { connectionId, ...fields } = await req.json()
-  if (!connectionId) return NextResponse.json({ error: "connectionId required" }, { status: 400 })
+  const body = await req.json().catch(() => null)
+  if (!body || typeof body !== "object") return NextResponse.json({ error: "invalid_body" }, { status: 400 })
+  const { connectionId, ...fields } = body as Record<string, unknown>
+  if (!connectionId || typeof connectionId !== "string") return NextResponse.json({ error: "connectionId required" }, { status: 400 })
 
   const userId = session.user.id
 

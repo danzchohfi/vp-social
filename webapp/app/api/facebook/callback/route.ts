@@ -31,47 +31,42 @@ export async function GET(req: Request) {
       }),
     })
     const tokenData = await tokenRes.json()
-    console.log("Facebook token response:", JSON.stringify(tokenData))
     if (!tokenData.access_token) throw new Error(tokenData.error?.message ?? "Token inválido")
 
     const longRes = await fetch(
       `${GRAPH}/oauth/access_token?grant_type=fb_exchange_token&client_id=${process.env.FACEBOOK_APP_ID}&client_secret=${process.env.FACEBOOK_APP_SECRET}&fb_exchange_token=${tokenData.access_token}`
     )
     const longData = await longRes.json()
-    console.log("Facebook long-lived token response:", JSON.stringify(longData))
     if (!longData.access_token) throw new Error(longData.error?.message ?? "Token long-lived inválido")
 
-    const meData = await fetch(`${GRAPH}/me?fields=id,name&access_token=${longData.access_token}`).then(r => r.json())
-    console.log("Facebook me:", JSON.stringify(meData))
+    // /me apenas pra validar token — não logamos (continha access_token nas
+    // versões anteriores deste arquivo). Mantemos a chamada caso o Graph
+    // exija contexto-de-usuário pra rotas downstream.
+    await fetch(`${GRAPH}/me?fields=id,name&access_token=${longData.access_token}`)
 
     // Try /me/accounts first
     const pagesRes = await fetch(
       `${GRAPH}/me/accounts?fields=id,name,access_token,instagram_business_account&access_token=${longData.access_token}`
     )
     const pagesData = await pagesRes.json()
-    console.log("Facebook pages response:", JSON.stringify(pagesData))
     let pages: any[] = pagesData.data ?? []
 
     // Fallback: use Business Management API for pages managed via Business Manager
     if (pages.length === 0) {
-      console.log("No pages via /me/accounts, trying Business API...")
       const bizRes = await fetch(`${GRAPH}/me/businesses?access_token=${longData.access_token}`)
       const bizData = await bizRes.json()
-      console.log("Facebook businesses:", JSON.stringify(bizData))
 
       for (const biz of bizData.data ?? []) {
         const bizPagesRes = await fetch(
           `${GRAPH}/${biz.id}/owned_pages?fields=id,name,access_token,instagram_business_account&access_token=${longData.access_token}`
         )
         const bizPagesData = await bizPagesRes.json()
-        console.log(`Business ${biz.id} owned_pages:`, JSON.stringify(bizPagesData))
         pages = [...pages, ...(bizPagesData.data ?? [])]
 
         const clientPagesRes = await fetch(
           `${GRAPH}/${biz.id}/client_pages?fields=id,name,access_token,instagram_business_account&access_token=${longData.access_token}`
         )
         const clientPagesData = await clientPagesRes.json()
-        console.log(`Business ${biz.id} client_pages:`, JSON.stringify(clientPagesData))
         pages = [...pages, ...(clientPagesData.data ?? [])]
       }
     }

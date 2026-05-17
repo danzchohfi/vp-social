@@ -42,6 +42,7 @@ export type DecideResult =
   | { ok: true }
   | { ok: false; reason: "already_decided"; existing: string | null }
   | { ok: false; reason: "invalid_tacit" }
+  | { ok: false; reason: "expired" }
 
 export async function decideApprovalLink(args: DecideArgs): Promise<DecideResult> {
   if (args.mode === "tacit" && args.decision !== "approved") {
@@ -50,6 +51,15 @@ export async function decideApprovalLink(args: DecideArgs): Promise<DecideResult
 
   const now = new Date()
   const tacit = args.mode === "tacit"
+
+  // Expiry só vale pra decisão EXPLÍCITA do cliente. O cron tacit precisa
+  // ainda poder marcar como aprovado após expiresAt — esse é o evento que
+  // expressa "silêncio = aprovação tácita". Sem essa diferença, um link
+  // de aprovação capturado meses depois (WhatsApp encaminhado, screenshot,
+  // dispositivo perdido) ainda podia ser usado pra aprovar.
+  if (!tacit && args.row.expiresAt && new Date(args.row.expiresAt) <= now) {
+    return { ok: false, reason: "expired" }
+  }
 
   // Atomic claim: ganha quem chega primeiro (cron vs client). Idempotente
   // — se decision já está setada, returning vem vazio.

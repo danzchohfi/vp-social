@@ -279,8 +279,11 @@ export async function POST(
     }
   }
 
-  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
-    ?? req.headers.get("x-real-ip")
+  // x-real-ip vem do proxy do Vercel e não é spoofável pelo cliente.
+  // x-forwarded-for tem o IP REAL na primeira posição, mas o cliente
+  // pode prepender entradas falsas. Trust x-real-ip primeiro.
+  const ip = req.headers.get("x-real-ip")
+    ?? req.headers.get("x-forwarded-for")?.split(",")[0]?.trim()
     ?? null
 
   const result = await decideApprovalLink({
@@ -297,6 +300,9 @@ export async function POST(
         { error: "already_decided", decision: result.existing },
         { status: 409 }
       )
+    }
+    if (result.reason === "expired") {
+      return NextResponse.json({ error: "expired" }, { status: 410 })
     }
     return NextResponse.json({ error: result.reason }, { status: 500 })
   }
