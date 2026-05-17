@@ -64,12 +64,15 @@ export default async function RootLayout({ children }: { children: React.ReactNo
             name="tiktok-developers-site-verification"
             content="eiekVsERmEwyEjPJ4DNBxmDXYZrilQ3Q"
           />
-          {/* Aplica preferência de densidade ANTES da hydratação pra evitar
-              flash em page load. */}
+          {/* Aplica preferência de densidade + tema ANTES da hydratação pra
+              evitar flash em page load. Tema: dark é default em rotas
+              internas (dashboard, settings, productions...); light é
+              default em rotas públicas (home, login, signup, portal
+              cliente). Usuário pode override via toggle no dashboard. */}
           <script
             nonce={nonce}
             dangerouslySetInnerHTML={{
-              __html: `try{var d=localStorage.getItem("vpsocial_density");if(d==="compact"||d==="comfortable")document.documentElement.dataset.density=d}catch(e){}`,
+              __html: `try{var d=localStorage.getItem("vpsocial_density");if(d==="compact"||d==="comfortable")document.documentElement.dataset.density=d}catch(e){}try{var t=localStorage.getItem("producao_theme");if(t==="dark"){document.documentElement.classList.add("dark")}else if(t!=="light"){var p=window.location.pathname;var r=["/dashboard","/settings","/productions","/scheduled","/history","/clients","/accounts","/account","/activity","/approvers","/grid","/health","/onboarding","/invites","/posts","/test-approval"];if(r.some(function(x){return p===x||p.indexOf(x+"/")===0}))document.documentElement.classList.add("dark")}}catch(e){}`,
             }}
           />
         </head>

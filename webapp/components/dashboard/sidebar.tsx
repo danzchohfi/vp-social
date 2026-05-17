@@ -7,6 +7,7 @@ import { signOut, useSession } from "@/lib/auth-client"
 import { useRouter } from "next/navigation"
 import { ClientSwitcher } from "@/components/dashboard/client-switcher"
 import { DensityToggle } from "@/components/dashboard/density-toggle"
+import { ThemeToggle } from "@/components/dashboard/theme-toggle"
 
 const nav = [
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
@@ -33,12 +34,13 @@ export function Sidebar() {
 
   return (
     <aside className="max-md:hidden flex h-full w-60 shrink-0 flex-col overflow-hidden border-r bg-card">
-      <div className="flex h-16 items-center gap-2 border-b px-5">
-        <img src="/icon.png" alt="VP Social" className="h-7 w-7 shrink-0 rounded-md [view-transition-name:app-logo]" />
-        <span className="truncate text-lg tracking-tight">
-          <span className="font-semibold">VP</span>
-          <span className="ml-1 italic">Social</span>
-        </span>
+      <div className="flex h-16 items-center border-b px-5">
+        <Link
+          href="/dashboard"
+          className="font-display truncate text-[20px] font-medium tracking-tight [view-transition-name:app-logo]"
+        >
+          producao<span className="text-primary text-[17px]">.app</span>
+        </Link>
       </div>
 
       <div className="border-b p-3">
@@ -61,6 +63,7 @@ export function Sidebar() {
           <kbd className="rounded border bg-muted/50 px-1 font-mono text-[11px]">⌘K</kbd>
         </button>
         <div className="flex items-center rounded-md border bg-background">
+          <ThemeToggle />
           <DensityToggle />
         </div>
       </div>
