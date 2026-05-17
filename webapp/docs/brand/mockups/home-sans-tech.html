@@ -1,0 +1,452 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Produção — Home (Variante B · Sans tech)</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #F5F1EA;
+    --bg-soft: #EFE9DC;
+    --text: #1A1612;
+    --text-2: #665B52;
+    --accent: #CC785C;
+    --accent-soft: #E8A488;
+    --border: #E5DDD0;
+    --sans: "Inter", -apple-system, system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html { -webkit-font-smoothing: antialiased; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--sans);
+    font-size: 17px;
+    line-height: 1.55;
+    font-weight: 400;
+    letter-spacing: -0.005em;
+  }
+  a { color: inherit; text-decoration: none; }
+
+  /* Layout */
+  .container { max-width: 1180px; margin: 0 auto; padding: 0 32px; }
+
+  /* Header */
+  header {
+    padding: 24px 0;
+    border-bottom: 1px solid var(--border);
+  }
+  .nav {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .logo {
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: -0.04em;
+  }
+  .logo .tld { color: var(--accent); font-weight: 500; }
+  .nav-links { display: flex; gap: 32px; font-size: 14px; color: var(--text-2); font-weight: 500; }
+  .nav-links a:hover { color: var(--text); }
+  .nav-cta {
+    background: var(--text);
+    color: var(--bg);
+    padding: 9px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+
+  /* Hero */
+  .hero {
+    padding: 110px 0 90px;
+    text-align: center;
+  }
+  .eyebrow {
+    display: inline-block;
+    font-size: 13px;
+    letter-spacing: 0.02em;
+    color: var(--accent);
+    background: rgba(204, 120, 92, 0.08);
+    padding: 5px 12px;
+    border-radius: 6px;
+    margin-bottom: 28px;
+    font-weight: 600;
+    text-transform: lowercase;
+  }
+  .hero h1 {
+    font-weight: 700;
+    font-size: clamp(48px, 7vw, 92px);
+    line-height: 1.0;
+    letter-spacing: -0.045em;
+    margin: 0 auto 28px;
+    max-width: 900px;
+  }
+  .hero h1 .accent {
+    color: var(--accent);
+  }
+  .hero .sub {
+    font-size: 20px;
+    color: var(--text-2);
+    max-width: 600px;
+    margin: 0 auto 40px;
+    line-height: 1.5;
+    letter-spacing: -0.005em;
+  }
+  .cta-row { display: flex; gap: 10px; justify-content: center; flex-wrap: wrap; }
+  .btn {
+    padding: 13px 22px;
+    border-radius: 8px;
+    font-size: 15px;
+    font-weight: 600;
+    font-family: var(--sans);
+    cursor: pointer;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+    letter-spacing: -0.01em;
+  }
+  .btn-primary { background: var(--text); color: var(--bg); }
+  .btn-primary:hover { background: var(--accent); }
+  .btn-secondary {
+    background: transparent;
+    color: var(--text);
+    border-color: var(--border);
+  }
+  .btn-secondary:hover { background: var(--bg-soft); border-color: var(--text-2); }
+
+  /* Trust */
+  .trust {
+    padding: 56px 0 72px;
+    text-align: center;
+    border-top: 1px solid var(--border);
+    border-bottom: 1px solid var(--border);
+  }
+  .trust-label {
+    font-size: 12px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--text-2);
+    margin-bottom: 28px;
+    font-weight: 600;
+  }
+  .trust-logos {
+    display: flex;
+    justify-content: center;
+    gap: 56px;
+    flex-wrap: wrap;
+    opacity: 0.55;
+    font-weight: 600;
+    font-size: 17px;
+    letter-spacing: -0.02em;
+  }
+
+  /* Features */
+  .features { padding: 100px 0; }
+  .section-head {
+    text-align: center;
+    margin-bottom: 56px;
+  }
+  .section-head h2 {
+    font-weight: 700;
+    font-size: clamp(36px, 4.5vw, 56px);
+    line-height: 1.05;
+    letter-spacing: -0.04em;
+    margin-bottom: 14px;
+    max-width: 720px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .section-head h2 .accent { color: var(--accent); }
+  .section-head .lede {
+    font-size: 18px;
+    color: var(--text-2);
+    max-width: 540px;
+    margin: 0 auto;
+  }
+  .features-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 24px;
+  }
+  .feature {
+    background: var(--bg-soft);
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    padding: 32px 28px;
+  }
+  .feature .num {
+    font-weight: 700;
+    font-size: 13px;
+    color: var(--accent);
+    margin-bottom: 18px;
+    letter-spacing: 0.04em;
+  }
+  .feature h3 {
+    font-weight: 700;
+    font-size: 22px;
+    letter-spacing: -0.025em;
+    line-height: 1.2;
+    margin-bottom: 12px;
+  }
+  .feature p {
+    font-size: 15px;
+    color: var(--text-2);
+    line-height: 1.55;
+  }
+
+  /* How */
+  .how {
+    padding: 100px 0;
+    background: var(--text);
+    color: var(--bg);
+  }
+  .how .section-head h2 { color: var(--bg); }
+  .how .section-head h2 .accent { color: var(--accent-soft); }
+  .how .section-head .lede { color: rgba(245, 241, 234, 0.65); }
+  .steps {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 36px;
+    margin-top: 44px;
+  }
+  .step {
+    border-top: 1px solid rgba(245, 241, 234, 0.18);
+    padding-top: 28px;
+  }
+  .step .step-num {
+    font-weight: 700;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: var(--accent-soft);
+    margin-bottom: 16px;
+  }
+  .step h4 {
+    font-weight: 600;
+    font-size: 22px;
+    line-height: 1.2;
+    margin-bottom: 12px;
+    letter-spacing: -0.025em;
+  }
+  .step p {
+    font-size: 14.5px;
+    color: rgba(245, 241, 234, 0.7);
+    line-height: 1.55;
+  }
+
+  /* Testimonial */
+  .testimonial { padding: 120px 0; text-align: center; }
+  .testimonial blockquote {
+    font-weight: 600;
+    font-size: clamp(28px, 3.2vw, 40px);
+    line-height: 1.2;
+    letter-spacing: -0.035em;
+    max-width: 920px;
+    margin: 0 auto 36px;
+  }
+  .testimonial cite {
+    font-style: normal;
+    font-size: 14px;
+    color: var(--text-2);
+    font-weight: 500;
+  }
+  .testimonial cite strong { color: var(--text); font-weight: 600; }
+
+  /* Final CTA */
+  .final-cta {
+    padding: 120px 0;
+    text-align: center;
+    border-top: 1px solid var(--border);
+  }
+  .final-cta h2 {
+    font-weight: 700;
+    font-size: clamp(42px, 5.5vw, 68px);
+    line-height: 1.02;
+    letter-spacing: -0.045em;
+    margin-bottom: 32px;
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .final-cta h2 .accent { color: var(--accent); }
+
+  /* Footer */
+  footer {
+    padding: 40px 0;
+    border-top: 1px solid var(--border);
+    font-size: 14px;
+    color: var(--text-2);
+  }
+  .footer-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 16px;
+  }
+  .footer-logo {
+    font-weight: 700;
+    font-size: 18px;
+    color: var(--text);
+    letter-spacing: -0.04em;
+  }
+  .footer-logo .tld { color: var(--accent); font-weight: 500; }
+
+  /* Variant marker */
+  .variant-marker {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    background: var(--text);
+    color: var(--bg);
+    padding: 10px 16px;
+    border-radius: 8px;
+    font-size: 12px;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    z-index: 100;
+    font-family: var(--sans);
+  }
+
+  @media (max-width: 768px) {
+    .features-grid, .steps { grid-template-columns: 1fr; }
+    .nav-links { display: none; }
+    .hero { padding: 60px 0 50px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="container nav">
+    <div class="logo">producao<span class="tld">.app</span></div>
+    <nav class="nav-links">
+      <a href="#produto">Produto</a>
+      <a href="#preco">Preço</a>
+      <a href="#cases">Cases</a>
+      <a href="#login">Entrar</a>
+    </nav>
+    <a href="#demo" class="nav-cta">Pedir demo</a>
+  </div>
+</header>
+
+<main>
+
+<section class="hero">
+  <div class="container">
+    <span class="eyebrow">painel de experiência do cliente</span>
+    <h1>Mais conteúdo saindo. <span class="accent">Sem ninguém se matando.</span></h1>
+    <p class="sub">O painel premium pro cliente da agência aprovar, acompanhar e ver tudo que tá rolando — plugado no que sua agência já usa.</p>
+    <div class="cta-row">
+      <a href="#demo" class="btn btn-primary">Pedir demo</a>
+      <a href="#how" class="btn btn-secondary">Ver como funciona</a>
+    </div>
+  </div>
+</section>
+
+<section class="trust">
+  <div class="container">
+    <div class="trust-label">agências que já operam no Produção</div>
+    <div class="trust-logos">
+      <span>Vitamina</span>
+      <span>Studio Bom</span>
+      <span>Mesa &amp; Co.</span>
+      <span>Boa Praça</span>
+      <span>Conteúdo Sul</span>
+    </div>
+  </div>
+</section>
+
+<section class="features">
+  <div class="container">
+    <div class="section-head">
+      <h2>Tudo num lugar só — <span class="accent">e nada migrando.</span></h2>
+      <p class="lede">Sua agência continua trabalhando como já trabalha. Produção pluga, aprova e publica.</p>
+    </div>
+    <div class="features-grid">
+      <div class="feature">
+        <div class="num">01</div>
+        <h3>Plug no planning</h3>
+        <p>Conecta o Notion (ou Sheets, Trello, Airtable) que sua agência já usa. Zero migração, zero ferramenta nova pra aprender.</p>
+      </div>
+      <div class="feature">
+        <div class="num">02</div>
+        <h3>Aprovação no WhatsApp</h3>
+        <p>O cliente recebe no WhatsApp, abre o painel no celular e aprova em 1 toque. Se não responder em 30 dias, aprovado.</p>
+      </div>
+      <div class="feature">
+        <div class="num">03</div>
+        <h3>Publicação automática</h3>
+        <p>Aprovou? Sai. Instagram, Facebook, YouTube, TikTok, LinkedIn. O conteúdo combinado, publicado. Toda vez.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="how" id="how">
+  <div class="container">
+    <div class="section-head">
+      <h2>O painel que o seu <span class="accent">cliente abre todo dia.</span></h2>
+      <p class="lede">Não é dashboard interno. É a vitrine premium que sua agência entrega.</p>
+    </div>
+    <div class="steps">
+      <div class="step">
+        <div class="step-num">passo um</div>
+        <h4>O cliente recebe um link.</h4>
+        <p>WhatsApp com o post pra aprovar. Toque, abre o painel premium da sua agência — com cor, logo e fonte da agência. Zero powered by.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">passo dois</div>
+        <h4>Aprova em 1 toque.</h4>
+        <p>Slide pra aprovar. Comentário rápido se quiser. Áudio do WhatsApp embutido como feedback. Sem caçar conversa antiga.</p>
+      </div>
+      <div class="step">
+        <div class="step-num">passo três</div>
+        <h4>Publica. Sozinho.</h4>
+        <p>Sua agência não toca em nada. O post vai pro ar no horário combinado. No fim do mês, story-report bonito pro cliente compartilhar.</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<section class="testimonial">
+  <div class="container">
+    <blockquote>"Antes a gente perdia 4 horas por semana caçando aprovação no WhatsApp. Hoje a agência só liga pro cliente quando tem coisa boa pra mostrar."</blockquote>
+    <cite><strong>Marina Sá</strong>, sócia operacional · agência de 12 clientes</cite>
+  </div>
+</section>
+
+<section class="final-cta">
+  <div class="container">
+    <h2>Pronto pra parar de <span class="accent">caçar aprovação no WhatsApp?</span></h2>
+    <div class="cta-row">
+      <a href="#demo" class="btn btn-primary">Pedir demo</a>
+    </div>
+  </div>
+</section>
+
+</main>
+
+<footer>
+  <div class="container footer-row">
+    <div>
+      <div class="footer-logo">producao<span class="tld">.app</span></div>
+      <div style="margin-top:6px; font-size: 13px;">Um produto da Vitamina Publicitária. São Paulo, 2026.</div>
+    </div>
+    <div style="display:flex; gap:24px;">
+      <a href="#">Termos</a>
+      <a href="#">Privacidade</a>
+      <a href="#">Contato</a>
+    </div>
+  </div>
+</footer>
+
+<div class="variant-marker">VARIANTE B · SANS TECH</div>
+
+</body>
+</html>

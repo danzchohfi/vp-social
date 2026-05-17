@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Produção — Comparativo Tipográfico (A vs B)</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body { height: 100%; overflow: hidden; font-family: -apple-system, system-ui, sans-serif; background: #1A1612; color: #F5F1EA; }
+  .header {
+    height: 56px;
+    padding: 0 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: #1A1612;
+    border-bottom: 1px solid rgba(245, 241, 234, 0.12);
+  }
+  .title { font-size: 14px; font-weight: 600; letter-spacing: 0.02em; }
+  .toggle {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    font-size: 12px;
+  }
+  .toggle button {
+    background: transparent;
+    color: #F5F1EA;
+    border: 1px solid rgba(245, 241, 234, 0.2);
+    padding: 6px 12px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 12px;
+    font-weight: 500;
+  }
+  .toggle button:hover { background: rgba(245, 241, 234, 0.08); }
+  .toggle button.active { background: #CC785C; border-color: #CC785C; }
+  .stage {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    height: calc(100vh - 56px);
+  }
+  .stage.single { grid-template-columns: 1fr; }
+  .pane {
+    border-right: 1px solid rgba(245, 241, 234, 0.12);
+    position: relative;
+    height: 100%;
+    background: #F5F1EA;
+    overflow: hidden;
+  }
+  .pane:last-child { border-right: none; }
+  .pane iframe { width: 100%; height: 100%; border: none; }
+  .pane-label {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: #1A1612;
+    color: #F5F1EA;
+    padding: 6px 10px;
+    border-radius: 6px;
+    font-size: 10px;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="title">Produção — comparativo tipográfico</div>
+  <div class="toggle">
+    <button id="btn-both" class="active">Lado a lado</button>
+    <button id="btn-a">Só A (serif)</button>
+    <button id="btn-b">Só B (sans)</button>
+  </div>
+</div>
+
+<div class="stage" id="stage">
+  <div class="pane" id="pane-a">
+    <div class="pane-label">A · SERIF EDITORIAL</div>
+    <iframe src="home-serif-editorial.html"></iframe>
+  </div>
+  <div class="pane" id="pane-b">
+    <div class="pane-label">B · SANS TECH</div>
+    <iframe src="home-sans-tech.html"></iframe>
+  </div>
+</div>
+
+<script>
+  const stage = document.getElementById('stage');
+  const paneA = document.getElementById('pane-a');
+  const paneB = document.getElementById('pane-b');
+  const btnBoth = document.getElementById('btn-both');
+  const btnA = document.getElementById('btn-a');
+  const btnB = document.getElementById('btn-b');
+
+  function setView(mode) {
+    [btnBoth, btnA, btnB].forEach(b => b.classList.remove('active'));
+    if (mode === 'both') {
+      stage.classList.remove('single');
+      paneA.style.display = ''; paneB.style.display = '';
+      btnBoth.classList.add('active');
+    } else if (mode === 'a') {
+      stage.classList.add('single');
+      paneA.style.display = ''; paneB.style.display = 'none';
+      btnA.classList.add('active');
+    } else {
+      stage.classList.add('single');
+      paneA.style.display = 'none'; paneB.style.display = '';
+      btnB.classList.add('active');
+    }
+  }
+  btnBoth.addEventListener('click', () => setView('both'));
+  btnA.addEventListener('click', () => setView('a'));
+  btnB.addEventListener('click', () => setView('b'));
+</script>
+
+</body>
+</html>
