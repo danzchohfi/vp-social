@@ -168,7 +168,40 @@ function ymd(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`
 }
 
-type Tab = "pendentes" | "agendados" | "publicados" | "producoes" | "briefing"
+type Tab = "pendentes" | "agendados" | "publicados" | "producoes" | "briefing" | "performance"
+
+type MetricsData = {
+  windowDays: number
+  summary: {
+    posts: number
+    likes: number
+    comments: number
+    reach: number
+    saves: number
+    impressions: number
+    lastSyncedAt: string | null
+  }
+  topPosts: Array<{
+    pageId: string
+    title: string
+    platform: string | null
+    postUrl: string | null
+    publishedAt: string
+    likes: number
+    comments: number
+    reach: number
+    saves: number
+  }>
+  recent: Array<{
+    pageId: string
+    title: string
+    platform: string | null
+    publishedAt: string
+    likes: number
+    comments: number
+    reach: number
+  }>
+}
 
 type BriefingField = {
   name: string
@@ -372,6 +405,7 @@ export default function ClientCalendarPage() {
                 { v: "publicados" as const, label: "Publicados", count: data.past.length, show: true },
                 { v: "producoes" as const, label: "Produções", count: data.productions?.length ?? 0, show: true },
                 { v: "briefing" as const, label: "Briefing", count: 0, show: !!data.client.hasBriefing, hideCount: true },
+                { v: "performance" as const, label: "Performance", count: 0, show: data.past.length > 0, hideCount: true },
               ] as const).filter((o) => o.show).map((opt) => (
                 <button
                   key={opt.v}
@@ -398,6 +432,7 @@ export default function ClientCalendarPage() {
             {tab === "pendentes" && <PendingList pending={data.pending} onOpen={setSelectedPending} />}
             {tab === "agendados" && <ScheduledList scheduled={data.scheduled} onOpen={(p) => setPreviewPost(p)} />}
             {tab === "briefing" && <BriefingPanel />}
+            {tab === "performance" && <PerformancePanel />}
             {tab === "publicados" && (
               <PublishedList
                 past={data.past}
@@ -1267,6 +1302,113 @@ function BriefingPanel() {
           ))}
         </div>
       )}
+    </div>
+  )
+}
+
+// Aba Performance — métricas agregadas dos posts publicados nos últimos
+// 90d (alcance/likes/comentários/saves). Dados vêm do cron de analytics
+// que sync com IG Graph API. Tela mostra big-number cards + top 5 posts
+// por alcance + lista recente.
+function PerformancePanel() {
+  const { token } = useParams<{ token: string }>()
+  const [data, setData] = useState<MetricsData | null>(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    fetch(`/api/c/${token}/metrics`)
+      .then((r) => r.json())
+      .then((j) => { if (!cancelled) setData(j) })
+      .catch(() => {})
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [token])
+
+  if (loading) {
+    return (
+      <div className="py-12 flex items-center justify-center">
+        <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+      </div>
+    )
+  }
+  if (!data || data.summary.posts === 0) {
+    return (
+      <Card>
+        <CardContent className="py-10 text-center">
+          <p className="text-base text-muted-foreground">
+            Sem dados de performance ainda. Métricas começam a aparecer alguns dias depois das primeiras publicações.
+          </p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  return (
+    <div className="space-y-5">
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <MetricCard label="Posts" value={data.summary.posts} />
+        <MetricCard label="Alcance" value={data.summary.reach} />
+        <MetricCard label="Curtidas" value={data.summary.likes} />
+        <MetricCard label="Comentários" value={data.summary.comments} />
+        <MetricCard label="Salvos" value={data.summary.saves} />
+      </div>
+      <p className="text-[12px] text-muted-foreground">
+        Últimos {data.windowDays} dias.
+        {data.summary.lastSyncedAt && (
+          <> Última atualização: {new Date(data.summary.lastSyncedAt).toLocaleString("pt-BR", { day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit" })}</>
+        )}
+      </p>
+
+      {data.topPosts.length > 0 && (
+        <div>
+          <p className="mb-2 text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">
+            Top 5 por alcance
+          </p>
+          <div className="space-y-2">
+            {data.topPosts.map((p, i) => (
+              <Card key={p.pageId + i}>
+                <CardContent className="flex items-center gap-3 py-3">
+                  <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary">
+                    {i + 1}
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="truncate text-base font-medium">{p.title || "Sem título"}</p>
+                    <p className="text-[12px] text-muted-foreground">
+                      {p.platform ?? "—"} · {new Date(p.publishedAt).toLocaleDateString("pt-BR")}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-3 text-right text-[12px]">
+                    <div>
+                      <p className="font-semibold tabular-nums">{p.reach.toLocaleString("pt-BR")}</p>
+                      <p className="text-muted-foreground">alcance</p>
+                    </div>
+                    <div>
+                      <p className="font-semibold tabular-nums">{p.likes.toLocaleString("pt-BR")}</p>
+                      <p className="text-muted-foreground">curtidas</p>
+                    </div>
+                  </div>
+                  {p.postUrl && (
+                    <a href={p.postUrl} target="_blank" rel="noopener noreferrer" className="shrink-0 text-muted-foreground hover:text-foreground" aria-label="Ver post">
+                      <ExternalLink className="h-4 w-4" />
+                    </a>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function MetricCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-xl border bg-card px-4 py-3">
+      <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className="mt-0.5 text-2xl font-semibold tabular-nums">{value.toLocaleString("pt-BR")}</p>
     </div>
   )
 }
