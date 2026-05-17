@@ -1,6 +1,6 @@
 import Link from "next/link"
 
-export const metadata = { title: "Termos de Serviço – VP Social" }
+export const metadata = { title: "Termos de Serviço · Produção" }
 
 export default function TermsPage() {
   return (
@@ -11,17 +11,16 @@ export default function TermsPage() {
       <div className="mb-8 flex items-center gap-3 border-b pb-6">
         <img
           src="/icon-192.png"
-          alt="VP Social"
+          alt="Produção"
           width={48}
           height={48}
           className="h-12 w-12 rounded-xl"
         />
         <div>
-          <p className="text-lg font-semibold tracking-tight">
-            <span>VP</span>
-            <span className="ml-1 italic">Social</span>
+          <p className="font-display text-xl font-medium tracking-tight">
+            producao<span className="text-primary">.app</span>
           </p>
-          <p className="text-sm text-muted-foreground">posts.vitaminapublicitaria.com.br</p>
+          <p className="text-sm text-muted-foreground">painel de experiência do cliente</p>
         </div>
       </div>
 
@@ -32,17 +31,17 @@ export default function TermsPage() {
       <div className="prose prose-neutral dark:prose-invert max-w-none space-y-6 text-base leading-relaxed">
         <section>
           <h2 className="text-lg font-semibold">1. Aceitação dos termos</h2>
-          <p>Ao utilizar o VP Social (<strong>posts.vitaminapublicitaria.com.br</strong>), você concorda com estes Termos de Serviço. Se não concordar, não utilize o serviço.</p>
+          <p>Ao utilizar o Produção (<strong>producao.app</strong>), você concorda com estes Termos de Serviço. Se não concordar, não utilize o serviço.</p>
         </section>
 
         <section>
           <h2 className="text-lg font-semibold">2. Descrição do serviço</h2>
-          <p>VP Social é uma ferramenta de agendamento e publicação de conteúdo em redes sociais que integra com Notion, Instagram, Facebook, YouTube, TikTok e LinkedIn, permitindo automatizar a publicação de posts a partir de um banco de dados Notion.</p>
+          <p>Produção é uma ferramenta de agendamento e publicação de conteúdo em redes sociais que integra com Notion, Instagram, Facebook, YouTube, TikTok e LinkedIn, permitindo automatizar a publicação de posts a partir de um banco de dados Notion.</p>
         </section>
 
         <section>
           <h2 className="text-lg font-semibold">3. Uso aceitável</h2>
-          <p>Você concorda em utilizar o VP Social apenas para fins legais e de acordo com as políticas de uso das plataformas conectadas. É proibido:</p>
+          <p>Você concorda em utilizar o Produção apenas para fins legais e de acordo com as políticas de uso das plataformas conectadas. É proibido:</p>
           <ul className="ml-4 list-disc space-y-1">
             <li>Publicar conteúdo que viole direitos de terceiros</li>
             <li>Usar o serviço para spam ou automação abusiva</li>
@@ -58,7 +57,7 @@ export default function TermsPage() {
 
         <section>
           <h2 className="text-lg font-semibold">5. Plataformas de terceiros</h2>
-          <p>O VP Social integra com plataformas de terceiros (TikTok, Meta, Google, etc.). O uso dessas plataformas está sujeito às respectivas políticas de uso. Não somos responsáveis por mudanças nas APIs ou políticas dessas plataformas que possam afetar o funcionamento do serviço.</p>
+          <p>O Produção integra com plataformas de terceiros (TikTok, Meta, Google, etc.). O uso dessas plataformas está sujeito às respectivas políticas de uso. Não somos responsáveis por mudanças nas APIs ou políticas dessas plataformas que possam afetar o funcionamento do serviço.</p>
         </section>
 
         <section>
@@ -68,7 +67,7 @@ export default function TermsPage() {
 
         <section>
           <h2 className="text-lg font-semibold">7. Limitação de responsabilidade</h2>
-          <p>O VP Social não se responsabiliza por perdas indiretas, publicações não realizadas por falhas nas APIs de terceiros, ou danos decorrentes de uso indevido da plataforma.</p>
+          <p>O Produção não se responsabiliza por perdas indiretas, publicações não realizadas por falhas nas APIs de terceiros, ou danos decorrentes de uso indevido da plataforma.</p>
         </section>
 
         <section>

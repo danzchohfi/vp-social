@@ -13,7 +13,7 @@ import { userHasClientAccess } from "@/lib/active-client"
 import { advanceChain, bumpRound, type ProductionStatus } from "@/lib/productions"
 import { dispatchApprovalRequest, getUserWhatsappConfig } from "@/lib/whatsapp-dispatch"
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://producao.app"
 
 // POST /api/productions/[id]/send-approval
 //

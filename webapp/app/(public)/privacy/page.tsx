@@ -1,6 +1,6 @@
 import Link from "next/link"
 
-export const metadata = { title: "Política de Privacidade – VP Social" }
+export const metadata = { title: "Política de Privacidade · Produção" }
 
 export default function PrivacyPage() {
   return (
@@ -11,17 +11,16 @@ export default function PrivacyPage() {
       <div className="mb-8 flex items-center gap-3 border-b pb-6">
         <img
           src="/icon-192.png"
-          alt="VP Social"
+          alt="Produção"
           width={48}
           height={48}
           className="h-12 w-12 rounded-xl"
         />
         <div>
-          <p className="text-lg font-semibold tracking-tight">
-            <span>VP</span>
-            <span className="ml-1 italic">Social</span>
+          <p className="font-display text-xl font-medium tracking-tight">
+            producao<span className="text-primary">.app</span>
           </p>
-          <p className="text-sm text-muted-foreground">posts.vitaminapublicitaria.com.br</p>
+          <p className="text-sm text-muted-foreground">painel de experiência do cliente</p>
         </div>
       </div>
 
@@ -32,7 +31,7 @@ export default function PrivacyPage() {
       <div className="prose prose-neutral dark:prose-invert max-w-none space-y-6 text-base leading-relaxed">
         <section>
           <h2 className="text-lg font-semibold">1. Quem somos</h2>
-          <p>VP Social é uma plataforma de agendamento e publicação de conteúdo em redes sociais operada pela Vitamina Publicitária. Nosso site é <strong>posts.vitaminapublicitaria.com.br</strong>.</p>
+          <p>Produção é uma plataforma de agendamento e publicação de conteúdo em redes sociais operada pela Vitamina Publicitária. Nosso site é <strong>producao.app</strong>.</p>
         </section>
 
         <section>
@@ -65,7 +64,7 @@ export default function PrivacyPage() {
 
         <section>
           <h2 className="text-lg font-semibold">5. Dados de plataformas de terceiros</h2>
-          <p>Ao conectar uma plataforma (ex: TikTok, Instagram), você autoriza o VP Social a acessar e publicar conteúdo em seu nome, conforme as permissões concedidas no momento da conexão. Você pode revogar esse acesso a qualquer momento desconectando a conta nas configurações do VP Social ou diretamente nas configurações de privacidade da plataforma.</p>
+          <p>Ao conectar uma plataforma (ex: TikTok, Instagram), você autoriza o Produção a acessar e publicar conteúdo em seu nome, conforme as permissões concedidas no momento da conexão. Você pode revogar esse acesso a qualquer momento desconectando a conta nas configurações do Produção ou diretamente nas configurações de privacidade da plataforma.</p>
         </section>
 
         <section>

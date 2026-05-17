@@ -19,7 +19,7 @@ import {
 import { decideApprovalLink } from "@/lib/approval-decide"
 import { checkRateLimit, clientIp } from "@/lib/rate-limit"
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://producao.app"
 
 // Public API for the per-post approval flow. NO AUTH — the URL token IS
 // the auth. The token is created by the cron sweep in trigger/publish.ts

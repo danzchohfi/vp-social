@@ -60,7 +60,7 @@ export const auth = betterAuth({
         return
       }
       try {
-        const from = process.env.RESEND_FROM ?? "VP Social <noreply@posts.vitaminapublicitaria.com.br>"
+        const from = process.env.RESEND_FROM ?? "Produção <contato@producao.app>"
         const res = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {
@@ -102,7 +102,7 @@ export const auth = betterAuth({
         return
       }
       try {
-        const from = process.env.RESEND_FROM ?? "VP Social <noreply@posts.vitaminapublicitaria.com.br>"
+        const from = process.env.RESEND_FROM ?? "Produção <contato@producao.app>"
         const res = await fetch("https://api.resend.com/emails", {
           method: "POST",
           headers: {

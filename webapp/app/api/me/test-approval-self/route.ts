@@ -4,7 +4,7 @@ import { NextResponse } from "next/server"
 import { validatePhoneE164 } from "@/lib/phone"
 import { dispatchApprovalRequest, getUserWhatsappConfig } from "@/lib/whatsapp-dispatch"
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://producao.app"
 
 // Dry-run dispatch — sends the agency's configured Meta template to a
 // phone the user picks (typically their own). Confirms the whole pipeline

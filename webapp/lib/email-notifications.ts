@@ -14,8 +14,8 @@ type FailedPublish = {
   error: string | null
 }
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
-const RESEND_FROM = process.env.RESEND_FROM ?? "VP Social <noreply@posts.vitaminapublicitaria.com.br>"
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://producao.app"
+const RESEND_FROM = process.env.RESEND_FROM ?? "Produção <contato@producao.app>"
 
 async function sendEmail(to: string, subject: string, html: string, label: string): Promise<void> {
   if (!process.env.RESEND_API_KEY) {

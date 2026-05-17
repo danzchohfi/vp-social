@@ -14,7 +14,7 @@ import { generateId } from "../lib/utils"
 import { findApproverByPhone } from "../lib/approvers"
 import { APPROVAL_TTL_DAYS } from "../lib/approval-link"
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://producao.app"
 const STORY_CHUNK_PAUSE_MS = 30_000
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms))

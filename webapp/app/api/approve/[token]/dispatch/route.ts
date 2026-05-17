@@ -8,7 +8,7 @@ import { userIsClientOwner } from "@/lib/active-client"
 import { dispatchApprovalRequest, getUserWhatsappConfig } from "@/lib/whatsapp-dispatch"
 import { createNotionClient } from "@/lib/notion"
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://producao.app"
 
 // Per-post manual dispatch. Lets the agency fire a WhatsApp for a
 // SPECIFIC pending link — not the bulk notify-pending. Idempotent: if

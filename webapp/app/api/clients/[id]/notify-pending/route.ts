@@ -9,7 +9,7 @@ import { validatePhoneE164 } from "@/lib/phone"
 import { dispatchApprovalRequest, getUserWhatsappConfig, isConfigured } from "@/lib/whatsapp-dispatch"
 import { createNotionClient } from "@/lib/notion"
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://producao.app"
 
 // Manual approval-notification trigger. Used when client.approvalDispatchMode
 // is 'manual' — the cron has been creating approvalLink rows without firing

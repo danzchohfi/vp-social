@@ -23,7 +23,7 @@ import { notifyClientDecisionAsync } from "@/lib/email-notifications"
 import { generateId } from "@/lib/utils"
 import type { ApprovalDecision } from "@/lib/approval-link"
 
-const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://posts.vitaminapublicitaria.com.br"
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL?.replace(/\/$/, "") ?? "https://producao.app"
 
 type ApprovalRow = typeof approvalLink.$inferSelect
 
