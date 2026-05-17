@@ -61,6 +61,27 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       .filter((v: string) => v.length > 0)
     update.notionContaValues = cleaned.length > 0 ? cleaned : null
   }
+  // URL pro form externo "Solicitar nova produção" exibido no portal.
+  // null = botão escondido. Validamos HTTPS only — não queremos botão
+  // levando o cliente pra um http:// (vetor de MITM em redes wifi).
+  if (body.briefingFormUrl !== undefined) {
+    if (body.briefingFormUrl === null || body.briefingFormUrl === "") {
+      update.briefingFormUrl = null
+    } else if (typeof body.briefingFormUrl !== "string") {
+      return NextResponse.json({ error: "briefingFormUrl deve ser string" }, { status: 400 })
+    } else {
+      const trimmed = body.briefingFormUrl.trim()
+      try {
+        const u = new URL(trimmed)
+        if (u.protocol !== "https:") {
+          return NextResponse.json({ error: "briefingFormUrl precisa ser HTTPS" }, { status: 400 })
+        }
+        update.briefingFormUrl = trimmed
+      } catch {
+        return NextResponse.json({ error: "briefingFormUrl não é URL válida" }, { status: 400 })
+      }
+    }
+  }
 
   await db
     .update(client)

@@ -4,7 +4,7 @@ import { useParams } from "next/navigation"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle2, AlertTriangle, Loader2, Clock, Building2, MessageCircle, ChevronLeft, ChevronRight, ExternalLink, Play, X } from "lucide-react"
+import { CheckCircle2, AlertTriangle, Loader2, Clock, Building2, MessageCircle, ChevronLeft, ChevronRight, ExternalLink, Play, X, Download, Plus } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { PostMockup } from "@/components/post/post-mockup"
@@ -65,12 +65,15 @@ type ProductionItem = {
   deliveryDate: string | null
   publishDate: string | null
   finalVideoUrl: string | null
+  hasVerticalMedia?: boolean
+  hasHorizontalMedia?: boolean
+  createdAt?: string
   updatedAt: string
   pendingApprovalToken: string | null
 }
 
 type CalendarData = {
-  client: { name: string; logoUrl: string | null }
+  client: { name: string; logoUrl: string | null; briefingFormUrl?: string | null }
   pending: PendingPost[]
   scheduled: ScheduledPost[]
   past: PastPost[]
@@ -276,14 +279,25 @@ export default function ClientCalendarPage() {
               <Building2 className="h-5 w-5" />
             </div>
           )}
-          <div className="min-w-0">
+          <div className="min-w-0 flex-1">
             <p className="text-[12px] uppercase tracking-wider text-muted-foreground">Agenda de conteúdo</p>
             <p className="truncate text-base">{data.client.name}</p>
           </div>
           {data.pending.length > 0 && (
-            <Badge variant="warning" size="sm" className="ml-auto py-1">
+            <Badge variant="warning" size="sm" className="py-1">
               {data.pending.length} aguardando você
             </Badge>
+          )}
+          {/* Botão sempre visível quando agência configurou briefingFormUrl.
+              Abre form externo (Notion form) que preenche a DB de Produções.
+              Versão MVP — depois pode virar wizard interno. */}
+          {data.client.briefingFormUrl && (
+            <Button asChild size="sm" variant="outline" className="shrink-0">
+              <a href={data.client.briefingFormUrl} target="_blank" rel="noopener noreferrer">
+                <Plus className="h-4 w-4" />
+                <span className="hidden sm:inline">Solicitar produção</span>
+              </a>
+            </Button>
           )}
         </div>
       </div>
@@ -1087,7 +1101,25 @@ function ApprovalDialog({
   )
 }
 
+// Pill colorida por status. Cores casam com o flowchart Notion da
+// agência (azul=em-curso, amarelo=aguardando-VP, marrom=aguardando-
+// cliente, verde=concluído, vermelho=erro).
+const STATUS_TONE: Record<string, string> = {
+  brief_pending: "bg-warning/15 text-warning",
+  script_drafting: "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+  awaiting_approval: "bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300",
+  revision_requested: "bg-orange-100 text-orange-700 dark:bg-orange-900/30 dark:text-orange-300",
+  approved: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  recording: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  editing: "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+  delivered: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  published: "bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300",
+  archived: "bg-muted text-muted-foreground",
+}
+
 function ProductionsList({ productions }: { productions: ProductionItem[] }) {
+  const { token } = useParams<{ token: string }>()
+
   if (productions.length === 0) {
     return (
       <Card>
@@ -1100,12 +1132,15 @@ function ProductionsList({ productions }: { productions: ProductionItem[] }) {
     )
   }
 
-  // Group by status family for a cleaner read.
-  const groups: Array<{ key: string; label: string; statuses: string[] }> = [
-    { key: "awaiting", label: "Aguardando você", statuses: ["awaiting_approval", "brief_pending"] },
-    { key: "revision", label: "Em revisão", statuses: ["revision_requested"] },
-    { key: "production", label: "Em produção", statuses: ["script_drafting", "approved", "recording", "editing", "delivered"] },
-    { key: "done", label: "Publicados", statuses: ["published"] },
+  // Grupos cobrem o ciclo completo. Cliente vê fluxo end-to-end em vez
+  // de pular do "em produção" pra "publicado".
+  const groups: Array<{ key: string; label: string; statuses: string[]; tone?: string }> = [
+    { key: "awaiting", label: "Aguardando você", statuses: ["awaiting_approval", "brief_pending"], tone: "border-warning/40" },
+    { key: "revision", label: "Em revisão (alteração pedida)", statuses: ["revision_requested"], tone: "border-orange-300" },
+    { key: "production", label: "Em produção", statuses: ["script_drafting", "approved", "recording", "editing"] },
+    { key: "delivered", label: "Entregues", statuses: ["delivered"], tone: "border-emerald-300" },
+    { key: "published", label: "Publicados", statuses: ["published"] },
+    { key: "archived", label: "Arquivados", statuses: ["archived"] },
   ]
 
   return (
@@ -1120,41 +1155,7 @@ function ProductionsList({ productions }: { productions: ProductionItem[] }) {
             </p>
             <div className="space-y-2">
               {items.map((p) => (
-                <Card key={p.id} className="overflow-hidden">
-                  <CardContent className="flex items-start gap-3 py-3">
-                    <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
-                      <Play className="h-4 w-4" />
-                    </div>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-base font-medium">{p.title}</p>
-                      <p className="truncate text-[13px] text-muted-foreground">
-                        {p.statusLabel}
-                        {p.specialistName ? ` · ${p.specialistName}` : ""}
-                        {p.recordingDate ? ` · grava ${shortDate(p.recordingDate)}` : ""}
-                      </p>
-                      {p.topic && (
-                        <p className="mt-1 line-clamp-2 text-sm text-muted-foreground">{p.topic}</p>
-                      )}
-                    </div>
-                    <div className="flex shrink-0 flex-col items-end gap-1.5">
-                      {p.pendingApprovalToken && (
-                        <Button size="sm" asChild>
-                          <a href={`/approve/${p.pendingApprovalToken}`}>
-                            Revisar
-                          </a>
-                        </Button>
-                      )}
-                      {p.finalVideoUrl && (
-                        <Button size="sm" variant="outline" asChild>
-                          <a href={p.finalVideoUrl} target="_blank" rel="noopener noreferrer">
-                            <ExternalLink className="h-3.5 w-3.5" />
-                            Vídeo
-                          </a>
-                        </Button>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
+                <ProductionCard key={p.id} p={p} token={token} groupBorder={group.tone} />
               ))}
             </div>
           </div>
@@ -1167,4 +1168,99 @@ function ProductionsList({ productions }: { productions: ProductionItem[] }) {
 function shortDate(iso: string): string {
   const d = new Date(iso)
   return `${String(d.getDate()).padStart(2, "0")}/${String(d.getMonth() + 1).padStart(2, "0")}`
+}
+
+function ProductionCard({
+  p, token, groupBorder,
+}: {
+  p: ProductionItem
+  token: string
+  groupBorder?: string
+}) {
+  // Timeline derivada das datas que temos. Mostra a linha do tempo
+  // resumida em vez de "1 status no presente" — cliente vê de onde
+  // veio e pra onde vai.
+  const events: Array<{ label: string; date: string | null; done: boolean }> = [
+    { label: "Solicitado", date: p.createdAt ?? null, done: true },
+    { label: "Gravação", date: p.recordingDate ?? null, done: ["recording", "editing", "delivered", "published", "archived"].includes(p.status) },
+    { label: "Entrega", date: p.deliveryDate ?? null, done: ["delivered", "published", "archived"].includes(p.status) },
+    { label: "Publicação", date: p.publishDate ?? null, done: ["published", "archived"].includes(p.status) },
+  ]
+  const hasAnyDate = events.some((e) => e.date)
+  const tone = STATUS_TONE[p.status] ?? "bg-muted text-muted-foreground"
+  const canDownloadVertical = !!p.hasVerticalMedia && (p.status === "delivered" || p.status === "published" || p.status === "archived")
+  const canDownloadHorizontal = !!p.hasHorizontalMedia && (p.status === "delivered" || p.status === "published" || p.status === "archived")
+
+  return (
+    <Card className={cn("overflow-hidden", groupBorder)}>
+      <CardContent className="space-y-3 py-3">
+        <div className="flex items-start gap-3">
+          <div className="mt-0.5 flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary/10 text-primary">
+            <Play className="h-4 w-4" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-base font-medium">{p.title}</p>
+            <div className="mt-1 flex flex-wrap items-center gap-1.5">
+              <span className={cn("inline-flex items-center rounded-full px-2 py-0.5 text-[11px] font-medium", tone)}>
+                {p.statusLabel}
+              </span>
+              {p.specialistName && (
+                <span className="text-[12px] text-muted-foreground">· {p.specialistName}</span>
+              )}
+            </div>
+            {p.topic && (
+              <p className="mt-1.5 line-clamp-2 text-sm text-muted-foreground">{p.topic}</p>
+            )}
+          </div>
+          <div className="flex shrink-0 flex-col items-end gap-1.5">
+            {p.pendingApprovalToken && (
+              <Button size="sm" asChild>
+                <a href={`/approve/${p.pendingApprovalToken}`}>Revisar</a>
+              </Button>
+            )}
+          </div>
+        </div>
+
+        {hasAnyDate && (
+          <div className="flex flex-wrap gap-x-3 gap-y-1 border-t pt-2 text-[12px] text-muted-foreground">
+            {events.filter((e) => e.date).map((e) => (
+              <span key={e.label} className={cn("inline-flex items-center gap-1", e.done && "text-foreground")}>
+                <span className={cn("h-1.5 w-1.5 rounded-full", e.done ? "bg-emerald-500" : "bg-muted-foreground/40")} />
+                {e.label}: {shortDate(e.date!)}
+              </span>
+            ))}
+          </div>
+        )}
+
+        {(canDownloadVertical || canDownloadHorizontal || p.finalVideoUrl) && (
+          <div className="flex flex-wrap gap-1.5 border-t pt-2">
+            {canDownloadVertical && (
+              <Button size="sm" variant="outline" asChild>
+                <a href={`/api/c/${token}/production/${p.id}/deliverable?orientation=vertical`}>
+                  <Download className="h-3.5 w-3.5" />
+                  Vertical (9:16)
+                </a>
+              </Button>
+            )}
+            {canDownloadHorizontal && (
+              <Button size="sm" variant="outline" asChild>
+                <a href={`/api/c/${token}/production/${p.id}/deliverable?orientation=horizontal`}>
+                  <Download className="h-3.5 w-3.5" />
+                  Horizontal (16:9)
+                </a>
+              </Button>
+            )}
+            {p.finalVideoUrl && (
+              <Button size="sm" variant="ghost" asChild>
+                <a href={p.finalVideoUrl} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink className="h-3.5 w-3.5" />
+                  Ver vídeo final
+                </a>
+              </Button>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  )
 }

@@ -116,6 +116,12 @@ export const client = pgTable("client", {
   // different VP Social client rows). Empty/null array = legacy name-
   // matching behavior. Populated via /clients/[id]/edit.
   notionContaValues: text("notion_conta_values").array(),
+  // URL pública do form Notion "Solicitar nova produção". Quando setada,
+  // /c/[token] renderiza botão no header que abre esse URL em nova aba.
+  // Cliente preenche o form e a entrada cai direto na DB de Produções.
+  // Por agência define via settings (text input simples). Sem isso, o
+  // botão fica escondido.
+  briefingFormUrl: text("briefing_form_url"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })

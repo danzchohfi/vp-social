@@ -238,6 +238,12 @@ export async function GET(
       deliveryDate: production.deliveryDate,
       publishDate: production.publishDate,
       finalVideoUrl: production.finalVideoUrl,
+      // Flags atualizados pelo cron publishScheduled. Cliente pode baixar
+      // direto pelo portal sem precisar ir no Notion. Quando true e a
+      // produção foi entregue, o card mostra botão "Baixar V/H".
+      hasVerticalMedia: production.hasVerticalMedia,
+      hasHorizontalMedia: production.hasHorizontalMedia,
+      createdAt: production.createdAt,
       updatedAt: production.updatedAt,
     })
     .from(production)
@@ -270,6 +276,10 @@ export async function GET(
     client: {
       name: client.name,
       logoUrl: client.logoUrl,
+      // Quando setado, /c/[token] mostra botão "Solicitar nova produção"
+      // que abre esse URL em nova aba (tipicamente um form do Notion
+      // que preenche a DB de Produções).
+      briefingFormUrl: client.briefingFormUrl ?? null,
     },
     pending: pendingPosts.map((p) => ({
       ...slimPost(p),
@@ -293,6 +303,9 @@ export async function GET(
       deliveryDate: p.deliveryDate,
       publishDate: p.publishDate,
       finalVideoUrl: p.finalVideoUrl,
+      hasVerticalMedia: p.hasVerticalMedia,
+      hasHorizontalMedia: p.hasHorizontalMedia,
+      createdAt: p.createdAt,
       updatedAt: p.updatedAt,
       pendingApprovalToken: tokenByProduction.get(p.id) ?? null,
     })),

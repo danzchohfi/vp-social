@@ -312,6 +312,8 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
   const [origDispatchMode, setOrigDispatchMode] = useState<"auto" | "manual">("auto")
   const [waTemplate, setWaTemplate] = useState("")
   const [origWaTemplate, setOrigWaTemplate] = useState("")
+  const [briefingFormUrl, setBriefingFormUrl] = useState("")
+  const [origBriefingFormUrl, setOrigBriefingFormUrl] = useState("")
   const [connections, setConnections] = useState<ConnectionStatus[]>([])
   const [status, setStatus] = useState<"configured" | "partial" | "missing" | null>(null)
   const [nextStepHint, setNextStepHint] = useState<string | null>(null)
@@ -336,6 +338,9 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
       const tpl = typeof data.manualWhatsappTemplate === "string" ? data.manualWhatsappTemplate : ""
       setWaTemplate(tpl)
       setOrigWaTemplate(tpl)
+      const bf = typeof data.briefingFormUrl === "string" ? data.briefingFormUrl : ""
+      setBriefingFormUrl(bf)
+      setOrigBriefingFormUrl(bf)
       const conns: ConnectionStatus[] = Array.isArray(data.connections) ? data.connections : []
       setConnections(conns)
       setStatus(typeof data.status === "string" ? data.status : null)
@@ -363,6 +368,7 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
           approvalNotificationMode: mode,
           approvalDispatchMode: dispatchMode,
           manualWhatsappTemplate: waTemplate,
+          briefingFormUrl: briefingFormUrl.trim() || null,
         }),
       })
       if (!res.ok) {
@@ -373,6 +379,7 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
       setOrigMode(mode)
       setOrigDispatchMode(dispatchMode)
       setOrigWaTemplate(waTemplate)
+      setOrigBriefingFormUrl(briefingFormUrl)
       await load()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro")
@@ -384,7 +391,8 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
   const dirty =
     mode !== origMode ||
     dispatchMode !== origDispatchMode ||
-    waTemplate !== origWaTemplate
+    waTemplate !== origWaTemplate ||
+    briefingFormUrl !== origBriefingFormUrl
 
   return (
     <div className="space-y-4">
@@ -466,6 +474,23 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
                 Copiar
               </Button>
             </div>
+          </div>
+
+          {/* Briefing form URL — quando setado, /c/[token] mostra botão
+              "Solicitar produção" no header. Tipicamente um form do
+              Notion que escreve direto na DB de Produções. */}
+          <div className="space-y-1.5">
+            <Label className="text-sm">URL do form "Solicitar nova produção"</Label>
+            <p className="text-sm text-muted-foreground">
+              Quando setado, o cliente vê um botão no portal que abre este link em nova aba. Tipicamente um form público do Notion que preenche a DB de Produções. Deixe vazio pra esconder o botão.
+            </p>
+            <Input
+              type="url"
+              placeholder="https://notion.so/form/..."
+              value={briefingFormUrl}
+              onChange={(e) => setBriefingFormUrl(e.target.value)}
+              className="font-mono text-sm"
+            />
           </div>
 
           {/* Modo de envio — UMA pergunta só. As 3 opções mapeiam pros 2

@@ -1,0 +1,1 @@
+ALTER TABLE "client" ADD COLUMN "briefing_form_url" text;
