@@ -1,0 +1,1 @@
+ALTER TABLE "approver" ADD COLUMN "magic_token_expires_at" timestamp;

@@ -492,10 +492,14 @@ export const approver = pgTable("approver", {
   // "client" | "internal_reviewer" | "final_approver" — informational
   // only in v1; future versions may use it to drive default chain templates.
   role: text("role").notNull().default("client"),
-  // Long-lived passwordless token. Rotated by regenerateMagicToken when
-  // an approver leaves. Format: 64 hex chars (concat of two generateId()).
+  // Long-lived passwordless token. Rotated por regenerateMagicToken
+  // quando approver sai do papel. Format: 64 hex chars (concat de dois
+  // generateId()). NÃO eterno — expira em 1 ano após issuedAt; rotas
+  // que aceitam magicToken rejeitam vencidos. Agência rotaciona pela
+  // UI antes de vencer, ou cron sweep faz limpeza.
   magicToken: text("magic_token").notNull().unique(),
   magicTokenIssuedAt: timestamp("magic_token_issued_at").notNull().defaultNow(),
+  magicTokenExpiresAt: timestamp("magic_token_expires_at"),
   notes: text("notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),

@@ -6,6 +6,7 @@ import { headers } from "next/headers"
 import { NextResponse } from "next/server"
 import { userHasClientAccess } from "@/lib/active-client"
 import { createNotionClient, DEFAULT_MAPPING } from "@/lib/notion"
+import { isMagicTokenExpired } from "@/lib/approvers"
 
 // Fase 10 — entrega de arquivo. Quando o cliente aprova um roteiro de
 // produção mas a agência NÃO publica pelo sistema (apenas entrega o
@@ -39,10 +40,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     // chain desta produção. Sem o segundo gate, qualquer approver podia
     // baixar de qualquer produção.
     const [a] = await db
-      .select({ id: approver.id })
+      .select({ id: approver.id, magicTokenExpiresAt: approver.magicTokenExpiresAt })
       .from(approver)
       .where(eq(approver.magicToken, approverToken))
-    if (a) {
+    if (a && !isMagicTokenExpired(a.magicTokenExpiresAt)) {
       const [chainRow] = await db
         .select({ approverId: productionApprover.approverId })
         .from(productionApprover)

@@ -19,6 +19,20 @@ function newMagicToken(): string {
   return generateId() + generateId().replace(/-/g, "")
 }
 
+// 1 ano. Token vencido força agência a rotacionar — caso aprovador saia
+// do papel e leve o link adiante, o vazamento expira automaticamente.
+export const MAGIC_TOKEN_TTL_DAYS = 365
+function newMagicTokenExpiry(from: Date = new Date()): Date {
+  return new Date(from.getTime() + MAGIC_TOKEN_TTL_DAYS * 24 * 60 * 60 * 1000)
+}
+
+/** True quando o token expirou. Tokens antigos sem expiresAt (pre-MED-4)
+ *  são considerados válidos — backfilled via cron quando aparecer. */
+export function isMagicTokenExpired(expiresAt: Date | null | undefined): boolean {
+  if (!expiresAt) return false
+  return new Date(expiresAt) <= new Date()
+}
+
 type Db = any
 
 // ─── Find or create ─────────────────────────────────────
@@ -63,6 +77,7 @@ export async function findOrCreateApprover(
     if (byEmail) return byEmail
   }
 
+  const now = new Date()
   const [created] = await db
     .insert(schema.approver)
     .values({
@@ -73,6 +88,8 @@ export async function findOrCreateApprover(
       phone,
       role: args.role ?? "client",
       magicToken: newMagicToken(),
+      magicTokenIssuedAt: now,
+      magicTokenExpiresAt: newMagicTokenExpiry(now),
       notes: args.notes ?? null,
     })
     .returning()
@@ -90,12 +107,14 @@ export async function regenerateMagicToken(
   approverId: string,
 ): Promise<{ approver: typeof schema.approver.$inferSelect; newToken: string }> {
   const newToken = newMagicToken()
+  const now = new Date()
   const [updated] = await db
     .update(schema.approver)
     .set({
       magicToken: newToken,
-      magicTokenIssuedAt: new Date(),
-      updatedAt: new Date(),
+      magicTokenIssuedAt: now,
+      magicTokenExpiresAt: newMagicTokenExpiry(now),
+      updatedAt: now,
     })
     .where(eq(schema.approver.id, approverId))
     .returning()
@@ -115,7 +134,9 @@ export async function lookupApproverByToken(
     .from(schema.approver)
     .where(eq(schema.approver.magicToken, token))
     .limit(1)
-  return row ?? null
+  if (!row) return null
+  if (isMagicTokenExpired(row.magicTokenExpiresAt)) return null
+  return row
 }
 
 /** Normalize a phone string to digits-only for cross-source matching.
