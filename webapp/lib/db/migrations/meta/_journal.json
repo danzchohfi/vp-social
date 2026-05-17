@@ -176,6 +176,13 @@
       "when": 1779021846336,
       "tag": "0024_quiet_scrambler",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1779024616140,
+      "tag": "0025_backfill_email_verified",
+      "breakpoints": true
     }
   ]
 }

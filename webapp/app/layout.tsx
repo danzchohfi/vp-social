@@ -3,6 +3,7 @@ import { Geist, Geist_Mono } from "next/font/google"
 import { Toaster } from "sonner"
 import NextTopLoader from "nextjs-toploader"
 import { ViewTransitions } from "next-view-transitions"
+import { headers } from "next/headers"
 import "./globals.css"
 
 const geist = Geist({ subsets: ["latin"], variable: "--font-geist" })
@@ -34,7 +35,12 @@ export const viewport: Viewport = {
   themeColor: "#0a0a0a",
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default async function RootLayout({ children }: { children: React.ReactNode }) {
+  // Nonce CSP por request — gerado pelo middleware. Aplicar em todo
+  // <script> inline pra batisar com a directive script-src 'nonce-xxx'.
+  // Sem isso, o CSP completo bloqueia o script de densidade abaixo.
+  const nonce = (await headers()).get("x-nonce") ?? undefined
+
   return (
     <ViewTransitions>
       <html lang="pt-BR" className="dark" suppressHydrationWarning>
@@ -49,6 +55,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {/* Aplica preferência de densidade ANTES da hydratação pra evitar
               flash em page load. Síncrono, ~80 bytes, sem deps. */}
           <script
+            nonce={nonce}
             dangerouslySetInnerHTML={{
               __html: `try{var d=localStorage.getItem("vpsocial_density");if(d==="compact"||d==="comfortable")document.documentElement.dataset.density=d}catch(e){}`,
             }}
