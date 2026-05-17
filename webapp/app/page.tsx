@@ -211,6 +211,25 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* SETUP FLOW — "como configurar em 5 minutos" */}
+        <section id="setup" className="relative px-8 py-[100px]">
+          <div className="mx-auto max-w-[1180px]">
+            <div className="mb-12 text-center">
+              <span className="font-mono mb-3 inline-block text-[12px] uppercase tracking-[0.12em] text-primary">
+                setup em ~5 minutos
+              </span>
+              <h2 className="font-display mx-auto mb-3 max-w-[700px] text-[clamp(36px,4.2vw,54px)] font-normal leading-[1.1] tracking-tight">
+                Configura uma vez. <em className="italic text-primary">Roda sozinho.</em>
+              </h2>
+              <p className="mx-auto max-w-[560px] text-[17px] text-muted-foreground">
+                Conecta o Notion onde sua agência já planeja, mapeia 5 campos,
+                liga o WhatsApp. Pronto — cliente recebe direto da próxima publicação.
+              </p>
+            </div>
+            <SetupFlow />
+          </div>
+        </section>
+
         {/* How */}
         <section id="como" className="bg-foreground px-8 py-[110px] text-background">
           <div className="mx-auto max-w-[1180px]">
@@ -391,8 +410,32 @@ const pricingFeatures = [
 ]
 
 /* ─────────────────────────────────────────────────────────────────
-   MOCKUPS & ELEMENTOS TECH — JSX puro, sem assets externos.
+   MOCKUPS & ELEMENTOS TECH — JSX puro + imagens reais via CDN.
    ──────────────────────────────────────────────────────────────── */
+
+// Imagens reais de café (Unsplash CDN público). Usadas nos mockups
+// pra simular feeds reais. Cliente do mockup = Doce Lar Cafés.
+// Sempre fotografia (zero texto) — clean editorial, vibe Anthropic.
+const COFFEE_PHOTOS = {
+  // Carrossel "Lançamento Café Outono" — 6 slides
+  carousel: [
+    "https://images.unsplash.com/photo-1559496417-e7f25cb247cd?w=600&q=80&auto=format&fit=crop", // café outono mug
+    "https://images.unsplash.com/photo-1509042239860-f550ce710b93?w=600&q=80&auto=format&fit=crop", // café & camera
+    "https://images.unsplash.com/photo-1559056199-641a0ac8b55e?w=600&q=80&auto=format&fit=crop",  // grãos
+    "https://images.unsplash.com/photo-1511920170033-f8396924c348?w=600&q=80&auto=format&fit=crop", // vapor
+    "https://images.unsplash.com/photo-1495474472287-4d71bcdd2085?w=600&q=80&auto=format&fit=crop", // latte top
+    "https://images.unsplash.com/photo-1542181961-9590d0c79dab?w=600&q=80&auto=format&fit=crop",  // café & croissant
+  ],
+  // Últimos 7 dias no feed
+  recent: [
+    "https://images.unsplash.com/photo-1456513080510-7bf3a84b82f8?w=600&q=80&auto=format&fit=crop", // vinil + café
+    "https://images.unsplash.com/photo-1511537190424-bbbab87ac5b8?w=600&q=80&auto=format&fit=crop", // grão close
+    "https://images.unsplash.com/photo-1461023058943-07fcbe16d735?w=600&q=80&auto=format&fit=crop", // gelado
+    "https://images.unsplash.com/photo-1493676304819-0d7a8d026dcf?w=600&q=80&auto=format&fit=crop", // música ao vivo
+    "https://images.unsplash.com/photo-1442512595331-e89e73853f31?w=600&q=80&auto=format&fit=crop", // latte art
+  ],
+}
+
 
 // Status pulsante mono "● 1.847 posts publicados nas últimas 24h"
 function LiveStatus() {
@@ -624,14 +667,19 @@ function ClientPanelMockup() {
               </span>
             </div>
             <div className="mb-5 flex gap-2.5">
-              {[0, 1, 2, 3, 4, 5].map((i) => (
+              {COFFEE_PHOTOS.carousel.map((src, i) => (
                 <div
                   key={i}
-                  className="aspect-square flex-1 rounded-md border border-border"
-                  style={{
-                    background: `linear-gradient(135deg, hsl(${20 + i * 8} ${50 - i * 4}% ${75 - i * 3}%), hsl(${30 + i * 8} ${40 - i * 3}% ${68 - i * 4}%))`,
-                  }}
-                />
+                  className="aspect-square flex-1 overflow-hidden rounded-md border border-border bg-muted"
+                >
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={src}
+                    alt={`Slide ${i + 1} do carrossel Lançamento Café Outono`}
+                    className="h-full w-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
               ))}
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -674,12 +722,15 @@ function ClientPanelMockup() {
                   key={i}
                   className="w-[170px] shrink-0 overflow-hidden rounded-[12px] border border-border bg-card"
                 >
-                  <div
-                    className="aspect-square"
-                    style={{
-                      background: `linear-gradient(${135 + i * 30}deg, ${p.c1}, ${p.c2})`,
-                    }}
-                  />
+                  <div className="aspect-square overflow-hidden bg-muted">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={COFFEE_PHOTOS.recent[i]}
+                      alt={p.caption}
+                      className="h-full w-full object-cover"
+                      loading="lazy"
+                    />
+                  </div>
                   <div className="p-3">
                     <div className="font-mono text-[10px] uppercase tracking-wider text-muted-foreground">
                       {p.platform}
@@ -722,7 +773,11 @@ function AgencyDashboardMockup() {
         </div>
       </div>
 
-      <div className="bg-background">
+      {/* overflow-x-auto + min-w-[920px] no inner — em mobile, vira
+          scroll horizontal pra preservar layout do dashboard (que é
+          inerentemente desktop-first). Sem isso truncava colunas. */}
+      <div className="overflow-x-auto">
+       <div className="min-w-[920px] bg-background">
         <div className="flex items-center justify-between border-b border-border px-8 py-5">
           <div className="flex items-center gap-6">
             <div className="font-display text-[17px] font-medium">
@@ -813,6 +868,7 @@ function AgencyDashboardMockup() {
             ))}
           </div>
         </div>
+       </div>
       </div>
     </div>
   )
@@ -865,14 +921,11 @@ function MobileFlowMockup() {
             Carrossel · Lançamento Café Outono
           </div>
           <div className="mb-2 grid grid-cols-3 gap-1">
-            {[0, 1, 2, 3, 4, 5].map((i) => (
-              <div
-                key={i}
-                className="aspect-square rounded"
-                style={{
-                  background: `linear-gradient(135deg, hsl(${20 + i * 8} ${50 - i * 4}% ${75 - i * 3}%), hsl(${30 + i * 8} ${40 - i * 3}% ${68 - i * 4}%))`,
-                }}
-              />
+            {COFFEE_PHOTOS.carousel.map((src, i) => (
+              <div key={i} className="aspect-square overflow-hidden rounded bg-muted">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={src} alt="" className="h-full w-full object-cover" loading="lazy" />
+              </div>
             ))}
           </div>
           <div className="mb-2 rounded-full bg-foreground py-1.5 text-center text-[9px] font-medium text-background">
@@ -908,6 +961,176 @@ function MobileFlowMockup() {
           </div>
         </div>
       </PhoneFrame>
+    </div>
+  )
+}
+
+// Setup flow — 4 mini-mockups das telas de configuração
+function SetupFlow() {
+  return (
+    <div className="grid gap-5 md:grid-cols-2 lg:grid-cols-4">
+      <SetupCard step="01" title="Conecta o Notion" subtitle="OAuth oficial · 1 clique">
+        <SetupOAuth />
+      </SetupCard>
+      <SetupCard step="02" title="Mapeia os campos" subtitle="status · data · conta · mídia">
+        <SetupFieldMapping />
+      </SetupCard>
+      <SetupCard step="03" title="Liga o WhatsApp" subtitle="Meta Cloud API · template oficial">
+        <SetupWhatsApp />
+      </SetupCard>
+      <SetupCard step="04" title="Convida os clientes" subtitle="link único por cliente">
+        <SetupClients />
+      </SetupCard>
+    </div>
+  )
+}
+
+function SetupCard({
+  step, title, subtitle, children,
+}: { step: string; title: string; subtitle: string; children: React.ReactNode }) {
+  return (
+    <div className="flex flex-col overflow-hidden rounded-[16px] border border-border bg-card">
+      <div className="overflow-hidden bg-background">{children}</div>
+      <div className="border-t border-border p-5">
+        <div className="font-mono mb-2 text-[11px] uppercase tracking-[0.12em] text-primary">
+          passo {step}
+        </div>
+        <h4 className="font-display mb-1 text-[18px] font-medium leading-tight">{title}</h4>
+        <p className="font-mono text-[11px] text-muted-foreground">{subtitle}</p>
+      </div>
+    </div>
+  )
+}
+
+// Mini-mockup: OAuth Notion
+function SetupOAuth() {
+  return (
+    <div className="h-[180px] bg-gradient-to-b from-card to-background p-4">
+      <div className="font-mono mb-2 text-[10px] text-muted-foreground">
+        producao.app/onboarding/notion
+      </div>
+      <div className="rounded-[10px] border border-border bg-card p-3 text-center">
+        <div className="mx-auto mb-2 flex h-9 w-9 items-center justify-center rounded-md bg-foreground text-[18px] font-bold text-background">
+          N
+        </div>
+        <div className="mb-1 text-[11px] font-medium">Conectar Notion</div>
+        <p className="mb-3 text-[10px] leading-tight text-muted-foreground">
+          Autorize o acesso ao workspace da agência.
+        </p>
+        <div className="rounded-full bg-foreground py-1.5 text-[10px] font-medium text-background">
+          → autorizar workspace
+        </div>
+        <div className="font-mono mt-2 text-[9px] text-primary">
+          ● conectado a 2 workspaces
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Mini-mockup: Field Mapping
+function SetupFieldMapping() {
+  const fields = [
+    { notion: "Status", target: "publishStatus", value: "Pronto" },
+    { notion: "Data", target: "scheduledAt", value: "Date" },
+    { notion: "Conta", target: "account", value: "Relation" },
+    { notion: "Mídia", target: "mediaUrl", value: "Files" },
+    { notion: "Legenda", target: "caption", value: "Text" },
+  ]
+  return (
+    <div className="h-[180px] overflow-hidden bg-gradient-to-b from-card to-background p-4">
+      <div className="font-mono mb-2 text-[10px] text-muted-foreground">
+        mapeamento de campos · Notion → Produção
+      </div>
+      <div className="space-y-1">
+        {fields.map((f) => (
+          <div
+            key={f.notion}
+            className="font-mono flex items-center gap-2 rounded-md border border-border bg-card px-2 py-1 text-[10px]"
+          >
+            <span className="flex-1 text-foreground">{f.notion}</span>
+            <span className="text-primary">→</span>
+            <span className="rounded bg-muted px-1.5 py-0.5 text-[9px] text-muted-foreground">
+              {f.value}
+            </span>
+            <span className="text-primary">✓</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+// Mini-mockup: WhatsApp setup
+function SetupWhatsApp() {
+  return (
+    <div className="h-[180px] bg-gradient-to-b from-card to-background p-4">
+      <div className="font-mono mb-2 text-[10px] text-muted-foreground">
+        configurações · WhatsApp Business
+      </div>
+      <div className="space-y-2">
+        <div>
+          <div className="font-mono mb-1 text-[9px] uppercase tracking-wider text-muted-foreground">
+            número de origem
+          </div>
+          <div className="font-mono rounded-md border border-border bg-card px-2.5 py-2 text-[11px]">
+            +55 11 99999-0000
+            <span className="ml-2 text-primary">●</span>
+          </div>
+        </div>
+        <div>
+          <div className="font-mono mb-1 text-[9px] uppercase tracking-wider text-muted-foreground">
+            template aprovado
+          </div>
+          <div className="font-mono rounded-md border border-border bg-card px-2.5 py-2 text-[10px] leading-snug text-muted-foreground">
+            <span className="text-foreground">aprovacao_post_v2</span>
+            <br />
+            <span className="text-[9px]">Olá {"{{1}}"}, novo post pronto: {"{{2}}"} {"{{3}}"}</span>
+          </div>
+        </div>
+        <div className="font-mono text-center text-[9px] text-primary">
+          ● 142 mensagens enviadas hoje
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// Mini-mockup: Convidar clientes
+function SetupClients() {
+  const c = [
+    { initial: "D", name: "Doce Lar Cafés", phone: "+55 11 98765-4321" },
+    { initial: "A", name: "Atelier Norte", phone: "+55 21 99876-5432" },
+    { initial: "P", name: "Praia Solar", phone: "+55 11 91234-5678" },
+  ]
+  return (
+    <div className="h-[180px] overflow-hidden bg-gradient-to-b from-card to-background p-4">
+      <div className="font-mono mb-2 text-[10px] text-muted-foreground">
+        clientes convidados · 3 / 5 inclusos
+      </div>
+      <div className="space-y-1.5">
+        {c.map((cl, i) => (
+          <div
+            key={cl.name}
+            className="flex items-center gap-2 rounded-md border border-border bg-card px-2 py-1.5"
+          >
+            <div
+              className="flex h-6 w-6 items-center justify-center rounded text-[10px] font-bold text-background"
+              style={{ background: i === 0 ? "#8B6F47" : i === 1 ? "#5C4A38" : "#CC785C" }}
+            >
+              {cl.initial}
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="truncate text-[10px] font-medium">{cl.name}</div>
+              <div className="font-mono truncate text-[9px] text-muted-foreground">{cl.phone}</div>
+            </div>
+            <span className="font-mono text-[9px] text-primary">● ativo</span>
+          </div>
+        ))}
+        <div className="font-mono rounded-md border border-dashed border-border px-2 py-1.5 text-center text-[10px] text-muted-foreground">
+          + adicionar cliente
+        </div>
+      </div>
     </div>
   )
 }
