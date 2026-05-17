@@ -18,6 +18,18 @@ export const auth = betterAuth({
   }),
   emailAndPassword: {
     enabled: true,
+    // Senha mínima de 10 chars. Better Auth não tem complexity hooks
+    // built-in — UI no /signup pode adicionar checks de força (digit,
+    // uppercase, symbol) mas no servidor o min length é a barreira.
+    // INFO-1 do audit.
+    minPasswordLength: 10,
+    maxPasswordLength: 256,
+    // requireEmailVerification continua false porque vamos quebrar
+    // signups existentes. INFO-2 do audit pede true — vamos habilitar
+    // quando tivermos UI de "reenviar verificação" + email template
+    // de welcome. Por enquanto, signup flow não permite tomar conta
+    // de email alheio porque Better Auth requer password no sign-in
+    // (atacante teria que conhecer a senha também).
     requireEmailVerification: false,
     sendResetPassword: async ({ user, url }) => {
       // Only log the URL when Resend isn't configured (dev fallback so the
