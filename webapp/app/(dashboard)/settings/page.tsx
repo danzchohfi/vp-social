@@ -150,6 +150,7 @@ function CollapsibleSection({
   defaultOpen = false,
   accent = "neutral",
   icon: IconComponent,
+  id,
   children,
 }: {
   title: string
@@ -157,14 +158,16 @@ function CollapsibleSection({
   defaultOpen?: boolean
   accent?: AccentTone
   icon?: React.ComponentType<{ className?: string }>
+  id?: string
   children: React.ReactNode
 }) {
   const styles = ACCENT_STYLES[accent]
   return (
     <details
+      id={id}
       open={defaultOpen}
       className={cn(
-        "group rounded-lg border border-l-4 bg-card transition-colors open:bg-background",
+        "group rounded-lg border border-l-4 bg-card transition-colors open:bg-background scroll-mt-24",
         styles.stripe,
       )}
     >
@@ -491,16 +494,60 @@ export default function SettingsPage() {
 
   if (!session) return null
 
+  // Section index for the desktop TOC. Each entry corresponds to a
+  // CollapsibleSection rendered below — adding/removing a section
+  // means updating this list. Keep order in sync.
+  const sections: Array<{ id: string; label: string; available: boolean }> = [
+    { id: "sec-whatsapp", label: "WhatsApp da agência", available: true },
+    { id: "sec-setup-status", label: "Status de configuração", available: !!activeClient },
+    { id: "sec-aprovacao", label: "Aprovação cliente", available: !!activeClient },
+    { id: "sec-contas-notion", label: "Contas do Notion", available: !!activeClient },
+    { id: "sec-membros", label: "Membros e convites", available: !!activeClient },
+    { id: "sec-notion-mapping", label: "Notion: workspace & mapeamento", available: true },
+  ]
+  const tocItems = sections.filter((s) => s.available)
+
+  function jumpToSection(id: string) {
+    const el = document.getElementById(id)
+    if (!el) return
+    if (el instanceof HTMLDetailsElement && !el.open) el.open = true
+    el.scrollIntoView({ behavior: "smooth", block: "start" })
+  }
+
   return (
-    <div className="max-w-3xl mx-auto space-y-6 py-10 px-4">
+    <div className="mx-auto max-w-7xl py-6 px-4 lg:px-8 lg:py-10">
       <RequiresSingleClient message="Configurações são por cliente. Selecione um cliente específico no menu lateral antes de mexer em conexões ou mapeamento." />
       <PageHeader
         title="Configurações"
         subtitle="Configure seus workspaces do Notion e o mapeamento de campos."
-        className="mb-0"
+        className="mb-6"
       />
 
+      <div className="grid gap-6 lg:grid-cols-[220px_minmax(0,1fr)]">
+        {/* TOC sticky — só desktop. Mobile usa o fluxo natural. */}
+        <aside className="hidden lg:block">
+          <nav className="sticky top-20 rounded-lg border bg-card p-3">
+            <p className="px-2 pb-2 text-[11px] uppercase tracking-wider text-muted-foreground">Seções</p>
+            <ul className="space-y-0.5">
+              {tocItems.map((s) => (
+                <li key={s.id}>
+                  <button
+                    type="button"
+                    onClick={() => jumpToSection(s.id)}
+                    className="block w-full rounded-md px-2 py-1.5 text-left text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+                  >
+                    {s.label}
+                  </button>
+                </li>
+              ))}
+            </ul>
+          </nav>
+        </aside>
+
+        <div className="space-y-6">
+
       <CollapsibleSection
+        id="sec-whatsapp"
         title="WhatsApp da agência"
         description="Uma WABA pra todos os clientes — token + phone_number_id + template, configurados uma vez"
         accent="primary"
@@ -527,6 +574,7 @@ export default function SettingsPage() {
           </div>
 
           <CollapsibleSection
+            id="sec-setup-status"
             title="Status de configuração"
             description="Checklist de tudo que falta pra publicar + pausa de publicações"
             defaultOpen
@@ -537,6 +585,7 @@ export default function SettingsPage() {
           </CollapsibleSection>
 
           <CollapsibleSection
+            id="sec-aprovacao"
             title="Aprovação cliente"
             description="Modo de envio (automático / manual em lote / wa.me) + link permanente do calendário"
             accent="primary"
@@ -546,6 +595,7 @@ export default function SettingsPage() {
           </CollapsibleSection>
 
           <CollapsibleSection
+            id="sec-contas-notion"
             title="Contas do Notion mapeadas"
             description="Quais valores do campo Conta pertencem a este cliente"
             accent="warning"
@@ -555,6 +605,7 @@ export default function SettingsPage() {
           </CollapsibleSection>
 
           <CollapsibleSection
+            id="sec-membros"
             title="Membros e convites"
             description="Quem mais pode acessar este cliente"
             accent="purple"
@@ -582,6 +633,7 @@ export default function SettingsPage() {
       )}
 
       <CollapsibleSection
+        id="sec-notion-mapping"
         title="Notion: workspace, banco de dados e mapeamento"
         description="Conectar/desconectar workspace, escolher DB, mapear campos (status, plataforma, contato, analytics)"
         accent="neutral"
@@ -1122,6 +1174,8 @@ export default function SettingsPage() {
         </>
       )}
       </CollapsibleSection>
+        </div>
+      </div>
     </div>
   )
 }
