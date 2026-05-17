@@ -268,7 +268,7 @@ export default function ClientCalendarPage() {
       </div>
       {/* Header */}
       <div className="border-b bg-card/70 backdrop-blur-sm sticky top-0 z-20">
-        <div className="mx-auto flex max-w-4xl items-center gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 py-3 lg:px-8">
           {data.client.logoUrl ? (
             <img src={data.client.logoUrl} alt="" className="h-9 w-9 rounded-lg object-cover" />
           ) : (
@@ -288,47 +288,89 @@ export default function ClientCalendarPage() {
         </div>
       </div>
 
-      <div className="mx-auto max-w-4xl px-4 py-4">
-        {/* Calendar */}
-        <CalendarMonth pending={data.pending} scheduled={data.scheduled} past={data.past} />
-
-        {/* Tabs */}
-        <div className="mt-6 mb-4 inline-flex rounded-lg border bg-card p-0.5 w-full sm:w-auto">
-          {([
-            { v: "pendentes", label: "Pendentes", count: data.pending.length },
-            { v: "agendados", label: "Agendados", count: data.scheduled.length },
-            { v: "publicados", label: "Publicados", count: data.past.length },
-            { v: "producoes", label: "Produções", count: data.productions?.length ?? 0 },
-          ] as const).map((opt) => (
-            <button
-              key={opt.v}
-              onClick={() => setTab(opt.v)}
-              className={cn(
-                "flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
-                tab === opt.v ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
-              )}
-            >
-              {opt.label}
-              <span className={cn(
-                "rounded-full px-1.5 text-[12px]",
-                tab === opt.v ? "bg-background" : "bg-muted"
-              )}>
-                {opt.count}
-              </span>
-            </button>
-          ))}
+      <div className="mx-auto max-w-7xl px-4 py-4 lg:px-8 lg:py-6">
+        {/* Stats bento — só em desktop. No mobile o calendar e tabs já
+            cobrem a info. */}
+        <div className="mb-4 hidden gap-3 lg:grid lg:grid-cols-4">
+          <StatCard
+            label="Aguardando você"
+            value={data.pending.length}
+            tone="warning"
+            hint={data.pending.length === 1 ? "1 post pra aprovar" : `${data.pending.length} posts pra aprovar`}
+          />
+          <StatCard
+            label="Agendados"
+            value={data.scheduled.length}
+            tone="default"
+            hint={nextScheduledHint(data.scheduled)}
+          />
+          <StatCard
+            label="Publicados (90d)"
+            value={data.past.length}
+            tone="muted"
+          />
+          <StatCard
+            label="Em produção"
+            value={data.productions?.filter((p) => p.status !== "published").length ?? 0}
+            tone="muted"
+            hint={data.productions?.length ? "Veja na aba Produções" : null}
+          />
         </div>
 
-        {/* Tab content */}
-        {tab === "pendentes" && <PendingList pending={data.pending} onOpen={setSelectedPending} />}
-        {tab === "agendados" && <ScheduledList scheduled={data.scheduled} onOpen={(p) => setPreviewPost(p)} />}
-        {tab === "publicados" && (
-          <PublishedList
-            past={data.past}
-            onOpen={(p) => openPreviewByPageId(p.pageId, { title: p.title, conta: p.conta })}
-          />
-        )}
-        {tab === "producoes" && <ProductionsList productions={data.productions ?? []} />}
+        {/* Bento layout: calendário fica à esquerda (sticky em lg+), tabs
+            + lista à direita. Mobile vira 1 coluna na ordem natural. */}
+        <div className="grid gap-6 lg:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
+          <div className="lg:sticky lg:top-20 lg:self-start">
+            <CalendarMonth
+              pending={data.pending}
+              scheduled={data.scheduled}
+              past={data.past}
+              onOpenPending={setSelectedPending}
+              onOpenScheduled={(p) => setPreviewPost(p)}
+              onOpenPast={(p) => openPreviewByPageId(p.pageId, { title: p.title, conta: p.conta })}
+            />
+          </div>
+
+          <div>
+            {/* Tabs */}
+            <div className="mb-4 inline-flex rounded-lg border bg-card p-0.5 w-full sm:w-auto">
+              {([
+                { v: "pendentes", label: "Pendentes", count: data.pending.length },
+                { v: "agendados", label: "Agendados", count: data.scheduled.length },
+                { v: "publicados", label: "Publicados", count: data.past.length },
+                { v: "producoes", label: "Produções", count: data.productions?.length ?? 0 },
+              ] as const).map((opt) => (
+                <button
+                  key={opt.v}
+                  onClick={() => setTab(opt.v)}
+                  className={cn(
+                    "flex-1 sm:flex-none inline-flex items-center justify-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors",
+                    tab === opt.v ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {opt.label}
+                  <span className={cn(
+                    "rounded-full px-1.5 text-[12px]",
+                    tab === opt.v ? "bg-background" : "bg-muted"
+                  )}>
+                    {opt.count}
+                  </span>
+                </button>
+              ))}
+            </div>
+
+            {/* Tab content */}
+            {tab === "pendentes" && <PendingList pending={data.pending} onOpen={setSelectedPending} />}
+            {tab === "agendados" && <ScheduledList scheduled={data.scheduled} onOpen={(p) => setPreviewPost(p)} />}
+            {tab === "publicados" && (
+              <PublishedList
+                past={data.past}
+                onOpen={(p) => openPreviewByPageId(p.pageId, { title: p.title, conta: p.conta })}
+              />
+            )}
+            {tab === "producoes" && <ProductionsList productions={data.productions ?? []} />}
+          </div>
+        </div>
       </div>
 
       {/* Approval dialog */}
@@ -352,21 +394,71 @@ export default function ClientCalendarPage() {
   )
 }
 
+// Helper: stat card no bento do topo (desktop only).
+function StatCard({
+  label, value, tone, hint,
+}: {
+  label: string
+  value: number
+  tone: "default" | "warning" | "muted"
+  hint?: string | null
+}) {
+  return (
+    <div className={cn(
+      "rounded-xl border bg-card px-4 py-3",
+      tone === "warning" && "border-warning/40 bg-warning/5",
+    )}>
+      <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{label}</p>
+      <p className={cn(
+        "mt-0.5 text-2xl font-semibold tabular-nums",
+        tone === "warning" && "text-warning",
+      )}>
+        {value}
+      </p>
+      {hint && <p className="text-[12px] text-muted-foreground mt-0.5 truncate">{hint}</p>}
+    </div>
+  )
+}
+
+function nextScheduledHint(scheduled: ScheduledPost[]): string | null {
+  const upcoming = scheduled
+    .filter((s) => s.scheduledDate)
+    .map((s) => new Date(s.scheduledDate!).getTime())
+    .filter((t) => t > Date.now())
+    .sort((a, b) => a - b)[0]
+  if (!upcoming) return null
+  const diffMs = upcoming - Date.now()
+  const days = Math.floor(diffMs / (24 * 60 * 60 * 1000))
+  if (days === 0) {
+    const hours = Math.max(1, Math.floor(diffMs / (60 * 60 * 1000)))
+    return `próximo em ${hours}h`
+  }
+  if (days === 1) return "próximo amanhã"
+  return `próximo em ${days} dias`
+}
+
 // ─── Calendar ────────────────────────────────
 
 function CalendarMonth({
   pending, scheduled, past,
+  onOpenPending, onOpenScheduled, onOpenPast,
 }: {
   pending: PendingPost[]
   scheduled: ScheduledPost[]
   past: PastPost[]
+  onOpenPending: (p: PendingPost) => void
+  onOpenScheduled: (p: ScheduledPost) => void
+  onOpenPast: (p: PastPost) => void
 }) {
   const [cursor, setCursor] = useState(() => {
     const d = new Date()
     return new Date(d.getFullYear(), d.getMonth(), 1)
   })
 
-  type DayItem = { kind: "pending" | "scheduled" | "past"; title: string; time: string; platform: string }
+  type DayItem =
+    | { kind: "pending"; title: string; time: string; platform: string; ref: PendingPost }
+    | { kind: "scheduled"; title: string; time: string; platform: string; ref: ScheduledPost }
+    | { kind: "past"; title: string; time: string; platform: string; ref: PastPost }
   const byDay = useMemo(() => {
     const map = new Map<string, DayItem[]>()
     function add(date: string | null, item: DayItem) {
@@ -382,6 +474,7 @@ function CalendarMonth({
         title: p.title || "Sem título",
         time: p.scheduledDate ? new Date(p.scheduledDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "",
         platform: p.publishTargets[0]?.platform ?? "instagram",
+        ref: p,
       })
     }
     for (const p of scheduled) {
@@ -390,6 +483,7 @@ function CalendarMonth({
         title: p.title || "Sem título",
         time: p.scheduledDate ? new Date(p.scheduledDate).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }) : "",
         platform: p.publishTargets[0]?.platform ?? "instagram",
+        ref: p,
       })
     }
     for (const p of past) {
@@ -398,10 +492,17 @@ function CalendarMonth({
         title: p.title || "Sem título",
         time: new Date(p.date).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" }),
         platform: p.platforms[0]?.raw.toLowerCase().split(/[\s-]+/)[0] ?? "instagram",
+        ref: p,
       })
     }
     return map
   }, [pending, scheduled, past])
+
+  function handleItemClick(item: DayItem) {
+    if (item.kind === "pending") onOpenPending(item.ref)
+    else if (item.kind === "scheduled") onOpenScheduled(item.ref)
+    else onOpenPast(item.ref)
+  }
 
   const grid = useMemo(() => {
     const firstOfMonth = new Date(cursor.getFullYear(), cursor.getMonth(), 1)
@@ -469,19 +570,21 @@ function CalendarMonth({
                 </div>
                 <div className="space-y-0.5">
                   {visible.map((it, i) => (
-                    <div
+                    <button
                       key={i}
+                      type="button"
+                      onClick={() => handleItemClick(it)}
                       className={cn(
-                        "truncate rounded px-1 py-0.5 text-[12px] leading-tight",
+                        "block w-full truncate rounded px-1 py-0.5 text-[12px] leading-tight text-left transition-opacity active:opacity-70 hover:opacity-80",
                         it.kind === "pending" ? "bg-warning/15 text-warning" :
                           it.kind === "past" ? cn(platformClass(it.platform), "opacity-70") :
                           platformClass(it.platform)
                       )}
-                      title={it.title}
+                      title={`${it.title} — toque pra abrir`}
                     >
                       <span className="font-mono text-[9px] opacity-70 mr-0.5">{it.time}</span>
                       {it.title}
-                    </div>
+                    </button>
                   ))}
                   {overflow > 0 && (
                     <div className="px-1 text-[9px] font-medium text-muted-foreground">+{overflow}</div>
