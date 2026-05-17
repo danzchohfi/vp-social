@@ -154,6 +154,7 @@ export async function GET(
   }
 
   // ─── Legacy post-approval branch (kind='post') ──────────────────
+  if (!row.connectionId) return NextResponse.json({ error: "client_or_connection_gone" }, { status: 410 })
   const [conn] = await db
     .select()
     .from(notionConnection)
@@ -276,6 +277,9 @@ export async function POST(
   // revisionRequestedValue, falha já — decideApprovalLink falharia
   // silenciosamente no Notion. Caller espera 500 com configError.
   if (row.kind === "post" && body.decision === "changes_requested") {
+    if (!row.connectionId) {
+      return NextResponse.json({ error: "client_or_connection_gone" }, { status: 410 })
+    }
     const [mappingRow] = await db
       .select()
       .from(fieldMapping)

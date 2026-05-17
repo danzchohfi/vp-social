@@ -339,7 +339,12 @@ export const approvalLink = pgTable("approval_link", {
   id: text("id").primaryKey(),
   token: text("token").notNull().unique(),
   clientId: text("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
-  connectionId: text("connection_id").notNull().references(() => notionConnection.id, { onDelete: "cascade" }),
+  // Nullable: kind='production_script' nem sempre tem connection associada
+  // (chain de aprovação de roteiro independe de Notion connection). Pra
+  // kind='post' sempre há connection. onDelete: set null em vez de cascade
+  // — disconnect de workspace Notion não deve apagar approvals pendentes
+  // (MED-5 do audit; antes cascade silenciosamente deletava linha).
+  connectionId: text("connection_id").references(() => notionConnection.id, { onDelete: "set null" }),
   notionPageId: text("notion_page_id").notNull(),
   postTitle: text("post_title").notNull(),
   // Notion `conta` field value at link-creation time. Lets the dashboard

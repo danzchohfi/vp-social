@@ -162,6 +162,13 @@
       "when": 1779020986330,
       "tag": "0022_hesitant_the_fallen",
       "breakpoints": true
+    },
+    {
+      "idx": 23,
+      "version": "7",
+      "when": 1779021261466,
+      "tag": "0023_lethal_vector",
+      "breakpoints": true
     }
   ]
 }
