@@ -1,6 +1,9 @@
-# VP Social — Posicionamento & Plano de Execução (Q1-Q2 2026)
+# Produção — Posicionamento & Plano de Execução (Q1-Q2 2026)
 
-> Documento vivo. **v2 — 2026-05-17** (reescrita após reframe estratégico). Cada seção marca `Decidido` ou `Aberto`. Revisar trimestralmente. Histórico de pivôs no final.
+> Documento vivo. **v3 — 2026-05-17** (após sessão de Direção de Marca — método Vitamina Publicitária). Cada seção marca `Decidido` ou `Aberto`. Revisar trimestralmente. Histórico de pivôs no final.
+>
+> **Nome do produto**: Produção · `producao.app`
+> **Direção de marca completa**: ver [`brand/DIRECAO-DE-MARCA.md`](./brand/DIRECAO-DE-MARCA.md)
 
 ---
 
@@ -8,7 +11,7 @@
 
 Agências de social media operam com **5+ ferramentas desconectadas**: planning em Notion/Sheets, aprovação no WhatsApp se perdendo no scroll, publicação em mLabs, relatório em PDF manual no fim do mês. Cada agência tem o mesmo Frankenstein.
 
-**VP Social é a camada premium de relacionamento entre a agência e o cliente final dela.**
+**Produção é a camada premium de relacionamento entre a agência e o cliente final dela.**
 
 A agência é o comprador. O cliente final é quem **experimenta** a marca. A agência **compra pelo portal cinematográfico** que faz o cliente final entender — e amar — o trabalho que ela entrega. Por trás, automatizamos: planning conectado (Notion hoje; Sheets, Trello, Asana, Airtable depois), aprovação por WhatsApp (BR; Email/Slack pra mercado internacional) com cadeia auditável e fallback tácito por silêncio, publicação multi-plataforma assim que aprovado.
 
@@ -34,13 +37,13 @@ A agência é o comprador. O cliente final é quem **experimenta** a marca. A ag
 > *Aprovação no WhatsApp, publicação automática, relatório story-style — sem migrar sua operação.*
 
 ### Sub-headline (segunda dobra)
-> Você já planeja no Notion (ou Sheets, ou Trello) com seu cliente. VP Social conecta isso, dispara aprovação no WhatsApp do cliente final, publica multi-plataforma assim que ele aprova — e devolve um portal premium **white-label** que ele abre no celular todo dia. Sua agência fica com o controle. Seu cliente fica com a experiência.
+> Você já planeja no Notion (ou Sheets, ou Trello) com seu cliente. Produção conecta isso, dispara aprovação no WhatsApp do cliente final, publica multi-plataforma assim que ele aprova — e devolve um portal premium **white-label** que ele abre no celular todo dia. Sua agência fica com o controle. Seu cliente fica com a experiência.
 
 ### Elevator pitch (30s, fala humana)
 > "A gente é a camada de relacionamento entre a agência e o cliente final dela. Agência conecta o Notion que ela já usa, a gente dispara aprovação no WhatsApp do cliente, publica nas redes assim que aprovado e devolve pro cliente um portal premium que parece que a agência mandou construir só pra ele. Sem migrar operação, sem aprender ferramenta nova. A agência cobra mais porque entrega mais. O cliente fica nas mãos da agência — porque também tá nas nossas."
 
 ### Antagonistas declarados
-| Concorrente | Por que VP Social ganha |
+| Concorrente | Por que Produção ganha |
 |---|---|
 | **Status quo: WhatsApp manual + planilha + PDF** | É o real concorrente. É o que agência usa hoje. É o que perde aprovações no scroll. É o que faz a agência parecer amadora pro cliente. |
 | **mLabs / Etus** | Não é concorrente — é nosso anti-exemplo de categoria. Ferramenta interna de SMM que ninguém mostra pro cliente. Agência premium não migra a operação dela pra dentro do tool deles. |
@@ -113,7 +116,7 @@ CLT júnior operacional em SP com encargos: R$ 3.000-5.000/mês. R$ 1.500 lê co
 
 **Âncora 2 — Sinaliza plataforma, não ferramenta.**
 - mLabs ~R$ 199/mês = ferramenta
-- VP Social R$ 1.500/mês = plataforma (7-8x acima de mLabs)
+- Produção R$ 1.500/mês = plataforma (7-8x acima de mLabs)
 - Sprout ~R$ 5.000/mês = gringo enterprise
 
 Cair em ~R$ 697 ativaria a desconfiança *"se é tão barato, não pode ser bom"* — vai contra a tese de relacionamento premium.
@@ -196,33 +199,42 @@ A variável-chave **não é tamanho da agency** (n° de clientes). É **ticket m
 
 ---
 
-## 7. Brand Direction — *Aberto / Aguardando input*
+## 7. Brand Direction — *Decidido (v1.0)*
 
-> Esta seção será preenchida quando o doc de direção de marca (PDF/PPT que a Vitamina Publicitária usa com clientes) chegar via conversa ou em `webapp/docs/brand/`.
+> Direção de marca completa em [`brand/DIRECAO-DE-MARCA.md`](./brand/DIRECAO-DE-MARCA.md) — 8 pilares pelo método Vitamina Publicitária. Resumo abaixo.
 
-### Requisito novo com o reframe v2
-**Brand precisa funcionar em DOIS níveis simultâneos** — diferente de qualquer SaaS B2B comum, que tem só uma audiência:
+### Nome e domínio
+- **Nome do produto**: Produção
+- **Domínio**: `producao.app`
+- **Logo VP atual sai** — pertence à Vitamina Publicitária mãe, não ao produto Produção. Entra em fila pra revisão e não deve ser usado em material da Produção.
 
-1. **Voz pra agency (comprador)** — owner 28-45, sente que "não escala mais", quer parecer premium pro cliente. Marca aqui = confiança + sofisticação técnica + "isso não é mais um SaaS genérico".
-2. **Experiência pro cliente final (usuário)** — varia muito por vertical (creator, founder, marca de luxo). Portal precisa ser white-label real, então a "marca VP" no nível do usuário final é *invisível*. Mas o **padrão de qualidade** que entregamos via portal vira a "marca VP" indireta — quando o cliente final descobre que aquele portal incrível chama VP por trás.
+### Arquétipo
+- **Dominante**: Soberano (60-70%) — refinamento, autoridade pelo padrão
+- **Secundário**: Sábio (30%) — autoridade pelo conhecimento técnico
+- **Fora**: Inocente, Cara-comum, Cuidador
 
-Isso é diferente de Stripe (1 audiência: dev), diferente de mLabs (1 audiência: agency interna). Mais perto de **Squarespace + plataforma de luxo white-label** (Houzz, Honeybook).
+### Direção visual — Editorial-quente (Anthropic-style)
 
-### O que já temos confirmado
-- **Logo**: `logo.png` na raiz do repo. "VP." em sans-serif bold branco, ponto vermelho, fundo preto. Vibe: ousada, condensada, decisiva.
-- **Cores observadas**: Preto `#000`, branco `#fff`, vermelho do ponto (HEX a confirmar — provável próximo a `#E53E3E` / `#DC2626`).
-- **Stack visual atual**: Tailwind v4 + shadcn/ui, dark-mode-first, sem ornamento.
+| Dimensão | Direção |
+|---|---|
+| **Paleta** | Cream-quente (~`#FAF7F0`) + coral (~`#CC785C`) + marrom-escuro (~`#1A1612`). Nunca branco puro, nunca preto-frio. |
+| **Tipografia** | Headline: serif refinada bold (Tiempos / Söhne Headline / Editorial New). Body: sans clean (Söhne, Inter). |
+| **Layout** | Generoso em cream-space. Editorial. |
+| **Mockups** | Cinematográficos, full-bleed. Nunca fileira de iPhones. |
 
-### O que falta definir (do doc cliente-facing que vem)
-- [ ] Tipografia headline + body
-- [ ] Paleta secundária / acentos
-- [ ] Tom de voz escrito (formal-confiante? técnico-direto? editorial?)
-- [ ] Do's & Don'ts de imagem
-- [ ] Princípios de motion (cinematográfico = inertia + spring? ou snappy + linear?)
-- [ ] Referência específica admirada — "Apple" foi mencionado mas o **aspecto** ainda não foi travado (pendência declarada)
+### Referências
+- **Anthropic** (claude.com) — referência **principal**
+- **Stripe** — refinamento técnico
+- **Linear** — voz, motion contido
+- **Spotify Wrapped** — modelo do story-report mensal
+- **Frame.io** — estética cinematográfica de mockup
 
-### Provisório (até o doc chegar)
-Operar com hipótese **editorial-tech com camada cinematográfica**. Stripe + Linear + um toque editorial brasileiro (Piauí, Quatro Cinco Um). Para a experiência cliente-final do portal: pensar Frame.io + Linear + Spotify Wrapped no story report. Não Apple-genérico. Não SaaS-genérico.
+### Pendências de marca
+- Figura de referência de voz (Pilar 6) — ainda em aberto
+- HEX exatos da paleta — refinar com designer
+- Tipografias finais com licenciamento
+- Briefing detalhado pra designer (logo + identidade)
+- Busca de marca INPI + USPTO antes do lançamento público
 
 ---
 
@@ -249,15 +261,29 @@ Operar com hipótese **editorial-tech com camada cinematográfica**. Stripe + Li
 
 ## 9. Próximos passos imediatos
 
-1. **Fechar Direção de Marca** (§7) — sessão em andamento usando Método Vitamina Publicitária (8 pilares). Depende de Daniel responder briefing (aspecto-da-Apple + o-que-NÃO-quer-parecer) + 8 pilares estruturados.
-2. **Mês 1**: re-conceituar `/c/[token]` como hub-do-cliente (6 elementos). NÃO é redesign UI — é re-arquitetura de produto. Spec primeiro, código depois.
-3. **Identificar 3 agências-piloto** com perfil ICP refinado (ticket médio R$ 3-15k/cliente/mês). Target: confirmadas até fim do mês 1.
-4. **Pre-flight check no MVP atual**: validar que aprovação WhatsApp + publicação + portal atual estão estáveis o suficiente pra 3 pilotos novos antes de começar redesign.
-5. **Setup analytics interno**: KPIs do §6 isolados dos analytics dos posts dos clientes (são coisas diferentes — não misturar).
+1. **Registrar `producao.app`** + **busca de marca INPI/USPTO** pra "Produção" como SaaS antes do lançamento público (Daniel — semana 1).
+2. **Briefing pra designer** com `brand/DIRECAO-DE-MARCA.md` — logo (wordmark `producao.app`), paleta HEX exata, tipografias com licenciamento, sistema de componentes (Daniel + designer — semana 1-2).
+3. **Mês 1**: re-conceituar `/c/[token]` como hub-do-cliente (6 elementos do §7 do brand doc). NÃO é redesign UI — é re-arquitetura de produto. Spec primeiro, código depois.
+4. **Identificar 3 agências-piloto** com perfil ICP refinado (ticket médio R$ 3-15k/cliente/mês). Target: confirmadas até fim do mês 1.
+5. **Pre-flight check no MVP atual**: validar que aprovação WhatsApp + publicação + portal atual estão estáveis o suficiente pra 3 pilotos novos antes de começar redesign.
+6. **Setup analytics interno**: KPIs do §6 isolados dos analytics dos posts dos clientes.
+7. **Migração de nome no código**: identificar usos de "VP Social" em copy/UI do app e migrar pra "Produção" — backlog técnico (separado deste doc).
 
 ---
 
 ## Histórico de pivôs
+
+### v2 → v3 (2026-05-17, mesma data)
+
+Sessão de Direção de Marca pelo método Vitamina Publicitária (8 pilares) — ver `brand/DIRECAO-DE-MARCA.md`:
+
+- **Nome do produto**: "VP Social" (placeholder) → **Produção** (`producao.app`). Logo VP atual sai — pertence à Vitamina Publicitária mãe.
+- **Posicionamento (Pilar 1)**: cristalizado em frase única — *"Para agências de mídia social, Produção é o painel de experiência do cliente plugado às ferramentas que a agência já usa — onde o cliente acompanha entregas e garante que o conteúdo sai do jeito dele."*
+- **Promessa central**: *"Mais conteúdo publicado. Menos esforço pra todo mundo. Plugado no que vocês já usam."* — eixo passou de qualidade/prazo pra **volume + simplicidade + não-substituição**.
+- **Mensagem-mãe**: *"Mais conteúdo saindo. Sem ninguém se matando."* + 4 sub-mensagens estruturadas.
+- **Arquétipo**: Soberano dominante + Sábio secundário. Fora: Inocente, Cara-comum, Cuidador.
+- **Identidade visual**: virou **editorial-quente (Anthropic-style)** — cream + coral + marrom-escuro. Mudou de "editorial-tech Linear+Stripe dark-mode" pra "Anthropic-quente cream+coral light-mode". Logo entra em redesign.
+- **Brand direction**: era *Aberto* → agora *Decidido v1.0*.
 
 ### v1 → v2 (2026-05-17)
 
