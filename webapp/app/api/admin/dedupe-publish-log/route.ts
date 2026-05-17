@@ -9,23 +9,24 @@ import { NextResponse } from "next/server"
 // (connection_id, notion_page_id, platform) WHERE status='published'
 // can be safely created in a follow-up schema push.
 //
-// Auth: any authenticated user can run this. The op is conservative
-// (DELETE keeps the most recent row per group) and operates only on
-// rows the current user owns indirectly via clientId/connectionId.
-// We don't restrict per-tenant because cleanup is global and the
-// query is idempotent — running it twice is safe.
+// Auth: any authenticated user — MAS ESCOPADO pelo userId. Antes era
+// global (qualquer user logado podia disparar dedupe de TODA a tabela,
+// inclusive rows de outros tenants). Agora cada user vê e limpa apenas
+// publish_log rows que pertencem a ele (via userId). Op idempotente,
+// rodar 2x é seguro.
 //
-// GET  → counts duplicates, returns nothing destructive
-// POST → counts then deletes the duplicates
+// GET  → counts duplicates DESTE user, returns nothing destructive
+// POST → counts then deletes the duplicates DESTE user
 
 export async function GET() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const uid = session.user.id
 
   const dupeGroups = await db.execute(sql`
     SELECT connection_id, notion_page_id, platform, COUNT(*) AS dupes
     FROM publish_log
-    WHERE status = 'published'
+    WHERE status = 'published' AND user_id = ${uid}
     GROUP BY connection_id, notion_page_id, platform
     HAVING COUNT(*) > 1
     ORDER BY dupes DESC
@@ -37,7 +38,7 @@ export async function GET() {
     FROM (
       SELECT COUNT(*) AS dupes
       FROM publish_log
-      WHERE status = 'published'
+      WHERE status = 'published' AND user_id = ${uid}
       GROUP BY connection_id, notion_page_id, platform
       HAVING COUNT(*) > 1
     ) t
@@ -52,10 +53,10 @@ export async function GET() {
 export async function POST() {
   const session = await auth.api.getSession({ headers: await headers() })
   if (!session) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const uid = session.user.id
 
   // Keep the most recent published row per (connection, page, platform).
-  // We use ROW_NUMBER() OVER (... ORDER BY published_at DESC) so the
-  // newest row gets rn=1 and survives; the rest are deleted.
+  // Restringido a user_id pra não vazar entre tenants.
   const result = await db.execute(sql`
     WITH ranked AS (
       SELECT id, ROW_NUMBER() OVER (
@@ -63,19 +64,18 @@ export async function POST() {
         ORDER BY published_at DESC
       ) AS rn
       FROM publish_log
-      WHERE status = 'published'
+      WHERE status = 'published' AND user_id = ${uid}
     )
     DELETE FROM publish_log
     WHERE id IN (SELECT id FROM ranked WHERE rn > 1)
   `)
 
-  // Count remaining duplicates to confirm clean state
   const remaining = await db.execute(sql`
     SELECT COUNT(*)::int AS dupe_groups
     FROM (
       SELECT 1
       FROM publish_log
-      WHERE status = 'published'
+      WHERE status = 'published' AND user_id = ${uid}
       GROUP BY connection_id, notion_page_id, platform
       HAVING COUNT(*) > 1
     ) t
