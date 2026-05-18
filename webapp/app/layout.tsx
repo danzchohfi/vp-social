@@ -49,7 +49,13 @@ export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",
-  themeColor: "#F5F1EA",
+  // Dark é o default do site (rotas não-whitelabel — home/login/dashboard
+  // etc.). Branch via media query pra que cliente que escolheu light no
+  // toggle não veja URL bar dark/site light mismatch.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#F5F1EA" },
+    { media: "(prefers-color-scheme: dark)", color: "#1A1612" },
+  ],
 }
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
@@ -72,7 +78,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           <script
             nonce={nonce}
             dangerouslySetInnerHTML={{
-              __html: `try{var d=localStorage.getItem("vpsocial_density");if(d==="compact"||d==="comfortable")document.documentElement.dataset.density=d}catch(e){}try{var t=localStorage.getItem("producao_theme");var p=window.location.pathname;var whiteLabel=(p==="/c"||p.indexOf("/c/")===0||p==="/a"||p.indexOf("/a/")===0||p==="/approve"||p.indexOf("/approve/")===0);if(whiteLabel){if(t==="dark")document.documentElement.classList.add("dark")}else{if(t!=="light")document.documentElement.classList.add("dark")}}catch(e){}`,
+              __html: `try{var d=localStorage.getItem("vpsocial_density");if(d==="compact"||d==="comfortable")document.documentElement.dataset.density=d}catch(e){}try{if(!localStorage.getItem("__theme_reset_2026_05_18")){localStorage.removeItem("producao_theme");localStorage.setItem("__theme_reset_2026_05_18","1")}var t=localStorage.getItem("producao_theme");var p=window.location.pathname;var whiteLabel=(p==="/c"||p.indexOf("/c/")===0||p==="/a"||p.indexOf("/a/")===0||p==="/approve"||p.indexOf("/approve/")===0);if(whiteLabel){if(t==="dark")document.documentElement.classList.add("dark")}else{if(t!=="light")document.documentElement.classList.add("dark")}}catch(e){}`,
             }}
           />
         </head>
