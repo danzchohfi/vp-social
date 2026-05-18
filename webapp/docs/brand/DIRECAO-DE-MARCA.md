@@ -1,6 +1,6 @@
 # Direção de Marca — Produção
 
-> **Versão 1.0** · 2026-05-17
+> **Versão 1.1** · 2026-05-18 (refoco MVP — ver pé do doc)
 > Aprovado por: Daniel Chohfi (Vitamina Publicitária)
 > Método: Vitamina Publicitária — 8 pilares de Direção de Marca
 
@@ -9,6 +9,8 @@
 ## Sumário executivo
 
 **Produção** (`producao.app`) é a camada premium de relacionamento entre agência e cliente final. A agência é o comprador. O cliente final é quem experimenta a marca. **Produção é o painel de experiência do cliente plugado às ferramentas que a agência já usa** — onde o cliente acompanha entregas e garante que o conteúdo sai do jeito dele. Categoria nova: nem ferramenta interna (mLabs), nem agendador (Buffer), nem portal de review (Frame.io). É a camada que substitui *"WhatsApp solto + planilha + PDF manual"* por um sistema que cliente final adora e que a agência usa pra justificar o que cobra. Arquétipo **Soberano + Sábio**. Estética **editorial-quente** (Anthropic-style). Promessa: **mais conteúdo publicado, menos esforço pra todo mundo, plugado no que vocês já usam**.
+
+**Entry point MVP (Q1-Q2 2026):** o gancho de venda imediato é *"largue o agendador. Seu Notion vira o piloto automático"* — substituir o agendador típico (mLabs-like) que a agência paga separado. Portal cliente-final aparece como entrega adicional na mesma compra. Categoria estratégica não muda. Detalhe completo em `POSITIONING.md §1.5`.
 
 ---
 
@@ -28,6 +30,15 @@
 - **Frame.io / Filestage** — param na aprovação de criativo, sem painel mensal
 - **Hootsuite / Sprout** — agendadores gringos dolarizados, sem cliente-final no centro
 - **WhatsApp solto** — exatamente o caos que substituímos (mantendo o WhatsApp como canal)
+
+### Posicionamento MVP (entry point — capa da home, ads, podcast outreach)
+
+> **Largue o agendador. Seu Notion vira o piloto automático.**
+> *Aprova no WhatsApp do cliente, publica sozinho em todas as redes — sem migrar nada.*
+
+Categoria do produto **não muda** com isso — continua *"painel de experiência do cliente"*. O que muda é o **caminho de entrada na cabeça do prospect**: no MVP, leme primeiro pela dor de operar agendador paralelo (mLabs-like) que copia/cola do Notion. Portal premium aparece como entrega adicional na mesma compra. Conforme pilotos consolidam (Q2-Q3), o eixo migra naturalmente pro portal-as-moat.
+
+**Tensão a observar:** prospect pode categorizar Produção como *"mais um agendador"* e nivelar pricing por baixo. Mitigação: demo SEMPRE termina no portal — owner sai entendendo que comprou *"agendador + relacionamento premium"*. Pricing argument continua sendo *"folha de pagamento operacional"*, não *"comparativo com mLabs R$ 200"*.
 
 ---
 
@@ -71,14 +82,17 @@ Três cláusulas paralelas: AFIRMA (volume) + AFIRMA (facilidade dual) + NEGA im
 
 ### Provas que TEMOS hoje *(em produção)*
 
+> Provas ordenadas pela **prioridade de fala no MVP**. Aprovação tácita continua o diferencial estratégico (prova ÚNICA), mas no funil de entrada lideramos com automação porque é o gancho que faz prospect entender em 5 segundos. Reordenação coerente com `POSITIONING.md §1.5`.
+
 | Prova | O que sustenta |
 |---|---|
+| **Publicação automática 5 plataformas via API oficial** | IG, FB, YT, TT, LinkedIn. Cron `*/5min`. Não é scraping. É o gancho MVP — *"largue o agendador"*. |
+| **Plug em Notion (Sheets/Trello/Airtable em roadmap) sem migrar operação** | `fieldMapping` configurável, OAuth, sync automático. A stack de produção da agência **vira** o agendador — não há dupla operação. |
 | **Aprovação WhatsApp via Meta Cloud API** com template aprovado | Não é hack `wa.me` — é canal oficial Meta, dispatcher robusto |
 | **Cadeia de aprovadores reutilizáveis** | Magic-link 1 ano TTL, scoped por agência, encadeada (aprovador 1→2→3) |
 | **Aprovação tácita por silêncio 30d** | Cron + atomic claim. **Único no mercado.** Silêncio do cliente = aprovado. Agência não fica refém. |
-| **Publicação automática 5 plataformas** | IG, FB, YT, TT, LinkedIn. Cron `*/5min`. |
-| **Plug em Notion sem migrar a operação** | `fieldMapping` configurável, OAuth, sync automático |
 | **Multi-tenant agency-cliente** | `clientId` em todas as queries, agency mode, isolamento total |
+| **Portal premium white-label completo** | 6 elementos do Pilar 7 (hero approval, status agregado, próxima reunião, comparativo mensal, wrapped swipável, solicitações top-level) + transversais (cores/fonte da agência, slide-to-approve, PWA push). Implementado 2026-05-18. |
 
 ### Provas ESCONDIDAS *(cliente não vê, mas existem)*
 - **Atomic claim** entre cron tácito e clique explícito (sem duplo-aprovado)
@@ -105,10 +119,15 @@ Em especial: **aprovação tácita** é a coisa mais opinativa que vocês fizera
 
 ## 4. Mensagem-mãe
 
-### Mensagem-mãe
+### Mensagem-mãe (estratégica, longo prazo, peças de marca)
 > **"Mais conteúdo saindo. Sem ninguém se matando."**
 
 Remix coloquial da promessa. Sócio Operacional repete pra outro fundador na mesa de bar — gruda porque tem ritmo, dual (agência + cliente) e palavrão social aceitável.
+
+### Mensagem-mãe MVP (gancho de venda atual — capa, ads, podcast pitch)
+> **"Largue o agendador. Seu Notion vira o piloto automático."**
+
+Mesma estrutura ritmica (duas frases curtas), mesmo tom (direto, owner-operator), mesmo arquétipo Soberano (afirmação categórica). A versão MVP traz à tona a dor concreta da semana 1 do prospect (operar agendador paralelo). A versão estratégica fica pro pós-piloto, quando o eixo de venda migra pro relacionamento. As duas convivem.
 
 ### 4 sub-mensagens *(cada uma responde uma objeção diferente)*
 
@@ -117,7 +136,7 @@ Remix coloquial da promessa. Sócio Operacional repete pra outro fundador na mes
 | **1** | Volume / Publicação | *"O conteúdo combinado, publicado. Toda vez."* | "Isso vai gerar resultado?" |
 | **2** | Aprovação / Fricção | *"Aprovação em 1 toque no celular do cliente."* | "Meu cliente vai usar?" |
 | **3** | Canal *(a frase do caos)* | *"Sai do caos do WhatsApp ainda usando o WhatsApp pra notificar."* | "Vou ter que migrar o WhatsApp?" |
-| **4** | Não-migração | *"Plugado no que sua agência já usa. Sem ferramenta nova pra aprender."* | "Vou ter que migrar minhas ferramentas?" |
+| **4** | Não-migração | *"Sua stack vira o agendador. Sem outra ferramenta pra alimentar."* | "Vou ter que migrar minhas ferramentas?" |
 
 ---
 
@@ -161,17 +180,19 @@ Autoridade pelo conhecimento profundo. Casa com engenharia robusta (aprovação 
 ### Vocabulário
 
 **USA** *(palavras-marca, vocabulário consistente em todas as peças)*
-- Verbos: **plugar, rodar, entregar, sair** (post), aprovar, garantir
-- Substantivos: **camada, painel, fluxo, calendário**, conteúdo, publicação, agência, cliente, marca
-- Adjetivos: combinado, no prazo, premium *(com parcimônia)*, simples
-- Expressões: *"sua agência já usa"*, *"sem trocar nada"*, *"do jeito do cliente"*, *"toda vez"*
+- Verbos: **plugar, rodar, entregar, sair** (post), aprovar, garantir, **largar** (o agendador)
+- Substantivos: **camada, painel, fluxo, calendário, piloto automático, stack** (de produção), conteúdo, publicação, agência, cliente, marca
+- Adjetivos: combinado, no prazo, premium *(com parcimônia)*, simples, **automatizado, sozinho**
+- Expressões: *"sua agência já usa"*, *"sem trocar nada"*, *"do jeito do cliente"*, *"toda vez"*, *"sem dupla operação"*, *"sua stack vira o agendador"*, *"largue o agendador"*, *"no piloto automático"*
+- Categoria que substituímos *(sem nomear mLabs)*: **agendador típico, agendador paralelo, outra ferramenta pra alimentar**
 
 **NÃO USA** *(palavras proibidas)*
+- **Nomes próprios de concorrentes** em copy pública: nunca citar mLabs, Etus, Buffer, Hootsuite, Sprout, RD Station por nome. Use **agendador típico** quando precisar dizer o que substituímos.
 - **Marketing-clichê:** engajamento *(orgânico ou qualquer)*, excelência, qualidade, compromisso, storytelling, autêntico, *"transforme"*, *"revolucione"*
 - **B2B-frio:** solução end-to-end, otimização, performance, ROI, sinergia, escalável, robusto
 - **Anglicismos vazios:** *experience* (em vez de experiência), *insights* (em vez de leituras), pipeline (exceto técnico interno), *workflow* (usa **fluxo**)
 - **Vendedor:** imperdível, exclusivo, oferta, "última chance"
-- **Auto-categorização que perdemos:** *"ferramenta"*, *"SaaS"*, *"plataforma"* — somos **camada** e **painel**
+- **Auto-categorização que perdemos:** *"ferramenta"*, *"SaaS"*, *"plataforma"* — somos **camada** e **painel**. Atenção redobrada agora que vendemos contra agendador: NÃO virar *"o agendador melhor"*. Somos *"o que faz o agendador deixar de existir no fluxo da agência"*.
 - **Emoji decorativo** em texto formal. Exceção: ✓ em status check. Sem rosto, sem confete, sem sticker.
 
 ### Pendência declarada
@@ -185,8 +206,8 @@ Autoridade pelo conhecimento profundo. Casa com engenharia robusta (aprovação 
 
 | # | **Pilar** | **%** | **O quê** | **Função** | **Exemplos** |
 |---|---|---|---|---|---|
-| 1 | **Conversão** | 40% | Produto em ação. Dor → solução visual. Comparativo "antes/depois". | Gerar trial/demo. Motor direto de receita. | Vídeo 30s aprovação 1-tap · carrossel *"5 erros da agency no WhatsApp"* · screen recording do portal · post comparando relatório PDF manual vs story-report Produção |
-| 2 | **Autoridade** | 30% | Operação de agency premium. Padrões de relacionamento agency-cliente. Tese da categoria. | Cria a categoria *"painel de experiência do cliente"*. Sem categoria, conversão não converte. | Ensaio *"Por que silêncio do cliente NÃO é negativa"* · post *"Como agency boutique cobra premium em 2026"* · série *"Anatomia do contrato de agency"* |
+| 1 | **Conversão** | 40% | Produto em ação. Dor → solução visual. Comparativo "antes/depois". | Gerar trial/demo. Motor direto de receita. | **Screen recording 30s "do Notion direto pro feed — sem agendador no meio"** · carrossel *"5 sinais que você tá pagando agendador à toa"* · vídeo 30s aprovação 1-tap · post *"Por que pagar agendador se seu Notion já é o calendário?"* · screen recording do portal · post comparando relatório PDF manual vs story-report Produção |
+| 2 | **Autoridade** | 30% | Operação de agency premium. Padrões de relacionamento agency-cliente. Tese da categoria. | Cria a categoria *"painel de experiência do cliente"*. Sem categoria, conversão não converte. | Ensaio *"Sua stack de produção JÁ é seu agendador — só falta plugar nas redes"* · ensaio *"Por que silêncio do cliente NÃO é negativa"* · post *"Como agency boutique cobra premium em 2026"* · série *"Anatomia do contrato de agency"* |
 | 3 | **Prova social** | 20% | Case studies, testimonials, métricas reais dos pilotos. | Mata objeção. Pós-demo, pré-fechamento. | Case *"Agency X: 40% mais aprovações no prazo em 60d"* · screenshot de feedback real · vídeo do owner falando · número agregado |
 | 4 | **Bastidores / Founder** | 10% | Decisões de produto, contexto de tese, time, humor seco. | Humaniza. Fortalece marca. | Post *"Por que paramos de chamar a gente de SaaS"* · BTS do redesign do portal · founder explicando aprovação tácita |
 
@@ -281,4 +302,18 @@ Autoridade pelo conhecimento profundo. Casa com engenharia robusta (aprovação 
 
 ---
 
-*Documento aprovado e travado no método Vitamina Publicitária — 8 pilares · 2026-05-17 · v1.0*
+## Histórico de versões
+
+### v1.0 → v1.1 (2026-05-18) — refoco MVP
+
+Refoco do **gancho de venda** sem alterar tese estratégica. Ver `POSITIONING.md §1.5` pro contexto completo.
+
+- **§1 Posicionamento**: adicionada subseção *"Posicionamento MVP"* com headline *"Largue o agendador. Seu Notion vira o piloto automático."* Categoria não muda — continua *"painel de experiência do cliente"*.
+- **§3 Provas**: reordenadas pela prioridade de fala no MVP. *Publicação automática via API oficial* sobe pra #1 (era #4). *Aprovação tácita* mantém o status de prova ÚNICA mas desce na ordem de leitura. Adicionada prova *Portal premium white-label completo* refletindo a implementação de 2026-05-18.
+- **§4 Mensagem-mãe**: adicionada versão MVP (*"Largue o agendador..."*) ao lado da estratégica (*"Mais conteúdo saindo..."*). Convivem — MVP no funil de entrada, estratégica em peças de marca. Sub-mensagem 4 (Não-migração) reescrita pra refletir *"sua stack vira o agendador"*.
+- **§6 Vocabulário**: USA ganhou *piloto automático, stack (de produção), largar (o agendador), sozinho, automatizado, sem dupla operação*. NÃO USA reforçado com *"nomes próprios de concorrentes"* (mLabs/Etus/Buffer nunca aparecem em copy pública — use *"agendador típico"*) + alerta extra sobre *não virar "o agendador melhor"* (continuamos camada e painel, não agendador premium).
+- **§7 Pilares de Conteúdo**: exemplos do Pilar 1 (Conversão) e Pilar 2 (Autoridade) atualizados pra cobrir o ângulo automação — *"do Notion direto pro feed — sem agendador no meio"*, *"sua stack JÁ é seu agendador"* etc.
+
+---
+
+*Documento aprovado no método Vitamina Publicitária — 8 pilares · 2026-05-17 v1.0 · 2026-05-18 v1.1*

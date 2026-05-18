@@ -1,6 +1,6 @@
 # Produção — Posicionamento & Plano de Execução (Q1-Q2 2026)
 
-> Documento vivo. **v3 — 2026-05-17** (após sessão de Direção de Marca — método Vitamina Publicitária). Cada seção marca `Decidido` ou `Aberto`. Revisar trimestralmente. Histórico de pivôs no final.
+> Documento vivo. **v4 — 2026-05-18** (refoco MVP — ver histórico de pivôs no fim). Cada seção marca `Decidido` ou `Aberto`. Revisar trimestralmente.
 >
 > **Nome do produto**: Produção · `producao.app`
 > **Direção de marca completa**: ver [`brand/DIRECAO-DE-MARCA.md`](./brand/DIRECAO-DE-MARCA.md)
@@ -30,11 +30,36 @@ A agência é o comprador. O cliente final é quem **experimenta** a marca. A ag
 
 ---
 
+## 1.5 Entry point MVP atual (Q1-Q2 2026) — *Decidido v4*
+
+A tese estratégica acima é a **visão de longo prazo**. O **gancho de venda no MVP** é mais imediato e mensurável: **publicação no piloto automático usando a stack de produção da agência (Notion, Sheets, Trello, Airtable) — substituindo o agendador típico**.
+
+Quem chega na home lê primeiro *"largue o agendador. Seu Notion vira o piloto automático"*. O portal premium aparece como entrega adicional na mesma compra — não some, vira o sub-texto.
+
+### Por que entrar pela automação, não pelo portal
+
+- **Dor mais imediata e mensurável.** Owner-agency já paga R$ 200-500/mês num agendador (mLabs/Etus/RD Station). Substituir um SaaS que ele paga = ROI óbvio em 30s de demo.
+- **Setup que cabe na demo de 30 min.** Conectar Notion + WhatsApp + 1 conta IG é tangível. Re-conceituar portal cliente-final como hub-do-relacionamento exige fé.
+- **Portal cresce organicamente.** Quando a publicação já tá rodando automatizada (semana 1-2), o link permanente `/c/[token]` é uma adição natural pro cliente acompanhar — sem precisar "vender" o portal isoladamente.
+- **Demo converte mais rápido.** A virada psicológica acontece quando owner-agency vê o post saindo sozinho do Notion dele. Portal vira "ah, e ainda tem isso aqui pra mostrar pro cliente" no minuto 25.
+
+### Tensão a observar
+
+Risco do entry point MVP: prospect categorizar Produção como *"mais um agendador"* e nivelar pricing por baixo (R$ 200 mLabs vs R$ 1.500 nosso). Mitigação: a demo SEMPRE termina no portal — owner sai entendendo que comprou *"agendador + relacionamento premium"*, não *"agendador caro"*. Pricing argument continua sendo *"folha de pagamento operacional"*, não *"comparativo com mLabs"*.
+
+Conforme os pilotos consolidam (Q2-Q3), o eixo de venda migra naturalmente pro portal-as-moat. Categoria estratégica permanece *"painel de experiência do cliente"*.
+
+---
+
 ## 2. Posicionamento de mercado — *Decidido*
 
-### Headline de capa
+### Headline estratégico (longo prazo, peças de marca)
 > **Dê ao seu cliente um portal que faz ele entender por que você cobra o que cobra.**
 > *Aprovação no WhatsApp, publicação automática, relatório story-style — sem migrar sua operação.*
+
+### Headline MVP (entry point — capa da home, ads, podcast outreach)
+> **Largue o agendador. Seu Notion vira o piloto automático.**
+> *Aprova no WhatsApp do cliente, publica sozinho em todas as redes — sem migrar nada.*
 
 ### Sub-headline (segunda dobra)
 > Você já planeja no Notion (ou Sheets, ou Trello) com seu cliente. Produção conecta isso, dispara aprovação no WhatsApp do cliente final, publica multi-plataforma assim que ele aprova — e devolve um portal premium **white-label** que ele abre no celular todo dia. Sua agência fica com o controle. Seu cliente fica com a experiência.
@@ -45,29 +70,31 @@ A agência é o comprador. O cliente final é quem **experimenta** a marca. A ag
 ### Antagonistas declarados
 | Concorrente | Por que Produção ganha |
 |---|---|
-| **Status quo: WhatsApp manual + planilha + PDF** | É o real concorrente. É o que agência usa hoje. É o que perde aprovações no scroll. É o que faz a agência parecer amadora pro cliente. |
-| **mLabs / Etus** | Não é concorrente — é nosso anti-exemplo de categoria. Ferramenta interna de SMM que ninguém mostra pro cliente. Agência premium não migra a operação dela pra dentro do tool deles. |
+| **Status quo: WhatsApp manual + planilha + PDF** | É o real concorrente em agências sem stack. É o que perde aprovações no scroll. É o que faz a agência parecer amadora pro cliente. |
+| **Agendador típico (categoria sem nomear: "mLabs-like")** | Concorrente direto **na cabeça do prospect** no MVP. Eles operam num plano interno-da-agência: você copia/cola do Notion, aprova manualmente, paga R$ 200-500/mês. Produção **não substitui o trabalho do agendador — substitui a dupla operação**: Notion já vira o agendador. E entrega portal + aprovação que o mLabs-like nem tem. |
+| **mLabs / Etus** (categoria) | Anti-exemplo de categoria, não competimos no mesmo plano. Ferramenta interna de SMM que ninguém mostra pro cliente. Agência premium não migra a operação dela pra dentro do tool deles. |
 | **Hootsuite / Later / Sprout** | Gringos, dolarizados, UI corporativa fria, sem portal cliente-final, suporte em inglês. Sprout custa R$ 5k/mês e não fala português. |
 | **Frame.io / Filestage** | Param na aprovação de criativo. Não publicam. Não constroem relacionamento com cliente final ao longo do mês. |
 
 ### O que NÃO somos (anti-posicionamento)
 - ❌ Não somos rede social (não fazemos feed próprio)
-- ❌ Não somos agendador genérico ("Buffer brasileiro")
+- ❌ Não somos agendador genérico ("Buffer brasileiro") — **mesmo entrando pela automação no MVP, categoria é "painel"**
 - ❌ Não somos ferramenta de design (não competimos com Canva / CapCut)
 - ❌ Não somos CRM de agência (não gerimos pipeline comercial)
 - ❌ Não somos "mais um SaaS pra agência operar" — somos a camada que a agência usa pra **mostrar** trabalho
 
 ---
 
-## 3. Wedge sequencing — *Decidido*
+## 3. Wedge sequencing — *Decidido (v4 — checkmarks + marco MVP)*
 
 **Estratégia: Híbrido escalonado em 6 meses. Portal vende, OS retém — dev finito decide a ordem.**
 
-| Mês | Foco | Escopo (com reframe v2) | Métrica de sucesso |
+| Mês | Foco | Status | Métrica de sucesso |
 |---|---|---|---|
-| **1-2** | **Portal hub-do-cliente** (NÃO é redesign de UI — é re-conceituar o produto) | Os 6 elementos do hub: (1) posts pra aprovar como CTA principal, (2) publicados esse mês com métricas visuais, (3) briefing/estratégia aprovada, (4) próxima reunião, (5) status geral ("tudo em dia ✓"), (6) relatório story-style mensal swipável tipo Spotify Wrapped. White-label real (logo + cor + fonte da agency, zero "powered by VP"). Mobile-first impecável: aprovação 1-tap, slide-to-approve com microinteractions, áudio WhatsApp embed, notificação push PWA. | 3 agências-piloto contratadas e usando ativamente. NPS portal entre clientes finais ≥ 50. |
-| **3-4** | **OS multi-source: abstração + 2º conector** | Refator `lib/notion.ts` → `lib/source-adapter.ts` com interface `SourceOfTruthAdapter`. Schema `notionConnection` → `sourceConnection` (migration). Google Sheets como 2º conector com paridade de features. | 1 piloto rodando 100% via Sheets. Zero regressão Notion. Adapter contract documentado. |
-| **5-6** | **Refinamento + escolha do 3º conector** | Health dashboard interno (`/admin/health`): cron lag, último erro por conexão, taxa publish OK/erro/skip por cliente. Notion webhooks (substituir cron 5min onde possível). Decisão Trello vs IA assistant baseada em data dos pilotos. | <1% posts "stuck", lag médio <60s, 2 de 3 pilotos convertidos em pagantes. |
+| **1-2** | **Portal hub-do-cliente** (6 elementos do Pilar 7 + transversais: white-label real, slide-to-approve, PWA push, story-report swipável) | ✅ **Implementado 2026-05-18** — 9 fases técnicas (commits `8bdfb69` → `ecc811a`). VAPID keys pendem geração pra ativar push em prod. | 3 agências-piloto contratadas e usando ativamente. NPS portal entre clientes finais ≥ 50 (pendente: pilotos completarem 90d). |
+| **2-3** | **Consolidar oferta MVP de automação como entry point** (NOVO v4) | 🟡 Em curso — copy da home reescrita 2026-05-18 (`542af67`); falta propagar pra `/como-funciona`, `/integracoes`, `/faq`, `/setup`, `/demo` + materiais de venda (deck, vídeo de demo gravado, 1-pager). | 3 demos/semana via formulário público; taxa conversão demo → trial ≥ 30%; 1 caso de uso público completo (vídeo + screenshots) até fim de junho. |
+| **3-4** | **OS multi-source: abstração + 2º conector** | ⬜ Não iniciado | Refator `lib/notion.ts` → `lib/source-adapter.ts` com interface `SourceOfTruthAdapter`. Schema `notionConnection` → `sourceConnection` (migration). Google Sheets como 2º conector com paridade de features. 1 piloto rodando 100% via Sheets. Zero regressão Notion. |
+| **5-6** | **Refinamento + escolha do 3º conector** | ⬜ Não iniciado | Health dashboard interno (`/admin/health`): cron lag, último erro por conexão, taxa publish OK/erro/skip por cliente. Notion webhooks (substituir cron 5min onde possível). Decisão Trello vs IA assistant baseada em data dos pilotos. <1% posts "stuck", lag médio <60s, 2 de 3 pilotos convertidos em pagantes. |
 
 ### Por que **Híbrido** e não **Portal-puro** ou **OS-puro**
 
@@ -272,6 +299,17 @@ A variável-chave **não é tamanho da agency** (n° de clientes). É **ticket m
 ---
 
 ## Histórico de pivôs
+
+### v3 → v4 (2026-05-18)
+
+Refoco MVP: copy/CTA da home pivota pra **"publicação no piloto automático"** como entry point, sem alterar a tese estratégica de longo prazo (relacionamento premium). Daniel observou que após a migração pra `producao.app` e implementação do redesign do portal (9 fases entregues), o gancho de venda imediato é mais claro como automação — owner-agency precisa "entender em 5s" e substituir um SaaS que já paga é tangível.
+
+- **Tese estratégica**: inalterada — categoria continua *"painel de experiência do cliente"*. Portal premium continua o moat de longo prazo.
+- **§1.5 Entry point MVP** (novo): explícito que o gancho de venda atual é automação (*"largue o agendador"*), portal aparece como upsell narrativo na mesma compra. Tensão a observar: prospect pode nivelar pricing por baixo contra mLabs (R$ 200/mês); mitigação é demo SEMPRE terminar no portal.
+- **§2 Headline MVP** adicionado: *"Largue o agendador. Seu Notion vira o piloto automático"* pra uso no funil de captação (Google, Meta ads, podcast outreach, capa da home). Headline estratégico (*"Dê ao seu cliente um portal..."*) continua pra peças de marca.
+- **§2 Antagonistas**: adicionado *"Agendador típico (mLabs-like)"* como concorrente declarado **na cabeça do prospect** no MVP. mLabs/Etus por nome continua como anti-exemplo de categoria (não competimos no mesmo plano). Distinção importante pra que o argumento de pricing não vire comparativo com SaaS de R$ 200.
+- **§3 Roadmap**: Mês 1-2 (portal) marcado ✅ — 9 fases técnicas entregues 2026-05-18 (commits `8bdfb69` → `ecc811a`). Inserido marco **Mês 2-3: consolidar oferta MVP** pra fechar a virada de copy + materiais de venda + 1 caso de uso público. Mês 3-4 OS multi-source segue mesma.
+- Direção de marca (`DIRECAO-DE-MARCA.md`) recebeu mudanças correspondentes: posicionamento MVP (§1), provas reordenadas (§3, automação sobe pro topo), mensagem-mãe MVP (§4), vocabulário ganha "piloto automático / agendador / dupla operação / stack de produção" (§6).
 
 ### v2 → v3 (2026-05-17, mesma data)
 
