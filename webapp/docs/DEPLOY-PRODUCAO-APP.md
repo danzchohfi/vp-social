@@ -76,47 +76,70 @@ Quando verificado, o `RESEND_FROM` default (`Produção <contato@producao.app>`)
 
 ## 5. OAuth providers — adicionar nova URL de callback
 
-**Em cada provider**, adicionar `https://producao.app/...` às Redirect URIs. **Mantém os antigos por 90 dias** pra não quebrar quem tem sessão ativa.
+**Em cada provider**, adicionar `https://producao.app/...` E `https://www.producao.app/...` às Redirect URIs. **Mantém os antigos por 90 dias** pra não quebrar quem tem sessão ativa.
+
+> **Por que ambos (apex + www):** o código tem inconsistência intencional — `notion/auth-url` e `facebook/auth-url` derivam o `redirect_uri` do `new URL(req.url).origin` (o host que o user usou pra chegar), enquanto `youtube/tiktok/linkedin/auth-url` usam `process.env.NEXT_PUBLIC_APP_URL` fixo. Cadastrar as duas variantes evita `redirect_uri_mismatch` independente de como o user chegou ou de qual valor está no env.
+>
+> Better Auth (`/api/auth/callback/<provider>`) também deriva do host da request, então mesma lógica vale.
 
 ### Google (Cloud Console → APIs & Services → Credentials)
 
 OAuth 2.0 Client ID `Web application`:
 - Authorized redirect URIs:
   - `https://producao.app/api/auth/callback/google` *(Better Auth login com Google)*
+  - `https://www.producao.app/api/auth/callback/google`
   - `https://producao.app/api/youtube/callback` *(YouTube upload)*
-- Authorized JavaScript origins: `https://producao.app`
+  - `https://www.producao.app/api/youtube/callback`
+- Authorized JavaScript origins:
+  - `https://producao.app`
+  - `https://www.producao.app`
 
 ### Meta (Facebook + Instagram) — developers.facebook.com → My Apps
 
 Facebook Login → Settings → **Valid OAuth Redirect URIs**:
 - `https://producao.app/api/auth/callback/facebook`
+- `https://www.producao.app/api/auth/callback/facebook`
 - `https://producao.app/api/facebook/callback`
+- `https://www.producao.app/api/facebook/callback`
 
-App Domain: `producao.app`
+App Domain: `producao.app` (Meta aceita só um — o apex)
 Site URL: `https://producao.app`
 
 ### TikTok (developers.tiktok.com → My Apps)
 
 App Settings → **Redirect URI**:
 - `https://producao.app/api/tiktok/callback`
+- `https://www.producao.app/api/tiktok/callback`
 
 ### LinkedIn (developer.linkedin.com → My Apps)
 
 Products → Sign In with LinkedIn → **Authorized Redirect URLs**:
 - `https://producao.app/api/linkedin/callback`
+- `https://www.producao.app/api/linkedin/callback`
 
 ### Notion (developers.notion.com → My integrations)
 
 OAuth → **Redirect URIs**:
 - `https://producao.app/api/notion/callback`
+- `https://www.producao.app/api/notion/callback`
 
 ---
 
 ## 6. Better Auth — trustedOrigins
 
-`lib/auth.ts` lê `trustedOrigins` pra liberar CORS de OAuth callbacks. Adicionar `https://producao.app` à lista (se houver hardcoded), OU configurar via env var.
+`lib/auth.ts` deriva `trustedOrigins` em runtime a partir de `NEXT_PUBLIC_APP_URL`:
 
-Verificar `lib/auth.ts` — se a lista é hardcoded, atualizar e fazer commit.
+- Inclui o valor de `NEXT_PUBLIC_APP_URL`.
+- Inclui automaticamente o **irmão com/sem www** (se env é `https://producao.app`, adiciona `https://www.producao.app` e vice-versa). Fix de 2026-05-18 — antes disso, mismatch apex↔www causava 403.
+- Inclui `ADDITIONAL_TRUSTED_ORIGINS` (CSV) — usar pra migração cruzada com `posts.vitaminapublicitaria.com.br`.
+
+Não precisa mexer no código pra apex/www. Pra adicionar o domínio antigo durante a janela de 90 dias, setar no Vercel:
+
+```
+ADDITIONAL_TRUSTED_ORIGINS=https://posts.vitaminapublicitaria.com.br
+```
+
+Remover quando descomissionar.
 
 ---
 
