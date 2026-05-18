@@ -5,7 +5,7 @@ import useEmblaCarousel from "embla-carousel-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle2, AlertTriangle, Loader2, Clock, Building2, MessageCircle, ChevronLeft, ChevronRight, ExternalLink, Play, X, Download, Plus, Sparkles, Share2 } from "lucide-react"
+import { CheckCircle2, AlertTriangle, Loader2, Clock, Building2, MessageCircle, ChevronLeft, ChevronRight, ExternalLink, Play, X, Download, Plus, Sparkles, Share2, Bell, BellOff } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { PostMockup } from "@/components/post/post-mockup"
@@ -400,6 +400,9 @@ export default function ClientCalendarPage() {
           </div>
           {/* Status de pending vive no StatusBanner + HeroPendingCTA logo
               abaixo do header (Pilar 7.1 + 7.5 do brand doc). Não duplicar aqui. */}
+          {/* Push toggle (Pilar 7 transversal). Aparece só se o servidor
+              tiver VAPID configurada (botão fica escondido senão). */}
+          <PushToggle token={token} />
           {/* Botão sempre visível quando agência configurou briefingFormUrl.
               Abre form externo (Notion form) que preenche a DB de Produções.
               Versão MVP — depois pode virar wizard interno. */}
@@ -1780,6 +1783,125 @@ function ApprovalDialog({
       </div>
     </div>
   )
+}
+
+// PushToggle (Pilar 7 transversal: "notificação push PWA"). Cliente
+// liga/desliga push do navegador. Esconde quando navegador não suporta
+// ou quando servidor não tem VAPID. Service worker em /public/sw.js.
+function PushToggle({ token }: { token: string }) {
+  const [supported, setSupported] = useState(false)
+  const [vapidKey, setVapidKey] = useState<string | null>(null)
+  const [isSubscribed, setIsSubscribed] = useState(false)
+  const [busy, setBusy] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === "undefined") return
+    if (!("serviceWorker" in navigator) || !("PushManager" in window)) return
+    setSupported(true)
+    fetch(`/api/c/${token}/push`)
+      .then((r) => r.json())
+      .then(async (data) => {
+        if (!data.enabled || !data.vapidKey) return
+        setVapidKey(data.vapidKey)
+        // Detecta se este browser já tem subscription ativa
+        try {
+          const reg = await navigator.serviceWorker.getRegistration()
+          const sub = await reg?.pushManager.getSubscription()
+          setIsSubscribed(!!sub)
+        } catch { /* permission denied / quirk */ }
+      })
+      .catch(() => {})
+  }, [token])
+
+  async function enable() {
+    if (!vapidKey) return
+    setBusy(true)
+    try {
+      const reg = await navigator.serviceWorker.register("/sw.js")
+      await navigator.serviceWorker.ready
+      const permission = await Notification.requestPermission()
+      if (permission !== "granted") {
+        toast.error("Você precisa permitir notificações no navegador.")
+        return
+      }
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        // Cast pra BufferSource — TS 5.7 fica chato com Uint8Array<ArrayBufferLike>
+        // (SharedArrayBuffer vs ArrayBuffer). Runtime aceita ambos.
+        applicationServerKey: urlBase64ToUint8Array(vapidKey) as BufferSource,
+      })
+      const subJson = sub.toJSON() as { endpoint: string; keys: { p256dh: string; auth: string } }
+      const res = await fetch(`/api/c/${token}/push`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          endpoint: subJson.endpoint,
+          keys: subJson.keys,
+          userAgent: navigator.userAgent,
+        }),
+      })
+      if (!res.ok) throw new Error("Erro ao registrar")
+      setIsSubscribed(true)
+      toast.success("Notificações ativadas")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function disable() {
+    setBusy(true)
+    try {
+      const reg = await navigator.serviceWorker.getRegistration()
+      const sub = await reg?.pushManager.getSubscription()
+      if (sub) {
+        await fetch(`/api/c/${token}/push?endpoint=${encodeURIComponent(sub.endpoint)}`, {
+          method: "DELETE",
+        })
+        await sub.unsubscribe()
+      }
+      setIsSubscribed(false)
+      toast.success("Notificações desativadas")
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Erro")
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  if (!supported || !vapidKey) return null
+
+  return (
+    <Button
+      variant="ghost"
+      size="sm"
+      onClick={isSubscribed ? disable : enable}
+      disabled={busy}
+      className="shrink-0"
+      aria-label={isSubscribed ? "Desativar notificações" : "Ativar notificações"}
+      title={isSubscribed ? "Notificações ativadas — clique pra desativar" : "Ativar notificações push"}
+    >
+      {busy ? (
+        <Loader2 className="h-4 w-4 animate-spin" />
+      ) : isSubscribed ? (
+        <Bell className="h-4 w-4 text-primary" />
+      ) : (
+        <BellOff className="h-4 w-4" />
+      )}
+    </Button>
+  )
+}
+
+// VAPID public key vem como base64 URL-safe; PushManager.subscribe
+// quer Uint8Array. Conversão padrão (snippet do MDN web-push docs).
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = "=".repeat((4 - (base64String.length % 4)) % 4)
+  const base64 = (base64String + padding).replace(/-/g, "+").replace(/_/g, "/")
+  const raw = atob(base64)
+  const out = new Uint8Array(raw.length)
+  for (let i = 0; i < raw.length; ++i) out[i] = raw.charCodeAt(i)
+  return out
 }
 
 // Slide-to-approve (Pilar 7 transversal: "microinteractions premium").

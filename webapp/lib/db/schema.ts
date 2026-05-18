@@ -149,6 +149,22 @@ export const client = pgTable("client", {
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })
 
+// Web Push subscriptions do portal do cliente final (Pilar 7 transversal:
+// "notificação push PWA"). Uma subscription por device/browser do cliente
+// — eles podem ter várias (celular + desktop). Dispatch via web-push lib
+// quando agency cria nova aprovação (futuramente: aprovação atrasada,
+// wrapped do mês). NULL endpoint = nunca aconteceu / device renovou.
+export const pushSubscription = pgTable("push_subscription", {
+  id: text("id").primaryKey(),
+  clientId: text("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
+  endpoint: text("endpoint").notNull().unique(),
+  p256dh: text("p256dh").notNull(),
+  auth: text("auth").notNull(),
+  userAgent: text("user_agent"),
+  createdAt: timestamp("created_at").notNull().defaultNow(),
+  lastUsedAt: timestamp("last_used_at"),
+})
+
 export const clientMember = pgTable("client_member", {
   id: text("id").primaryKey(),
   clientId: text("client_id").notNull().references(() => client.id, { onDelete: "cascade" }),
