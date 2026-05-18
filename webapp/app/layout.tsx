@@ -72,13 +72,16 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           />
           {/* Aplica preferência de densidade + tema ANTES da hydratação pra
               evitar flash em page load. Tema: dark é default em rotas
-              internas (dashboard, settings, productions...); light é
-              default em rotas públicas (home, login, signup, portal
-              cliente). Usuário pode override via toggle no dashboard. */}
+              internas (dashboard, settings, productions...). Em rotas
+              white-label (portal cliente: /c, /a, /approve) seguimos o
+              OS do cliente final via prefers-color-scheme — agência não
+              impõe tema, e o portal não pisca branco em dispositivo
+              dark. Usuário pode override via toggle no dashboard
+              (afeta rotas internas, não o portal). */}
           <script
             nonce={nonce}
             dangerouslySetInnerHTML={{
-              __html: `try{var d=localStorage.getItem("vpsocial_density");if(d==="compact"||d==="comfortable")document.documentElement.dataset.density=d}catch(e){}try{if(!localStorage.getItem("__theme_reset_2026_05_18")){localStorage.removeItem("producao_theme");localStorage.setItem("__theme_reset_2026_05_18","1")}var t=localStorage.getItem("producao_theme");var p=window.location.pathname;var whiteLabel=(p==="/c"||p.indexOf("/c/")===0||p==="/a"||p.indexOf("/a/")===0||p==="/approve"||p.indexOf("/approve/")===0);if(whiteLabel){if(t==="dark")document.documentElement.classList.add("dark")}else{if(t!=="light")document.documentElement.classList.add("dark")}}catch(e){}`,
+              __html: `try{var d=localStorage.getItem("vpsocial_density");if(d==="compact"||d==="comfortable")document.documentElement.dataset.density=d}catch(e){}try{if(!localStorage.getItem("__theme_reset_2026_05_18")){localStorage.removeItem("producao_theme");localStorage.setItem("__theme_reset_2026_05_18","1")}var t=localStorage.getItem("producao_theme");var p=window.location.pathname;var whiteLabel=(p==="/c"||p.indexOf("/c/")===0||p==="/a"||p.indexOf("/a/")===0||p==="/approve"||p.indexOf("/approve/")===0);if(whiteLabel){var prefersDark=window.matchMedia&&window.matchMedia("(prefers-color-scheme: dark)").matches;if(prefersDark)document.documentElement.classList.add("dark")}else{if(t!=="light")document.documentElement.classList.add("dark")}}catch(e){}`,
             }}
           />
         </head>
