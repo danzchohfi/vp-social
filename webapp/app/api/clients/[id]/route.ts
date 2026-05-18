@@ -99,6 +99,80 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       update.briefingNotionPageId = `${h.slice(0, 8)}-${h.slice(8, 12)}-${h.slice(12, 16)}-${h.slice(16, 20)}-${h.slice(20)}`
     }
   }
+  // ─── White-label (Pilar 7 do brand doc) ──────────────────────────
+  // HEX '#RRGGBB'. Cor é injetada via inline style no portal — validamos
+  // formato pra fechar a porta de CSS injection.
+  const HEX_RE = /^#[0-9a-fA-F]{6}$/
+  if (body.agencyPrimaryColor !== undefined) {
+    if (body.agencyPrimaryColor === null || body.agencyPrimaryColor === "") {
+      update.agencyPrimaryColor = null
+    } else if (typeof body.agencyPrimaryColor !== "string" || !HEX_RE.test(body.agencyPrimaryColor)) {
+      return NextResponse.json({ error: "agencyPrimaryColor precisa ser #RRGGBB" }, { status: 400 })
+    } else {
+      update.agencyPrimaryColor = body.agencyPrimaryColor
+    }
+  }
+  if (body.agencyAccentColor !== undefined) {
+    if (body.agencyAccentColor === null || body.agencyAccentColor === "") {
+      update.agencyAccentColor = null
+    } else if (typeof body.agencyAccentColor !== "string" || !HEX_RE.test(body.agencyAccentColor)) {
+      return NextResponse.json({ error: "agencyAccentColor precisa ser #RRGGBB" }, { status: 400 })
+    } else {
+      update.agencyAccentColor = body.agencyAccentColor
+    }
+  }
+  // Google Font family name. Permitimos letras, espaços, hífens e
+  // dígitos — bloqueamos qualquer outro char pra que vire URL safe.
+  if (body.agencyFontFamily !== undefined) {
+    if (body.agencyFontFamily === null || body.agencyFontFamily === "") {
+      update.agencyFontFamily = null
+    } else if (typeof body.agencyFontFamily !== "string" || !/^[A-Za-z][A-Za-z0-9 -]{0,48}$/.test(body.agencyFontFamily.trim())) {
+      return NextResponse.json({ error: "agencyFontFamily inválido (letras, espaços, hífens)" }, { status: 400 })
+    } else {
+      update.agencyFontFamily = body.agencyFontFamily.trim()
+    }
+  }
+  // ─── Próxima reunião (Pilar 7.4) ─────────────────────────────────
+  if (body.nextMeetingAt !== undefined) {
+    if (body.nextMeetingAt === null || body.nextMeetingAt === "") {
+      update.nextMeetingAt = null
+    } else if (typeof body.nextMeetingAt !== "string") {
+      return NextResponse.json({ error: "nextMeetingAt deve ser string ISO" }, { status: 400 })
+    } else {
+      const d = new Date(body.nextMeetingAt)
+      if (Number.isNaN(d.getTime())) {
+        return NextResponse.json({ error: "nextMeetingAt não é data válida" }, { status: 400 })
+      }
+      update.nextMeetingAt = d
+    }
+  }
+  if (body.nextMeetingUrl !== undefined) {
+    if (body.nextMeetingUrl === null || body.nextMeetingUrl === "") {
+      update.nextMeetingUrl = null
+    } else if (typeof body.nextMeetingUrl !== "string") {
+      return NextResponse.json({ error: "nextMeetingUrl deve ser string" }, { status: 400 })
+    } else {
+      try {
+        const u = new URL(body.nextMeetingUrl.trim())
+        if (u.protocol !== "https:") {
+          return NextResponse.json({ error: "nextMeetingUrl precisa ser HTTPS" }, { status: 400 })
+        }
+        update.nextMeetingUrl = u.toString()
+      } catch {
+        return NextResponse.json({ error: "nextMeetingUrl não é URL válida" }, { status: 400 })
+      }
+    }
+  }
+  if (body.nextMeetingNotes !== undefined) {
+    if (body.nextMeetingNotes === null || body.nextMeetingNotes === "") {
+      update.nextMeetingNotes = null
+    } else if (typeof body.nextMeetingNotes !== "string") {
+      return NextResponse.json({ error: "nextMeetingNotes deve ser string" }, { status: 400 })
+    } else {
+      const trimmed = body.nextMeetingNotes.trim().slice(0, 500)
+      update.nextMeetingNotes = trimmed || null
+    }
+  }
 
   await db
     .update(client)

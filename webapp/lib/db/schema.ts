@@ -127,6 +127,24 @@ export const client = pgTable("client", {
   // aqui. Portal /c/[token] mostra a aba Briefing com as propriedades
   // da page resolvidas (perguntas + respostas). Sem isso a aba esconde.
   briefingNotionPageId: text("briefing_notion_page_id"),
+  // ─── White-label real (Pilar 7 do brand doc) ─────────────────────
+  // Cores e fonte da AGÊNCIA aplicadas no portal /c/[token] como CSS
+  // vars override, pra que a marca da agência fique no centro — não a
+  // marca Produção. HEX '#RRGGBB'. NULL = paleta default Produção.
+  agencyPrimaryColor: text("agency_primary_color"),
+  agencyAccentColor: text("agency_accent_color"),
+  // Google Font family (ex: "Inter", "Playfair Display"). Carregada
+  // via <link> dinâmico no head do portal e aplicada como font-family
+  // override. NULL = font default do produto (Inter).
+  agencyFontFamily: text("agency_font_family"),
+  // ─── Próxima reunião (Pilar 7.4 do brand doc) ────────────────────
+  // Reunião agendada agência↔cliente. Aparece no StatusBanner +
+  // card dedicado. NULL = sem reunião marcada, esconde card. Agência
+  // atualiza manualmente em Settings → cliente; futuramente sync com
+  // Google Calendar.
+  nextMeetingAt: timestamp("next_meeting_at"),
+  nextMeetingUrl: text("next_meeting_url"),
+  nextMeetingNotes: text("next_meeting_notes"),
   createdAt: timestamp("created_at").notNull().defaultNow(),
   updatedAt: timestamp("updated_at").notNull().defaultNow(),
 })

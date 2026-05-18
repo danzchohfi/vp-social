@@ -42,6 +42,12 @@ export async function GET(
       manualWhatsappTemplate: client.manualWhatsappTemplate,
       briefingFormUrl: client.briefingFormUrl,
       briefingNotionPageId: client.briefingNotionPageId,
+      agencyPrimaryColor: client.agencyPrimaryColor,
+      agencyAccentColor: client.agencyAccentColor,
+      agencyFontFamily: client.agencyFontFamily,
+      nextMeetingAt: client.nextMeetingAt,
+      nextMeetingUrl: client.nextMeetingUrl,
+      nextMeetingNotes: client.nextMeetingNotes,
     })
     .from(client)
     .where(eq(client.id, id))
@@ -150,6 +156,12 @@ export async function GET(
     manualWhatsappTemplate: row.manualWhatsappTemplate ?? "",
     briefingFormUrl: row.briefingFormUrl ?? "",
     briefingNotionPageId: row.briefingNotionPageId ?? "",
+    agencyPrimaryColor: row.agencyPrimaryColor ?? "",
+    agencyAccentColor: row.agencyAccentColor ?? "",
+    agencyFontFamily: row.agencyFontFamily ?? "",
+    nextMeetingAt: row.nextMeetingAt ? row.nextMeetingAt.toISOString() : "",
+    nextMeetingUrl: row.nextMeetingUrl ?? "",
+    nextMeetingNotes: row.nextMeetingNotes ?? "",
     whatsappConfigured,
     connections: connectionStatus,
     status,

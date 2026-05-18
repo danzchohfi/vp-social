@@ -183,6 +183,13 @@
       "when": 1779024616140,
       "tag": "0025_backfill_email_verified",
       "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1779068263616,
+      "tag": "0026_luxuriant_raider",
+      "breakpoints": true
     }
   ]
 }

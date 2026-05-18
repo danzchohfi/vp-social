@@ -287,6 +287,16 @@ export async function GET(
       // Flag pra UI decidir se mostra a aba Briefing. Conteúdo é fetched
       // sob demanda via /api/c/[token]/briefing (Notion API call).
       hasBriefing: !!client.briefingNotionPageId,
+      // White-label real (Pilar 7) — agência define as cores e fonte
+      // dela. Portal aplica via CSS vars override + Google Fonts link.
+      agencyPrimaryColor: client.agencyPrimaryColor ?? null,
+      agencyAccentColor: client.agencyAccentColor ?? null,
+      agencyFontFamily: client.agencyFontFamily ?? null,
+      // Próxima reunião (Pilar 7.4). Quando setada, portal mostra card
+      // com countdown + link "entrar". ISO string ou null.
+      nextMeetingAt: client.nextMeetingAt ? client.nextMeetingAt.toISOString() : null,
+      nextMeetingUrl: client.nextMeetingUrl ?? null,
+      nextMeetingNotes: client.nextMeetingNotes ?? null,
     },
     pending: pendingPosts.map((p) => ({
       ...slimPost(p),

@@ -80,6 +80,16 @@ type CalendarData = {
     logoUrl: string | null
     briefingFormUrl?: string | null
     hasBriefing?: boolean
+    // White-label (Pilar 7) — quando setados, sobreescrevem paleta e
+    // tipografia do portal pra que a marca da agência fique no centro.
+    agencyPrimaryColor?: string | null
+    agencyAccentColor?: string | null
+    agencyFontFamily?: string | null
+    // Próxima reunião (Pilar 7.4) — null = sem reunião marcada, card
+    // escondido.
+    nextMeetingAt?: string | null
+    nextMeetingUrl?: string | null
+    nextMeetingNotes?: string | null
   }
   pending: PendingPost[]
   scheduled: ScheduledPost[]
@@ -317,8 +327,34 @@ export default function ClientCalendarPage() {
     )
   }
 
+  // White-label real (Pilar 7) — quando a agência setou cor/fonte
+  // próprias, sobreescrevemos as CSS vars do portal. CSS vars são
+  // herdadas, então toda utility class (bg-primary, ring-primary,
+  // text-primary etc) passa a usar a cor da agência sem alterar
+  // markup. Validação HEX está no PATCH /api/clients/[id]. Cast pra
+  // Record porque CSSProperties não tipa CSS custom properties.
+  const wlStyle = {} as Record<string, string>
+  if (data.client.agencyPrimaryColor) {
+    wlStyle["--primary"] = data.client.agencyPrimaryColor
+    wlStyle["--ring"] = data.client.agencyPrimaryColor
+  }
+  if (data.client.agencyAccentColor) {
+    wlStyle["--accent"] = data.client.agencyAccentColor
+  }
+  if (data.client.agencyFontFamily) {
+    wlStyle.fontFamily = `"${data.client.agencyFontFamily}", system-ui, sans-serif`
+  }
+
   return (
-    <div className="relative min-h-screen bg-background pb-20">
+    <div className="relative min-h-screen bg-background pb-20" style={wlStyle}>
+      {/* Google Font dinâmica da agência. Carregamos só se setado.
+          Família é sanitizada pelo PATCH (regex letras/espaços/hífens). */}
+      {data.client.agencyFontFamily && (
+        <link
+          rel="stylesheet"
+          href={`https://fonts.googleapis.com/css2?family=${encodeURIComponent(data.client.agencyFontFamily)}:wght@400;500;600;700&display=swap`}
+        />
+      )}
       <div aria-hidden className="pointer-events-none fixed inset-x-0 top-0 -z-10 h-[32rem] overflow-hidden">
         <div className="absolute left-1/2 top-[-10rem] h-[40rem] w-[40rem] -translate-x-1/2 rounded-full aurora-bg" />
       </div>
@@ -364,6 +400,16 @@ export default function ClientCalendarPage() {
           <HeroPendingCTA
             pending={data.pending}
             onOpen={setSelectedPending}
+          />
+        )}
+
+        {/* Próxima reunião (Pilar 7.4). Aparece só quando agência marcou
+            uma. Quando vazio, esconde — não polui o portal com card vazio. */}
+        {data.client.nextMeetingAt && (
+          <NextMeetingCard
+            meetingAt={data.client.nextMeetingAt}
+            meetingUrl={data.client.nextMeetingUrl ?? null}
+            meetingNotes={data.client.nextMeetingNotes ?? null}
           />
         )}
 
@@ -518,12 +564,14 @@ function nextScheduledHint(scheduled: ScheduledPost[]): string | null {
 }
 
 // Status agregado em 1 linha (Pilar 7.5 do brand doc). Substitui o
-// "X aguardando" do header por uma frase que cobre 3 sinais: pendências
-// + próxima entrega + próxima reunião (quando houver — Fase 4 do redesign).
+// "X aguardando" do header por uma frase que cobre múltiplos sinais:
+// pendências + próxima entrega + próxima reunião + em produção.
 function StatusBanner({ data }: { data: CalendarData }) {
   const pending = data.pending.length
   const nextHint = nextScheduledHint(data.scheduled)
-  const hasProduction = (data.productions?.filter((p) => p.status !== "published").length ?? 0) > 0
+  const productionCount = data.productions?.filter((p) => p.status !== "published").length ?? 0
+  const hasProduction = productionCount > 0
+  const meetingHint = nextMeetingHint(data.client.nextMeetingAt ?? null)
 
   const allGood = pending === 0 && !hasProduction
   const tone = pending > 0 ? "warning" : "ok"
@@ -554,14 +602,101 @@ function StatusBanner({ data }: { data: CalendarData }) {
           próxima entrega {nextHint.replace("próximo ", "")}
         </span>
       )}
+      {meetingHint && (
+        <span className="text-muted-foreground">
+          <span className="mx-1 opacity-40">·</span>
+          próx reunião {meetingHint}
+        </span>
+      )}
       {hasProduction && (
         <span className="text-muted-foreground">
           <span className="mx-1 opacity-40">·</span>
-          {data.productions?.filter((p) => p.status !== "published").length} em produção
+          {productionCount} em produção
         </span>
       )}
     </div>
   )
+}
+
+// Card de próxima reunião (Pilar 7.4). Aparece quando agência marcou
+// reunião com cliente. Mostra data legível + countdown + link join +
+// notas. Esconde por completo quando não há reunião marcada — não vamos
+// poluir o portal com placeholder vazio.
+function NextMeetingCard({
+  meetingAt, meetingUrl, meetingNotes,
+}: {
+  meetingAt: string
+  meetingUrl: string | null
+  meetingNotes: string | null
+}) {
+  const date = new Date(meetingAt)
+  const diffMs = date.getTime() - Date.now()
+  const past = diffMs < 0
+  const days = Math.floor(diffMs / (24 * 60 * 60 * 1000))
+  const hours = Math.floor(diffMs / (60 * 60 * 1000))
+
+  let countdown: string
+  if (past) {
+    countdown = "passou"
+  } else if (hours < 1) {
+    countdown = "agora"
+  } else if (hours < 24) {
+    countdown = `em ${hours}h`
+  } else if (days === 1) {
+    countdown = "amanhã"
+  } else {
+    countdown = `em ${days} dias`
+  }
+
+  const longDate = date.toLocaleString("pt-BR", {
+    weekday: "long",
+    day: "2-digit",
+    month: "long",
+    hour: "2-digit",
+    minute: "2-digit",
+  })
+
+  return (
+    <div className="mb-6 overflow-hidden rounded-2xl border bg-card">
+      <div className="flex flex-col gap-4 px-5 py-4 sm:flex-row sm:items-center sm:justify-between sm:px-7 sm:py-5">
+        <div className="min-w-0">
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-primary">
+            Próxima reunião · {countdown}
+          </p>
+          <p className="mt-1 text-base font-medium leading-tight first-letter:uppercase">
+            {longDate}
+          </p>
+          {meetingNotes && (
+            <p className="mt-1.5 text-sm text-muted-foreground">
+              {meetingNotes}
+            </p>
+          )}
+        </div>
+        {meetingUrl && !past && (
+          <Button asChild size="sm" className="shrink-0">
+            <a href={meetingUrl} target="_blank" rel="noopener noreferrer">
+              Entrar na reunião
+              <ExternalLink className="ml-1 h-3.5 w-3.5" />
+            </a>
+          </Button>
+        )}
+      </div>
+    </div>
+  )
+}
+
+// Helper compacto pro StatusBanner (formato "30/mai" ou "amanhã"/"hoje").
+function nextMeetingHint(iso: string | null): string | null {
+  if (!iso) return null
+  const date = new Date(iso)
+  if (Number.isNaN(date.getTime())) return null
+  const diffMs = date.getTime() - Date.now()
+  if (diffMs < 0) return null
+  const hours = Math.floor(diffMs / (60 * 60 * 1000))
+  const days = Math.floor(diffMs / (24 * 60 * 60 * 1000))
+  if (hours < 24) return "hoje"
+  if (days === 1) return "amanhã"
+  return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "")
 }
 
 // Hero da aprovação (Pilar 7.1 do brand doc). Quando há pending, é a CTA

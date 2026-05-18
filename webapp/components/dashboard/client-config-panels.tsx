@@ -32,6 +32,16 @@ type Invite = {
   expiresAt: string
 }
 
+// ISO datetime (UTC) → string aceita pelo <input type="datetime-local"> no
+// fuso local do navegador ("YYYY-MM-DDTHH:mm"). Sem isso a UI mostra um
+// horário deslocado quando o servidor manda UTC.
+function toLocalDatetimeInput(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return ""
+  const pad = (n: number) => String(n).padStart(2, "0")
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
 
 export function MembersPanel({ clientId, canManage }: { clientId: string; canManage: boolean }) {
   const [members, setMembers] = useState<Member[]>([])
@@ -316,6 +326,22 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
   const [origBriefingFormUrl, setOrigBriefingFormUrl] = useState("")
   const [briefingNotionPageId, setBriefingNotionPageId] = useState("")
   const [origBriefingNotionPageId, setOrigBriefingNotionPageId] = useState("")
+  // White-label real (Pilar 7 do brand doc) — cor/fonte da agência
+  // aplicadas no portal /c/[token].
+  const [agencyPrimaryColor, setAgencyPrimaryColor] = useState("")
+  const [origAgencyPrimaryColor, setOrigAgencyPrimaryColor] = useState("")
+  const [agencyAccentColor, setAgencyAccentColor] = useState("")
+  const [origAgencyAccentColor, setOrigAgencyAccentColor] = useState("")
+  const [agencyFontFamily, setAgencyFontFamily] = useState("")
+  const [origAgencyFontFamily, setOrigAgencyFontFamily] = useState("")
+  // Próxima reunião (Pilar 7.4) — date input em valor "YYYY-MM-DDTHH:mm"
+  // (formato local). Convertemos pra ISO no save.
+  const [nextMeetingAtLocal, setNextMeetingAtLocal] = useState("")
+  const [origNextMeetingAtLocal, setOrigNextMeetingAtLocal] = useState("")
+  const [nextMeetingUrl, setNextMeetingUrl] = useState("")
+  const [origNextMeetingUrl, setOrigNextMeetingUrl] = useState("")
+  const [nextMeetingNotes, setNextMeetingNotes] = useState("")
+  const [origNextMeetingNotes, setOrigNextMeetingNotes] = useState("")
   const [connections, setConnections] = useState<ConnectionStatus[]>([])
   const [status, setStatus] = useState<"configured" | "partial" | "missing" | null>(null)
   const [nextStepHint, setNextStepHint] = useState<string | null>(null)
@@ -346,6 +372,21 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
       const bp = typeof data.briefingNotionPageId === "string" ? data.briefingNotionPageId : ""
       setBriefingNotionPageId(bp)
       setOrigBriefingNotionPageId(bp)
+      const pc = typeof data.agencyPrimaryColor === "string" ? data.agencyPrimaryColor : ""
+      setAgencyPrimaryColor(pc); setOrigAgencyPrimaryColor(pc)
+      const ac = typeof data.agencyAccentColor === "string" ? data.agencyAccentColor : ""
+      setAgencyAccentColor(ac); setOrigAgencyAccentColor(ac)
+      const ff = typeof data.agencyFontFamily === "string" ? data.agencyFontFamily : ""
+      setAgencyFontFamily(ff); setOrigAgencyFontFamily(ff)
+      // ISO -> local datetime-input format. Vazio = sem reunião.
+      const mAt = typeof data.nextMeetingAt === "string" && data.nextMeetingAt
+        ? toLocalDatetimeInput(data.nextMeetingAt)
+        : ""
+      setNextMeetingAtLocal(mAt); setOrigNextMeetingAtLocal(mAt)
+      const mUrl = typeof data.nextMeetingUrl === "string" ? data.nextMeetingUrl : ""
+      setNextMeetingUrl(mUrl); setOrigNextMeetingUrl(mUrl)
+      const mNotes = typeof data.nextMeetingNotes === "string" ? data.nextMeetingNotes : ""
+      setNextMeetingNotes(mNotes); setOrigNextMeetingNotes(mNotes)
       const conns: ConnectionStatus[] = Array.isArray(data.connections) ? data.connections : []
       setConnections(conns)
       setStatus(typeof data.status === "string" ? data.status : null)
@@ -375,6 +416,12 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
           manualWhatsappTemplate: waTemplate,
           briefingFormUrl: briefingFormUrl.trim() || null,
           briefingNotionPageId: briefingNotionPageId.trim() || null,
+          agencyPrimaryColor: agencyPrimaryColor.trim() || null,
+          agencyAccentColor: agencyAccentColor.trim() || null,
+          agencyFontFamily: agencyFontFamily.trim() || null,
+          nextMeetingAt: nextMeetingAtLocal ? new Date(nextMeetingAtLocal).toISOString() : null,
+          nextMeetingUrl: nextMeetingUrl.trim() || null,
+          nextMeetingNotes: nextMeetingNotes.trim() || null,
         }),
       })
       if (!res.ok) {
@@ -387,6 +434,12 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
       setOrigWaTemplate(waTemplate)
       setOrigBriefingFormUrl(briefingFormUrl)
       setOrigBriefingNotionPageId(briefingNotionPageId)
+      setOrigAgencyPrimaryColor(agencyPrimaryColor)
+      setOrigAgencyAccentColor(agencyAccentColor)
+      setOrigAgencyFontFamily(agencyFontFamily)
+      setOrigNextMeetingAtLocal(nextMeetingAtLocal)
+      setOrigNextMeetingUrl(nextMeetingUrl)
+      setOrigNextMeetingNotes(nextMeetingNotes)
       await load()
     } catch (e) {
       toast.error(e instanceof Error ? e.message : "Erro")
@@ -400,7 +453,13 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
     dispatchMode !== origDispatchMode ||
     waTemplate !== origWaTemplate ||
     briefingFormUrl !== origBriefingFormUrl ||
-    briefingNotionPageId !== origBriefingNotionPageId
+    briefingNotionPageId !== origBriefingNotionPageId ||
+    agencyPrimaryColor !== origAgencyPrimaryColor ||
+    agencyAccentColor !== origAgencyAccentColor ||
+    agencyFontFamily !== origAgencyFontFamily ||
+    nextMeetingAtLocal !== origNextMeetingAtLocal ||
+    nextMeetingUrl !== origNextMeetingUrl ||
+    nextMeetingNotes !== origNextMeetingNotes
 
   return (
     <div className="space-y-4">
@@ -516,6 +575,109 @@ export function ApprovalPanel({ clientId, clientName }: { clientId: string; clie
               onChange={(e) => setBriefingNotionPageId(e.target.value)}
               className="font-mono text-sm"
             />
+          </div>
+
+          {/* Marca da agência no portal cliente (Pilar 7 do brand doc).
+              Cores e fonte aplicadas como CSS vars override em /c/[token].
+              Vazio = paleta default Produção (cream/coral). */}
+          <div className="rounded-lg border bg-card/40 p-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold">Marca da agência no portal</p>
+              <p className="text-xs text-muted-foreground">
+                Cor primária + cor de destaque + fonte que o portal do cliente vai usar — pra que a marca da agência (não a Produção) fique no centro. Vazio = paleta padrão.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Cor primária (#RRGGBB)</Label>
+                <div className="flex gap-2">
+                  <input
+                    type="color"
+                    value={agencyPrimaryColor || "#cc785c"}
+                    onChange={(e) => setAgencyPrimaryColor(e.target.value)}
+                    className="h-9 w-12 cursor-pointer rounded border bg-background"
+                  />
+                  <Input
+                    value={agencyPrimaryColor}
+                    onChange={(e) => setAgencyPrimaryColor(e.target.value)}
+                    placeholder="#cc785c"
+                    className="font-mono text-sm flex-1"
+                  />
+                </div>
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Cor de destaque</Label>
+                <div className="flex gap-2">
+                  <input
+                    type="color"
+                    value={agencyAccentColor || "#1a1612"}
+                    onChange={(e) => setAgencyAccentColor(e.target.value)}
+                    className="h-9 w-12 cursor-pointer rounded border bg-background"
+                  />
+                  <Input
+                    value={agencyAccentColor}
+                    onChange={(e) => setAgencyAccentColor(e.target.value)}
+                    placeholder="#1a1612"
+                    className="font-mono text-sm flex-1"
+                  />
+                </div>
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Fonte (Google Fonts)</Label>
+              <Input
+                value={agencyFontFamily}
+                onChange={(e) => setAgencyFontFamily(e.target.value)}
+                placeholder="Inter, Playfair Display, Fraunces..."
+                className="text-sm"
+              />
+              <p className="text-[11px] text-muted-foreground">
+                Nome exato da família no <a href="https://fonts.google.com" target="_blank" rel="noopener noreferrer" className="underline">Google Fonts</a> (ex: <code className="font-mono">Playfair Display</code>). Vazio = fonte padrão.
+              </p>
+            </div>
+          </div>
+
+          {/* Próxima reunião (Pilar 7.4). Quando setada, portal mostra
+              card com countdown + link "entrar". Vazio = sem reunião =
+              card escondido (sem placeholder vazio poluindo). */}
+          <div className="rounded-lg border bg-card/40 p-4 space-y-3">
+            <div>
+              <p className="text-sm font-semibold">Próxima reunião</p>
+              <p className="text-xs text-muted-foreground">
+                Quando setada, o cliente vê no portal a data, contagem regressiva e link pra entrar. Atualize depois de cada call. Deixe vazio pra esconder.
+              </p>
+            </div>
+            <div className="grid gap-3 sm:grid-cols-2">
+              <div className="space-y-1">
+                <Label className="text-xs">Data e hora</Label>
+                <Input
+                  type="datetime-local"
+                  value={nextMeetingAtLocal}
+                  onChange={(e) => setNextMeetingAtLocal(e.target.value)}
+                  className="text-sm"
+                />
+              </div>
+              <div className="space-y-1">
+                <Label className="text-xs">Link da reunião (Meet/Zoom)</Label>
+                <Input
+                  type="url"
+                  value={nextMeetingUrl}
+                  onChange={(e) => setNextMeetingUrl(e.target.value)}
+                  placeholder="https://meet.google.com/..."
+                  className="font-mono text-sm"
+                />
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs">Pauta / contexto (opcional)</Label>
+              <Input
+                value={nextMeetingNotes}
+                onChange={(e) => setNextMeetingNotes(e.target.value)}
+                placeholder="Review do plano de junho · 30 min"
+                maxLength={500}
+                className="text-sm"
+              />
+            </div>
           </div>
 
           {/* Modo de envio — UMA pergunta só. As 3 opções mapeiam pros 2
