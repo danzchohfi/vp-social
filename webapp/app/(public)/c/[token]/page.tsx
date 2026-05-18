@@ -1,10 +1,11 @@
 "use client"
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import { useParams } from "next/navigation"
+import useEmblaCarousel from "embla-carousel-react"
 import { Card, CardContent } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { CheckCircle2, AlertTriangle, Loader2, Clock, Building2, MessageCircle, ChevronLeft, ChevronRight, ExternalLink, Play, X, Download, Plus } from "lucide-react"
+import { CheckCircle2, AlertTriangle, Loader2, Clock, Building2, MessageCircle, ChevronLeft, ChevronRight, ExternalLink, Play, X, Download, Plus, Sparkles, Share2 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { PostMockup } from "@/components/post/post-mockup"
@@ -254,6 +255,11 @@ export default function ClientCalendarPage() {
   // é setado mas a mídia ainda não veio, mostramos loading.
   const [previewPost, setPreviewPost] = useState<SlimPost | null>(null)
   const [previewLoading, setPreviewLoading] = useState(false)
+  // Wrapped (Pilar 7.6) — relatório mensal do mês passado, swipável.
+  // Aparece como banner CTA nos primeiros 7 dias do mês seguinte quando
+  // há posts publicados pra contar. Carregado em paralelo ao calendar.
+  const [metrics, setMetrics] = useState<MetricsData | null>(null)
+  const [wrappedOpen, setWrappedOpen] = useState(false)
 
   async function openPreviewByPageId(pageId: string, fallback: { title: string; conta: string }) {
     setPreviewLoading(true)
@@ -310,6 +316,12 @@ export default function ClientCalendarPage() {
   useEffect(() => {
     if (!token) return
     load()
+    // Carrega metrics em paralelo pro Wrapped (banner aparece dia 1-7
+    // do mês). Erro silencioso — sem metrics, banner só não aparece.
+    fetch(`/api/c/${token}/metrics`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((j) => { if (j) setMetrics(j) })
+      .catch(() => {})
   }, [token])
 
   // Auto-pick best initial tab: pending if any, else agendados, else publicados.
@@ -427,6 +439,17 @@ export default function ClientCalendarPage() {
           />
         )}
 
+        {/* Wrapped CTA (Pilar 7.6) — banner "Seu relatório de [mês] chegou"
+            que abre o modal swipable. Aparece nos primeiros 7 dias do mês
+            seguinte quando há posts publicados pra contar. */}
+        {shouldShowWrapped(metrics) && (
+          <WrappedCTA
+            monthLabel={metrics!.monthly!.lastMonthLabel}
+            postCount={metrics!.monthly!.lastMonth.posts}
+            onOpen={() => setWrappedOpen(true)}
+          />
+        )}
+
         {/* Stats bento — só em desktop, e só quando NÃO há pending hero
             (senão duplica visualmente). No mobile calendar+tabs cobrem a info. */}
         {data.pending.length === 0 && (
@@ -530,8 +553,31 @@ export default function ClientCalendarPage() {
           onClose={() => setPreviewPost(null)}
         />
       )}
+
+      {/* Wrapped modal swipável (Pilar 7.6) */}
+      {wrappedOpen && metrics?.monthly && (
+        <WrappedModal
+          clientName={data.client.name}
+          monthLabel={metrics.monthly.lastMonthLabel}
+          bucket={metrics.monthly.lastMonth}
+          prevBucket={null /* sem mês-antes-do-passado por ora */}
+          topPost={metrics.topPosts[0] ?? null}
+          onClose={() => setWrappedOpen(false)}
+        />
+      )}
     </div>
   )
+}
+
+// Trigger pro banner Wrapped — só nos primeiros 7 dias do mês seguinte
+// E quando há posts publicados pra contar. Fora dessa janela o relatório
+// fica no PerformancePanel mas sem virar CTA dominante (não polui o
+// portal o mês inteiro com banner de mês passado).
+function shouldShowWrapped(metrics: MetricsData | null): boolean {
+  if (!metrics?.monthly) return false
+  const day = new Date().getDate()
+  if (day > 7) return false
+  return metrics.monthly.lastMonth.posts > 0
 }
 
 // Helper: stat card no bento do topo (desktop only).
@@ -711,6 +757,293 @@ function nextMeetingHint(iso: string | null): string | null {
   if (hours < 24) return "hoje"
   if (days === 1) return "amanhã"
   return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "")
+}
+
+// Banner que vira CTA pro Wrapped (Pilar 7.6). Tom Soberano + Sábio,
+// frase curta com ritmo editorial. Aparece só dia 1-7 do mês seguinte.
+function WrappedCTA({
+  monthLabel, postCount, onOpen,
+}: {
+  monthLabel: string
+  postCount: number
+  onOpen: () => void
+}) {
+  return (
+    <button
+      onClick={onOpen}
+      className="group mb-6 block w-full overflow-hidden rounded-2xl border border-primary/30 bg-gradient-to-br from-primary/[0.10] via-primary/[0.04] to-background text-left transition-all hover:border-primary/60"
+    >
+      <div className="flex flex-wrap items-center gap-4 px-5 py-5 sm:px-7 sm:py-6">
+        <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-primary/15 text-primary">
+          <Sparkles className="h-6 w-6" />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-primary">
+            Novo relatório · {postCount} {postCount === 1 ? "post" : "posts"}
+          </p>
+          <p className="mt-0.5 text-base font-medium leading-tight first-letter:uppercase">
+            Seu {monthLabel.toLowerCase()} chegou — abra pra ver
+          </p>
+        </div>
+        <div className="flex shrink-0 items-center gap-1 text-sm font-medium text-primary">
+          Abrir
+          <ChevronRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
+        </div>
+      </div>
+    </button>
+  )
+}
+
+// Modal full-screen swipable estilo Spotify Wrapped (Pilar 7.6).
+// 5 slides editoriais. Mobile = swipe. Desktop = botões prev/next.
+// "Compartilhar" copia link do portal pra clipboard (cliente final
+// encaminha pros sócios dele — viralidade horizontal da tese).
+function WrappedModal({
+  clientName, monthLabel, bucket, prevBucket, topPost, onClose,
+}: {
+  clientName: string
+  monthLabel: string
+  bucket: MonthlyBucket
+  prevBucket: MonthlyBucket | null
+  topPost: MetricsData["topPosts"][number] | null
+  onClose: () => void
+}) {
+  const [emblaRef, emblaApi] = useEmblaCarousel({ loop: false, align: "center" })
+  const [idx, setIdx] = useState(0)
+
+  useEffect(() => {
+    if (!emblaApi) return
+    const onSelect = () => setIdx(emblaApi.selectedScrollSnap())
+    emblaApi.on("select", onSelect)
+    onSelect()
+    return () => { emblaApi.off("select", onSelect) }
+  }, [emblaApi])
+
+  const scrollPrev = useCallback(() => emblaApi?.scrollPrev(), [emblaApi])
+  const scrollNext = useCallback(() => emblaApi?.scrollNext(), [emblaApi])
+
+  function share() {
+    if (typeof window === "undefined") return
+    navigator.clipboard.writeText(window.location.href)
+      .then(() => toast.success("Link do portal copiado — manda pros sócios"))
+      .catch(() => toast.error("Não consegui copiar o link"))
+  }
+
+  const reachDelta = prevBucket && prevBucket.reach > 0
+    ? Math.round(((bucket.reach - prevBucket.reach) / prevBucket.reach) * 100)
+    : null
+
+  const slides = [
+    {
+      key: "cover",
+      content: (
+        <div className="text-center">
+          <Sparkles className="mx-auto h-10 w-10 text-primary" />
+          <p className="mt-4 text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
+            Relatório mensal
+          </p>
+          <h2 className="mt-3 text-[clamp(32px,5vw,52px)] font-light leading-[1.05] tracking-tight first-letter:uppercase">
+            {monthLabel}
+          </h2>
+          <p className="mt-2 text-[18px] text-muted-foreground">em {clientName}</p>
+        </div>
+      ),
+    },
+    {
+      key: "posts",
+      content: (
+        <div className="text-center">
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Foram publicados
+          </p>
+          <p className="mt-3 text-[clamp(80px,14vw,160px)] font-light leading-none text-primary tabular-nums">
+            {bucket.posts}
+          </p>
+          <p className="mt-2 text-[20px]">
+            {bucket.posts === 1 ? "post" : "posts"} no feed
+          </p>
+        </div>
+      ),
+    },
+    {
+      key: "reach",
+      content: (
+        <div className="text-center">
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Alcance total
+          </p>
+          <p className="mt-3 text-[clamp(56px,9vw,100px)] font-light leading-none tabular-nums">
+            {bucket.reach.toLocaleString("pt-BR")}
+          </p>
+          <p className="mt-2 text-[18px] text-muted-foreground">pessoas viram o conteúdo</p>
+          {reachDelta !== null && (
+            <p className={cn(
+              "mt-4 text-[15px]",
+              reachDelta > 0 ? "text-success" : reachDelta < 0 ? "text-destructive" : "text-muted-foreground"
+            )}>
+              {reachDelta > 0 ? "▲" : reachDelta < 0 ? "▼" : "—"} {Math.abs(reachDelta)}% vs mês passado
+            </p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "engagement",
+      content: (
+        <div className="text-center">
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Engajamento
+          </p>
+          <div className="mt-6 grid grid-cols-3 gap-4 sm:gap-8">
+            <div>
+              <p className="text-[clamp(36px,6vw,56px)] font-light leading-none tabular-nums">{bucket.likes.toLocaleString("pt-BR")}</p>
+              <p className="mt-1 text-[13px] text-muted-foreground">curtidas</p>
+            </div>
+            <div>
+              <p className="text-[clamp(36px,6vw,56px)] font-light leading-none tabular-nums">{bucket.comments.toLocaleString("pt-BR")}</p>
+              <p className="mt-1 text-[13px] text-muted-foreground">comentários</p>
+            </div>
+            <div>
+              <p className="text-[clamp(36px,6vw,56px)] font-light leading-none tabular-nums">{bucket.saves.toLocaleString("pt-BR")}</p>
+              <p className="mt-1 text-[13px] text-muted-foreground">salvos</p>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "top",
+      content: (
+        <div className="text-center">
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            Post que mais alcançou
+          </p>
+          {topPost ? (
+            <>
+              <p className="mx-auto mt-4 max-w-md text-[22px] leading-tight">
+                &ldquo;{topPost.title || "Sem título"}&rdquo;
+              </p>
+              <p className="mt-3 text-[clamp(40px,7vw,64px)] font-light leading-none tabular-nums text-primary">
+                {topPost.reach.toLocaleString("pt-BR")}
+              </p>
+              <p className="mt-1 text-[13px] text-muted-foreground">de alcance · {topPost.platform ?? ""}</p>
+              {topPost.postUrl && (
+                <a
+                  href={topPost.postUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-5 inline-flex items-center gap-1 text-sm text-primary underline-offset-4 hover:underline"
+                >
+                  Ver o post <ExternalLink className="h-3.5 w-3.5" />
+                </a>
+              )}
+            </>
+          ) : (
+            <p className="mt-4 text-muted-foreground">Sem dados de alcance ainda.</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: "share",
+      content: (
+        <div className="text-center">
+          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-primary">
+            Manda pros sócios
+          </p>
+          <h3 className="mt-4 text-[clamp(28px,4.5vw,42px)] font-light leading-tight">
+            Compartilhe o relatório
+          </h3>
+          <p className="mt-3 text-[16px] text-muted-foreground">
+            O link do portal abre direto neste mês.
+          </p>
+          <Button size="lg" onClick={share} className="mt-7">
+            <Share2 className="mr-2 h-4 w-4" />
+            Copiar link do portal
+          </Button>
+        </div>
+      ),
+    },
+  ]
+
+  // Fecha com ESC
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose()
+      else if (e.key === "ArrowLeft") emblaApi?.scrollPrev()
+      else if (e.key === "ArrowRight") emblaApi?.scrollNext()
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [onClose, emblaApi])
+
+  return (
+    <div className="fixed inset-0 z-50 flex flex-col bg-background/95 backdrop-blur-md">
+      {/* Top bar com close + progresso */}
+      <div className="flex items-center gap-3 px-5 py-4">
+        <div className="flex flex-1 gap-1">
+          {slides.map((_, i) => (
+            <div key={i} className="h-0.5 flex-1 overflow-hidden rounded-full bg-muted">
+              <div
+                className={cn(
+                  "h-full bg-primary transition-all duration-300",
+                  i < idx && "w-full",
+                  i === idx && "w-full",
+                  i > idx && "w-0"
+                )}
+              />
+            </div>
+          ))}
+        </div>
+        <button
+          onClick={onClose}
+          className="rounded-full p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground"
+          aria-label="Fechar"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+
+      {/* Carousel viewport */}
+      <div className="relative flex-1 overflow-hidden" ref={emblaRef}>
+        <div className="flex h-full">
+          {slides.map((s) => (
+            <div
+              key={s.key}
+              className="flex h-full min-w-0 flex-[0_0_100%] items-center justify-center px-6 sm:px-12"
+            >
+              <div className="max-w-2xl">{s.content}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* Nav buttons (desktop) */}
+      <div className="flex items-center justify-between gap-3 px-5 py-4 sm:px-8">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={scrollPrev}
+          disabled={idx === 0}
+          className="text-muted-foreground"
+        >
+          <ChevronLeft className="mr-1 h-4 w-4" />
+          Anterior
+        </Button>
+        <p className="text-[12px] text-muted-foreground tabular-nums">
+          {idx + 1} / {slides.length}
+        </p>
+        <Button
+          variant={idx === slides.length - 1 ? "default" : "ghost"}
+          size="sm"
+          onClick={idx === slides.length - 1 ? onClose : scrollNext}
+        >
+          {idx === slides.length - 1 ? "Fechar" : "Próximo"}
+          {idx !== slides.length - 1 && <ChevronRight className="ml-1 h-4 w-4" />}
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 // Hero da aprovação (Pilar 7.1 do brand doc). Quando há pending, é a CTA
