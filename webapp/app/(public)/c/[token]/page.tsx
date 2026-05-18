@@ -1722,18 +1722,16 @@ function ApprovalDialog({
           </div>
         )}
 
-        {/* Decision UI */}
+        {/* Decision UI — slide-to-approve em mobile (Pilar 7 transversal),
+            botão clássico em desktop. Microinteração reforça compromisso
+            ('decidi aprovar') e impede aprovação acidental num scroll. */}
         {!showCommentBox ? (
           <div className="space-y-2">
-            <Button
-              size="lg"
-              className="w-full bg-success hover:bg-success/90 text-success-foreground"
-              onClick={() => decide("approved")}
+            <SlideToApprove
+              loading={submitting === "approved"}
               disabled={submitting !== null}
-            >
-              {submitting === "approved" ? <Loader2 className="h-5 w-5 animate-spin" /> : <CheckCircle2 className="h-5 w-5" />}
-              Aprovar
-            </Button>
+              onConfirm={() => decide("approved")}
+            />
             <Button
               size="lg"
               variant="outline"
@@ -1780,6 +1778,119 @@ function ApprovalDialog({
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+// Slide-to-approve (Pilar 7 transversal: "microinteractions premium").
+// Mobile: cliente arrasta o thumb pra direita até passar 85% do trilho
+// → confirma. Desktop: também funciona via mouse, mas pra teclado
+// aceita Enter (acessível). Mantém o handle visualmente focável.
+function SlideToApprove({
+  onConfirm, loading, disabled,
+}: {
+  onConfirm: () => void
+  loading: boolean
+  disabled: boolean
+}) {
+  const [progress, setProgress] = useState(0)
+  const [confirming, setConfirming] = useState(false)
+  const trackRef = useState<HTMLDivElement | null>(null)
+  const [trackEl, setTrackEl] = trackRef
+  const THRESHOLD = 0.85 // arrasta 85% pra confirmar
+
+  function onPointerDown(e: React.PointerEvent<HTMLButtonElement>) {
+    if (disabled || loading || confirming) return
+    const handle = e.currentTarget
+    handle.setPointerCapture(e.pointerId)
+    const startX = e.clientX
+    const trackW = trackEl?.clientWidth ?? 320
+    const handleW = handle.clientWidth
+    const maxDx = trackW - handleW - 8 /* padding interno */
+
+    function onMove(ev: PointerEvent) {
+      const dx = Math.max(0, Math.min(maxDx, ev.clientX - startX))
+      setProgress(dx / maxDx)
+    }
+    function onUp() {
+      handle.removeEventListener("pointermove", onMove)
+      handle.removeEventListener("pointerup", onUp)
+      handle.removeEventListener("pointercancel", onUp)
+      setProgress((p) => {
+        if (p >= THRESHOLD) {
+          setConfirming(true)
+          onConfirm()
+          return 1
+        }
+        return 0 // snap back
+      })
+    }
+    handle.addEventListener("pointermove", onMove)
+    handle.addEventListener("pointerup", onUp)
+    handle.addEventListener("pointercancel", onUp)
+  }
+
+  // Reset visual quando submitter resolve (success ou erro abre de novo).
+  useEffect(() => {
+    if (!loading && confirming) {
+      const t = setTimeout(() => { setConfirming(false); setProgress(0) }, 200)
+      return () => clearTimeout(t)
+    }
+  }, [loading, confirming])
+
+  const passed = progress >= THRESHOLD || confirming || loading
+
+  return (
+    <div
+      ref={setTrackEl}
+      className={cn(
+        "relative h-14 w-full overflow-hidden rounded-full border bg-success/10 transition-colors",
+        disabled && "opacity-50",
+        passed && "bg-success/20"
+      )}
+    >
+      {/* Trilho preenchido — cresce com o drag */}
+      <div
+        className="absolute inset-y-0 left-0 bg-success/30 transition-[width] duration-100"
+        style={{ width: `${Math.max(8, progress * 100)}%` }}
+        aria-hidden
+      />
+      {/* Label central */}
+      <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm font-medium uppercase tracking-wider text-success">
+        {loading || confirming
+          ? "Aprovando..."
+          : progress > 0.1
+            ? `${Math.round(progress * 100)}%`
+            : "Arraste pra aprovar →"}
+      </div>
+      {/* Handle (thumb) — onde o usuário segura/arrasta */}
+      <button
+        type="button"
+        disabled={disabled || loading || confirming}
+        onPointerDown={onPointerDown}
+        onKeyDown={(e) => {
+          if ((e.key === "Enter" || e.key === " ") && !disabled && !loading) {
+            e.preventDefault()
+            setConfirming(true)
+            onConfirm()
+          }
+        }}
+        aria-label="Arraste pra aprovar — ou Enter pra confirmar"
+        className={cn(
+          "absolute top-1 bottom-1 left-1 flex aspect-square items-center justify-center rounded-full bg-success text-success-foreground shadow-md transition-transform",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-success focus-visible:ring-offset-2",
+          (disabled || loading) && "cursor-not-allowed"
+        )}
+        style={{
+          transform: `translateX(calc(${progress * 100}% * ${trackEl ? (trackEl.clientWidth - 56) / trackEl.clientWidth : 0.85}))`,
+        }}
+      >
+        {loading || confirming ? (
+          <Loader2 className="h-5 w-5 animate-spin" />
+        ) : (
+          <CheckCircle2 className="h-5 w-5" />
+        )}
+      </button>
     </div>
   )
 }
