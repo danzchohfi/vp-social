@@ -453,6 +453,16 @@ export default function ClientCalendarPage() {
           />
         )}
 
+        {/* Solicitações em andamento (elemento adicional pós-revisão dos 6).
+            Top-level pra sinalizar "agência tá trabalhando pra mim". Mostra
+            só quando há produções ativas (não-published, não-archived). */}
+        {(data.productions ?? []).filter((p) => p.status !== "published" && p.status !== "archived").length > 0 && (
+          <ProductionsHero
+            productions={data.productions ?? []}
+            onSeeAll={() => setTab("producoes")}
+          />
+        )}
+
         {/* Stats bento — só em desktop, e só quando NÃO há pending hero
             (senão duplica visualmente). No mobile calendar+tabs cobrem a info. */}
         {data.pending.length === 0 && (
@@ -760,6 +770,66 @@ function nextMeetingHint(iso: string | null): string | null {
   if (hours < 24) return "hoje"
   if (days === 1) return "amanhã"
   return date.toLocaleDateString("pt-BR", { day: "2-digit", month: "short" }).replace(".", "")
+}
+
+// Produções em andamento como bloco top-level — antes era só a aba
+// "Produções". Dá pro cliente sinal de "agência tá trabalhando pra mim"
+// sem precisar trocar de aba. Mostra até 3 cards compactos + atalho
+// "ver todas" que pula pra aba.
+function ProductionsHero({
+  productions, onSeeAll,
+}: {
+  productions: ProductionItem[]
+  onSeeAll: () => void
+}) {
+  const active = productions.filter((p) => p.status !== "published" && p.status !== "archived")
+  const preview = active.slice(0, 3)
+
+  return (
+    <div className="mb-6 rounded-2xl border bg-card">
+      <div className="flex flex-wrap items-center justify-between gap-2 border-b px-5 py-3">
+        <div>
+          <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-muted-foreground">
+            Em produção pra você
+          </p>
+          <p className="text-base">
+            {active.length === 1 ? "1 produção em andamento" : `${active.length} produções em andamento`}
+          </p>
+        </div>
+        {active.length > preview.length && (
+          <button
+            onClick={onSeeAll}
+            className="text-sm font-medium text-primary hover:underline"
+          >
+            Ver todas ({active.length}) →
+          </button>
+        )}
+      </div>
+      <div className="divide-y">
+        {preview.map((p) => (
+          <button
+            key={p.id}
+            onClick={onSeeAll}
+            className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/40"
+          >
+            <span className={cn(
+              "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider",
+              STATUS_TONE[p.status] ?? "bg-muted text-muted-foreground",
+            )}>
+              {p.statusLabel}
+            </span>
+            <span className="min-w-0 flex-1 truncate text-sm">{p.title}</span>
+            {p.publishDate && (
+              <span className="shrink-0 text-[12px] text-muted-foreground">
+                ao ar {shortDate(p.publishDate)}
+              </span>
+            )}
+            <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
+          </button>
+        ))}
+      </div>
+    </div>
+  )
 }
 
 // Banner que vira CTA pro Wrapped (Pilar 7.6). Tom Soberano + Sábio,
