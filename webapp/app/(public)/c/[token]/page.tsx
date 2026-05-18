@@ -336,11 +336,8 @@ export default function ClientCalendarPage() {
             <p className="text-[12px] uppercase tracking-wider text-muted-foreground">Agenda de conteúdo</p>
             <p className="truncate text-base">{data.client.name}</p>
           </div>
-          {data.pending.length > 0 && (
-            <Badge variant="warning" size="sm" className="py-1">
-              {data.pending.length} aguardando você
-            </Badge>
-          )}
+          {/* Status de pending vive no StatusBanner + HeroPendingCTA logo
+              abaixo do header (Pilar 7.1 + 7.5 do brand doc). Não duplicar aqui. */}
           {/* Botão sempre visível quando agência configurou briefingFormUrl.
               Abre form externo (Notion form) que preenche a DB de Produções.
               Versão MVP — depois pode virar wizard interno. */}
@@ -356,33 +353,43 @@ export default function ClientCalendarPage() {
       </div>
 
       <div className="mx-auto max-w-7xl px-4 py-4 lg:px-8 lg:py-6">
-        {/* Stats bento — só em desktop. No mobile o calendar e tabs já
-            cobrem a info. */}
-        <div className="mb-4 hidden gap-3 lg:grid lg:grid-cols-4">
-          <StatCard
-            label="Aguardando você"
-            value={data.pending.length}
-            tone="warning"
-            hint={data.pending.length === 1 ? "1 post pra aprovar" : `${data.pending.length} posts pra aprovar`}
+        {/* Status banner — uma linha agregada, sempre visível. Pilar 7.5
+            do brand doc: "Tudo em dia ✓ / X pendências · próx entrega · etc". */}
+        <StatusBanner data={data} />
+
+        {/* Hero approval — quando há posts pendentes, vira a CTA dominante
+            (Pilar 7.1: "posts pra aprovar como CTA principal"). Cobre a
+            tela do mobile e desktop pra não passar despercebido. */}
+        {data.pending.length > 0 && (
+          <HeroPendingCTA
+            pending={data.pending}
+            onOpen={setSelectedPending}
           />
-          <StatCard
-            label="Agendados"
-            value={data.scheduled.length}
-            tone="default"
-            hint={nextScheduledHint(data.scheduled)}
-          />
-          <StatCard
-            label="Publicados (90d)"
-            value={data.past.length}
-            tone="muted"
-          />
-          <StatCard
-            label="Em produção"
-            value={data.productions?.filter((p) => p.status !== "published").length ?? 0}
-            tone="muted"
-            hint={data.productions?.length ? "Veja na aba Produções" : null}
-          />
-        </div>
+        )}
+
+        {/* Stats bento — só em desktop, e só quando NÃO há pending hero
+            (senão duplica visualmente). No mobile calendar+tabs cobrem a info. */}
+        {data.pending.length === 0 && (
+          <div className="mb-4 hidden gap-3 lg:grid lg:grid-cols-3">
+            <StatCard
+              label="Agendados"
+              value={data.scheduled.length}
+              tone="default"
+              hint={nextScheduledHint(data.scheduled)}
+            />
+            <StatCard
+              label="Publicados (90d)"
+              value={data.past.length}
+              tone="muted"
+            />
+            <StatCard
+              label="Em produção"
+              value={data.productions?.filter((p) => p.status !== "published").length ?? 0}
+              tone="muted"
+              hint={data.productions?.length ? "Veja na aba Produções" : null}
+            />
+          </div>
+        )}
 
         {/* Bento layout: calendário fica à esquerda (sticky em lg+), tabs
             + lista à direita. Mobile vira 1 coluna na ordem natural. */}
@@ -508,6 +515,141 @@ function nextScheduledHint(scheduled: ScheduledPost[]): string | null {
   }
   if (days === 1) return "próximo amanhã"
   return `próximo em ${days} dias`
+}
+
+// Status agregado em 1 linha (Pilar 7.5 do brand doc). Substitui o
+// "X aguardando" do header por uma frase que cobre 3 sinais: pendências
+// + próxima entrega + próxima reunião (quando houver — Fase 4 do redesign).
+function StatusBanner({ data }: { data: CalendarData }) {
+  const pending = data.pending.length
+  const nextHint = nextScheduledHint(data.scheduled)
+  const hasProduction = (data.productions?.filter((p) => p.status !== "published").length ?? 0) > 0
+
+  const allGood = pending === 0 && !hasProduction
+  const tone = pending > 0 ? "warning" : "ok"
+
+  return (
+    <div className={cn(
+      "mb-4 flex flex-wrap items-center gap-x-4 gap-y-1.5 rounded-lg border px-4 py-2.5 text-sm",
+      tone === "warning"
+        ? "border-warning/40 bg-warning/5 text-warning"
+        : "border-success/30 bg-success/5 text-success"
+    )}>
+      <span className="inline-flex items-center gap-1.5 font-medium">
+        {allGood ? (
+          <CheckCircle2 className="h-4 w-4" />
+        ) : (
+          <span className="relative inline-flex h-2 w-2">
+            <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-current opacity-60" />
+            <span className="relative inline-flex h-2 w-2 rounded-full bg-current" />
+          </span>
+        )}
+        {pending > 0
+          ? (pending === 1 ? "1 post pra aprovar" : `${pending} posts pra aprovar`)
+          : "Tudo em dia"}
+      </span>
+      {nextHint && (
+        <span className="text-muted-foreground">
+          <span className="mx-1 opacity-40">·</span>
+          próxima entrega {nextHint.replace("próximo ", "")}
+        </span>
+      )}
+      {hasProduction && (
+        <span className="text-muted-foreground">
+          <span className="mx-1 opacity-40">·</span>
+          {data.productions?.filter((p) => p.status !== "published").length} em produção
+        </span>
+      )}
+    </div>
+  )
+}
+
+// Hero da aprovação (Pilar 7.1 do brand doc). Quando há pending, é a CTA
+// dominante — full-width, lista compacta dos primeiros 3, botão grande.
+// Quando vazio, este componente não renderiza (StatusBanner mostra "Tudo
+// em dia ✓").
+function HeroPendingCTA({
+  pending, onOpen,
+}: {
+  pending: PendingPost[]
+  onOpen: (p: PendingPost) => void
+}) {
+  const preview = pending.slice(0, 3)
+  const overflow = pending.length - preview.length
+
+  return (
+    <div className="mb-6 overflow-hidden rounded-2xl border border-warning/40 bg-gradient-to-br from-warning/[0.08] to-warning/[0.02]">
+      <div className="px-5 py-5 sm:px-7 sm:py-6">
+        <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-warning">
+              Aguardando você
+            </p>
+            <h2 className="mt-1 text-[clamp(22px,3vw,30px)] font-medium leading-tight">
+              {pending.length === 1
+                ? "1 post pronto pra sua aprovação"
+                : `${pending.length} posts prontos pra sua aprovação`}
+            </h2>
+          </div>
+          <Button
+            size="lg"
+            onClick={() => onOpen(pending[0])}
+            className="bg-warning text-warning-foreground hover:bg-warning/90"
+          >
+            Revisar primeiro
+            <ChevronRight className="ml-1 h-4 w-4" />
+          </Button>
+        </div>
+
+        <div className="space-y-2">
+          {preview.map((p) => (
+            <button
+              key={p.pageId}
+              onClick={() => onOpen(p)}
+              className="group flex w-full items-center gap-3 rounded-lg border border-warning/20 bg-card/80 p-3 text-left transition-colors hover:border-warning/50 hover:bg-card"
+            >
+              <PostThumb post={p} />
+              <div className="min-w-0 flex-1">
+                <div className="flex flex-wrap items-center gap-1.5">
+                  {p.publishTargets.slice(0, 2).map((t) => (
+                    <Badge key={t.raw} className={cn("text-[9px]", platformClass(t.platform))}>
+                      {t.raw}
+                    </Badge>
+                  ))}
+                  {p.publishTargets.length > 2 && (
+                    <span className="text-[11px] text-muted-foreground">
+                      +{p.publishTargets.length - 2}
+                    </span>
+                  )}
+                </div>
+                <p className="mt-0.5 truncate text-sm font-medium">
+                  {p.title || "Sem título"}
+                </p>
+                {p.scheduledDate && (
+                  <p className="text-[12px] text-muted-foreground">
+                    <Clock className="mr-0.5 inline h-3 w-3" />
+                    {new Date(p.scheduledDate).toLocaleString("pt-BR", {
+                      day: "2-digit",
+                      month: "2-digit",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    })}
+                  </p>
+                )}
+              </div>
+              <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground transition-transform group-hover:translate-x-0.5" />
+            </button>
+          ))}
+        </div>
+
+        {overflow > 0 && (
+          <p className="mt-3 text-center text-[12px] text-muted-foreground">
+            + {overflow} {overflow === 1 ? "outro" : "outros"} na aba Pendentes abaixo
+          </p>
+        )}
+      </div>
+    </div>
+  )
 }
 
 // ─── Calendar ────────────────────────────────
