@@ -75,24 +75,42 @@ export default function SignupPage() {
       return
     }
     setLoading(true)
-    const { error } = await signUp.email({ name, email, password })
-    if (error) {
-      toast.error(error.message || "Erro ao criar conta.")
-    } else {
-      toast.success("Conta criada. Bem-vindo ao Produção.")
-      router.push(postAuthTarget())
+    try {
+      const { error } = await signUp.email({ name, email, password })
+      if (error) {
+        toast.error(error.message || "Erro ao criar conta.")
+      } else {
+        toast.success("Conta criada. Bem-vindo ao Produção.")
+        router.push(postAuthTarget())
+      }
+    } catch (err) {
+      console.error("[signup] signUp.email threw:", err)
+      toast.error("Não foi possível criar a conta. Tente novamente em instantes.")
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   async function handleGoogle() {
     setGoogleLoading(true)
-    await signIn.social({ provider: "google", callbackURL: postAuthTarget() })
+    try {
+      await signIn.social({ provider: "google", callbackURL: postAuthTarget() })
+    } catch (err) {
+      console.error("[signup] Google signIn threw:", err)
+      toast.error("Não foi possível conectar com Google.")
+      setGoogleLoading(false)
+    }
   }
 
   async function handleFacebook() {
     setFbLoading(true)
-    await signIn.social({ provider: "facebook", callbackURL: postAuthTarget() })
+    try {
+      await signIn.social({ provider: "facebook", callbackURL: postAuthTarget() })
+    } catch (err) {
+      console.error("[signup] Facebook signIn threw:", err)
+      toast.error("Não foi possível conectar com Facebook.")
+      setFbLoading(false)
+    }
   }
 
   return (

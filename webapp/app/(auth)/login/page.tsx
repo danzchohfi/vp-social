@@ -61,23 +61,44 @@ export default function LoginPage() {
   async function handleLogin(e: React.FormEvent) {
     e.preventDefault()
     setLoading(true)
-    const { error } = await signIn.email({ email, password })
-    if (error) {
-      toast.error(error.message || "Erro ao entrar. Verifique suas credenciais.")
-    } else {
-      router.push(postAuthTarget())
+    try {
+      const { error } = await signIn.email({ email, password })
+      if (error) {
+        toast.error(error.message || "Erro ao entrar. Verifique suas credenciais.")
+      } else {
+        router.push(postAuthTarget())
+      }
+    } catch (err) {
+      // Better-auth/react rejeita em network errors (CSP bloqueio,
+      // server 5xx, fetch failure). Sem try/finally o spinner fica
+      // pendurado sem feedback nenhum.
+      console.error("[login] signIn.email threw:", err)
+      toast.error("Não foi possível conectar. Tente novamente em instantes.")
+    } finally {
+      setLoading(false)
     }
-    setLoading(false)
   }
 
   async function handleGoogle() {
     setGoogleLoading(true)
-    await signIn.social({ provider: "google", callbackURL: postAuthTarget() })
+    try {
+      await signIn.social({ provider: "google", callbackURL: postAuthTarget() })
+    } catch (err) {
+      console.error("[login] Google signIn threw:", err)
+      toast.error("Não foi possível conectar com Google.")
+      setGoogleLoading(false)
+    }
   }
 
   async function handleFacebook() {
     setFbLoading(true)
-    await signIn.social({ provider: "facebook", callbackURL: postAuthTarget() })
+    try {
+      await signIn.social({ provider: "facebook", callbackURL: postAuthTarget() })
+    } catch (err) {
+      console.error("[login] Facebook signIn threw:", err)
+      toast.error("Não foi possível conectar com Facebook.")
+      setFbLoading(false)
+    }
   }
 
   return (

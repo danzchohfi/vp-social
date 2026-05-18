@@ -33,10 +33,31 @@ const additionalOrigins = (process.env.ADDITIONAL_TRUSTED_ORIGINS ?? "")
   .map((s) => s.trim())
   .filter(Boolean)
 
+// Inclui automaticamente o "irmão" com/sem www do baseOrigin. Sem
+// isso, um deploy com NEXT_PUBLIC_APP_URL=https://producao.app
+// rejeita requests vindas de https://www.producao.app (ou vice-versa)
+// com 403 origin-mismatch — login não fecha. Evita exigir
+// ADDITIONAL_TRUSTED_ORIGINS pra esse caso comum.
+function siblingWwwOrigin(url: string): string | null {
+  try {
+    const u = new URL(url)
+    if (u.host.startsWith("www.")) return `${u.protocol}//${u.host.slice(4)}`
+    return `${u.protocol}//www.${u.host}`
+  } catch {
+    return null
+  }
+}
+const sibling = siblingWwwOrigin(baseOrigin)
+const trustedOriginsList = [
+  baseOrigin,
+  ...(sibling ? [sibling] : []),
+  ...additionalOrigins,
+]
+
 export const auth = betterAuth({
   baseURL: process.env.NEXT_PUBLIC_APP_URL,
   secret,
-  trustedOrigins: [...new Set([baseOrigin, ...additionalOrigins])],
+  trustedOrigins: [...new Set(trustedOriginsList)],
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {
