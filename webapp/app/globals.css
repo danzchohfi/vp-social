@@ -230,17 +230,20 @@ body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-/* Headlines em serif editorial por padrão — utility .font-display.
-   Fraunces tem opsz variable; em headlines grandes (acima de 40px)
-   o opsz aumenta automaticamente pra otimizar letterforms. */
-.font-display {
-  font-family: var(--font-display), Georgia, serif;
+/* Headlines em serif editorial por padrão. Classe customizada (não
+   .font-display, que conflita com utility auto-gerada do Tailwind v4
+   a partir do --font-display token e tinha render inconsistente em
+   produção). Fraunces tem opsz variable; em headlines grandes o opsz
+   aumenta automaticamente pra otimizar letterforms. */
+.font-display,
+.serif-display {
+  font-family: var(--font-fraunces), Georgia, "Times New Roman", serif !important;
   font-feature-settings: "ss01" 1, "ss03" 1;
   letter-spacing: -0.022em;
 }
 
 .font-serif {
-  font-family: var(--font-serif), Georgia, serif;
+  font-family: var(--font-fraunces), Georgia, "Times New Roman", serif !important;
 }
 
 /* Glassmorphism — adaptado pra paleta quente. Cream com transparência. */
@@ -265,13 +268,13 @@ body {
 
 /* Semantic typography helpers — usar SEMPRE que possível em código novo.
    Headlines (.t-title-*) saem em Fraunces serif por default agora. */
-.t-title-xl { @apply text-4xl font-normal tracking-tight; font-family: var(--font-display), Georgia, serif; }
-.t-title-lg { @apply text-3xl font-normal tracking-tight; font-family: var(--font-display), Georgia, serif; }
+.t-title-xl { @apply text-4xl font-normal tracking-tight; font-family: var(--font-fraunces), Georgia, serif !important; }
+.t-title-lg { @apply text-3xl font-normal tracking-tight; font-family: var(--font-fraunces), Georgia, serif !important; }
 .t-title-md { @apply text-base font-semibold; }
 .t-body { @apply text-sm; }
 .t-body-sm { @apply text-[13px] text-muted-foreground; }
 .t-caption { @apply text-[12px] uppercase tracking-wider text-muted-foreground; font-weight: 500; }
-.t-stat { @apply text-5xl font-normal leading-none tracking-tight; font-family: var(--font-display), Georgia, serif; }
+.t-stat { @apply text-5xl font-normal leading-none tracking-tight; font-family: var(--font-fraunces), Georgia, serif !important; }
 .t-mono { @apply font-mono text-[13px]; }
 
 /* Removido: film-grain overlay. Era dark-tech-vibe. Editorial-quente

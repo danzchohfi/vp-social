@@ -23,7 +23,10 @@ export default function LandingPage() {
               <span className="text-primary">●</span>
               <span>v1.0 · painel de experiência do cliente</span>
             </span>
-            <h1 className="font-display mx-auto mb-7 max-w-[900px] text-[clamp(52px,7.5vw,104px)] font-normal leading-[1.02] tracking-tight">
+            <h1
+              style={{ fontFamily: "var(--font-fraunces), Georgia, 'Times New Roman', serif" }}
+              className="mx-auto mb-7 max-w-[1080px] text-[clamp(40px,6.2vw,88px)] font-normal leading-[1.04] tracking-tight"
+            >
               Mais conteúdo saindo.{" "}
               <em className="font-normal italic text-primary">
                 Sem ninguém se matando.
