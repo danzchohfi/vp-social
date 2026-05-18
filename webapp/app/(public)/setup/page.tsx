@@ -167,8 +167,9 @@ export default function SetupPage() {
               <em className="italic text-primary">Roda sozinho.</em>
             </h1>
             <p className="mx-auto max-w-[640px] text-[19px] leading-[1.55] text-muted-foreground">
-              5 passos. Você faz sozinho, ou marca uma call white-glove de 30 minutos
-              (incluso no plano) onde a gente faz junto.
+              5 passos. No fim, seu Notion vira o agendador — posts saem direto
+              pras redes, sem ferramenta paralela. Você faz sozinho, ou marca uma
+              call white-glove de 30 minutos (incluso no plano) onde a gente faz junto.
             </p>
           </div>
         </section>

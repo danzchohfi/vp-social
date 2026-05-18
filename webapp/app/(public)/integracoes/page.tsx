@@ -76,7 +76,7 @@ export default function IntegracoesPage() {
           <div className="mx-auto max-w-[1180px] space-y-[80px]">
             <IntegrationGroup title="Planning" lead="Onde sua agência organiza conteúdo" items={PLANNING} />
             <IntegrationGroup title="Canais do cliente" lead="Onde o cliente final aprova" items={CHANNELS} />
-            <IntegrationGroup title="Publicação" lead="Onde o conteúdo sai" items={PUBLISHING} />
+            <IntegrationGroup title="Publicação" lead="Onde o conteúdo sai. Direto do seu Notion — sem agendador paralelo." items={PUBLISHING} />
           </div>
         </section>
 

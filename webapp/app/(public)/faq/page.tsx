@@ -83,6 +83,22 @@ const GROUPS: FaqGroup[] = [
           </>
         ),
       },
+      {
+        q: "Preciso continuar pagando o agendador que uso hoje?",
+        a: (
+          <>
+            Não. A gente publica direto via API oficial em Instagram, Facebook, YouTube, TikTok e LinkedIn — o mesmo que um agendador típico faz. A diferença é que sai direto do seu Notion (Sheets/Trello no roadmap), sem dupla operação de copiar/colar. Pode cancelar a ferramenta paralela.
+          </>
+        ),
+      },
+      {
+        q: "E se a agência já paga uma ferramenta de agendamento?",
+        a: (
+          <>
+            Boa — porque a partir do Produção você não precisa mais. Sua stack de produção (Notion, Sheets ou Trello) <strong>vira</strong> o agendador. Sem dupla operação, sem alimentar duas bases, sem migrar nada. Maioria das agências cancela a ferramenta paralela na primeira semana.
+          </>
+        ),
+      },
     ],
   },
   {

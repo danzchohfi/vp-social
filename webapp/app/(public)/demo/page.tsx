@@ -85,8 +85,9 @@ export default function DemoPage() {
             </h1>
             <p className="mb-8 text-[18px] leading-[1.55] text-muted-foreground">
               Você abre a conta da sua agência, eu abro a minha tela.
-              Conectamos um Notion seu de verdade, mostro o painel que o seu
-              cliente vai abrir, e a gente vê se faz sentido.
+              Conectamos um Notion seu de verdade, mostro o post saindo
+              direto pra rede sem agendador no meio, e o painel que o seu
+              cliente vai abrir. A gente vê se faz sentido.
             </p>
 
             <div className="space-y-4">

@@ -31,8 +31,9 @@ export default function ComoFuncionaPage() {
               <em className="italic text-primary">Sem agência tocar em nada.</em>
             </h1>
             <p className="mx-auto max-w-[620px] text-[19px] leading-[1.55] text-muted-foreground">
-              Quatro etapas. Roda por trás. O cliente da sua agência só vê o
-              resultado — um painel premium e posts saindo no prazo.
+              Quatro etapas. Roda por trás. Sem agendador paralelo, sem
+              dupla operação — seu Notion vira o piloto automático e o
+              cliente da sua agência só vê o resultado.
             </p>
           </div>
         </section>
@@ -83,7 +84,7 @@ const STAGES: StageDef[] = [
     title: "Planejamento continua no Notion",
     lead: "Onde sua agência já organiza tudo.",
     body:
-      "Conecta o workspace do Notion via OAuth oficial. A gente lê as databases que você já tem — calendário editorial, mídia, status. Sem migrar nada, sem ferramenta nova pra ninguém aprender. Mapeia 5 campos uma vez e pronto.",
+      "Conecta o workspace do Notion via OAuth oficial. A gente lê as databases que você já tem — calendário editorial, mídia, status. Sem migrar nada, sem agendador paralelo pra alimentar, sem ferramenta nova pra ninguém aprender. Seu Notion vira o agendador. Mapeia 5 campos uma vez e pronto.",
     bullets: [
       "Suporte a qualquer estrutura de database",
       "Mapeamento de status produção / status publicação / contas / mídia / legenda",
@@ -120,9 +121,10 @@ const STAGES: StageDef[] = [
     title: "Publicação automática em todas as redes",
     lead: "Aprovou? Sai. Toda vez.",
     body:
-      "Assim que o cliente aprova, a gente agenda a publicação no horário combinado em todas as plataformas configuradas: Instagram, Facebook, YouTube, TikTok, LinkedIn. Tudo via API oficial, com retry automático, atomic claim, audit log completo. Você não toca em nada.",
+      "Assim que o cliente aprova, a gente publica no horário combinado em todas as plataformas configuradas: Instagram, Facebook, YouTube, TikTok, LinkedIn. Tudo via API oficial, com retry automático, atomic claim, audit log completo. Você não toca em nada — e larga o agendador que rodava em paralelo só pra fazer isso.",
     bullets: [
       "5 plataformas: IG, FB, YT, TT, LinkedIn",
+      "Substitui o agendador típico — sem dupla operação",
       "Retry exponencial em falha de API",
       "Atomic claim: zero double-post mesmo em concorrência",
       "Trilha completa por post (quem aprovou, quando, de qual dispositivo)",
