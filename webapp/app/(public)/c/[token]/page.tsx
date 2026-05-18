@@ -182,6 +182,14 @@ function ymd(d: Date): string {
 
 type Tab = "pendentes" | "agendados" | "publicados" | "producoes" | "briefing" | "performance"
 
+type MonthlyBucket = {
+  posts: number
+  likes: number
+  comments: number
+  reach: number
+  saves: number
+}
+
 type MetricsData = {
   windowDays: number
   summary: {
@@ -192,6 +200,12 @@ type MetricsData = {
     saves: number
     impressions: number
     lastSyncedAt: string | null
+  }
+  monthly?: {
+    thisMonthLabel: string
+    lastMonthLabel: string
+    thisMonth: MonthlyBucket
+    lastMonth: MonthlyBucket
   }
   topPosts: Array<{
     pageId: string
@@ -1626,19 +1640,35 @@ function PerformancePanel() {
 
   return (
     <div className="space-y-5">
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-        <MetricCard label="Posts" value={data.summary.posts} />
-        <MetricCard label="Alcance" value={data.summary.reach} />
-        <MetricCard label="Curtidas" value={data.summary.likes} />
-        <MetricCard label="Comentários" value={data.summary.comments} />
-        <MetricCard label="Salvos" value={data.summary.saves} />
-      </div>
-      <p className="text-[12px] text-muted-foreground">
-        Últimos {data.windowDays} dias.
+      {/* Comparativo mensal (Pilar 7.2): este mês vs mês passado lado a
+          lado, com delta % visível. Substitui o "métricas 90d flat" sem
+          contexto. */}
+      {data.monthly && (
+        <MonthlyComparison
+          label={data.monthly.thisMonthLabel}
+          lastLabel={data.monthly.lastMonthLabel}
+          thisMonth={data.monthly.thisMonth}
+          lastMonth={data.monthly.lastMonth}
+        />
+      )}
+
+      <div>
+        <p className="mb-2 text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">
+          Total dos últimos {data.windowDays} dias
+        </p>
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+          <MetricCard label="Posts" value={data.summary.posts} />
+          <MetricCard label="Alcance" value={data.summary.reach} />
+          <MetricCard label="Curtidas" value={data.summary.likes} />
+          <MetricCard label="Comentários" value={data.summary.comments} />
+          <MetricCard label="Salvos" value={data.summary.saves} />
+        </div>
         {data.summary.lastSyncedAt && (
-          <> Última atualização: {new Date(data.summary.lastSyncedAt).toLocaleString("pt-BR", { day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit" })}</>
+          <p className="mt-2 text-[12px] text-muted-foreground">
+            Última atualização: {new Date(data.summary.lastSyncedAt).toLocaleString("pt-BR", { day: "2-digit", month: "long", hour: "2-digit", minute: "2-digit" })}
+          </p>
         )}
-      </p>
+      </div>
 
       {data.topPosts.length > 0 && (
         <div>
@@ -1679,6 +1709,71 @@ function PerformancePanel() {
           </div>
         </div>
       )}
+    </div>
+  )
+}
+
+// Comparativo "este mês vs passado" (Pilar 7.2). Cada métrica com delta
+// percentual + seta. Quando mês passado = 0, mostra "novo" em vez de
+// dividir por zero. Cor: verde quando subiu, vermelho quando desceu,
+// cinza quando empate.
+function MonthlyComparison({
+  label, lastLabel, thisMonth, lastMonth,
+}: {
+  label: string
+  lastLabel: string
+  thisMonth: MonthlyBucket
+  lastMonth: MonthlyBucket
+}) {
+  const items: Array<{ key: keyof MonthlyBucket; label: string }> = [
+    { key: "posts", label: "Posts" },
+    { key: "reach", label: "Alcance" },
+    { key: "likes", label: "Curtidas" },
+    { key: "comments", label: "Comentários" },
+    { key: "saves", label: "Salvos" },
+  ]
+  return (
+    <div>
+      <div className="mb-2 flex flex-wrap items-baseline justify-between gap-1">
+        <p className="text-[13px] font-semibold uppercase tracking-wider text-muted-foreground">
+          <span className="text-foreground capitalize">{label}</span>
+          <span className="ml-1.5 font-normal normal-case text-muted-foreground">
+            vs {lastLabel.toLowerCase()}
+          </span>
+        </p>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        {items.map((it) => {
+          const cur = thisMonth[it.key]
+          const prev = lastMonth[it.key]
+          const diff = cur - prev
+          const pct = prev === 0
+            ? (cur > 0 ? null : 0)
+            : Math.round((diff / prev) * 100)
+          const dir = diff > 0 ? "up" : diff < 0 ? "down" : "flat"
+          return (
+            <div key={it.key} className="rounded-xl border bg-card px-4 py-3">
+              <p className="text-[11px] uppercase tracking-wider text-muted-foreground">{it.label}</p>
+              <p className="mt-0.5 text-2xl font-semibold tabular-nums">{cur.toLocaleString("pt-BR")}</p>
+              <p className={cn(
+                "mt-1 text-[12px] tabular-nums",
+                dir === "up" && "text-success",
+                dir === "down" && "text-destructive",
+                dir === "flat" && "text-muted-foreground",
+              )}>
+                {dir === "up" && "▲ "}
+                {dir === "down" && "▼ "}
+                {dir === "flat" && "— "}
+                {pct === null
+                  ? "novo"
+                  : pct === 0
+                    ? "igual"
+                    : `${Math.abs(pct)}% ${dir === "down" ? "menos" : "mais"} que mês passado`}
+              </p>
+            </div>
+          )
+        })}
+      </div>
     </div>
   )
 }

@@ -86,6 +86,31 @@ export async function GET(
       .sort((a, b) => b.getTime() - a.getTime())[0] ?? null,
   }
 
+  // Comparativo "este mês vs mês passado" (Pilar 7.2 do brand doc:
+  // métricas com comparativo visual, não só números agregados de 90d).
+  // Bucket por mês civil pra que dia 1 do mês reseta a contagem.
+  const now = new Date()
+  const startOfThisMonth = new Date(now.getFullYear(), now.getMonth(), 1)
+  const startOfLastMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  const endOfLastMonth = new Date(now.getFullYear(), now.getMonth(), 0, 23, 59, 59, 999)
+  function bucket(start: Date, end: Date) {
+    const subset = filtered.filter((l) => {
+      const t = l.publishedAt.getTime()
+      return t >= start.getTime() && t <= end.getTime()
+    })
+    return {
+      posts: subset.length,
+      likes: subset.reduce((s, l) => s + (l.metricsLikes ?? 0), 0),
+      comments: subset.reduce((s, l) => s + (l.metricsComments ?? 0), 0),
+      reach: subset.reduce((s, l) => s + (l.metricsReach ?? 0), 0),
+      saves: subset.reduce((s, l) => s + (l.metricsSaves ?? 0), 0),
+    }
+  }
+  const thisMonth = bucket(startOfThisMonth, now)
+  const lastMonth = bucket(startOfLastMonth, endOfLastMonth)
+  const monthLabel = now.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
+  const lastMonthLabel = startOfLastMonth.toLocaleDateString("pt-BR", { month: "long", year: "numeric" })
+
   const topPosts = [...filtered]
     .filter((l) => (l.metricsReach ?? 0) > 0)
     .sort((a, b) => (b.metricsReach ?? 0) - (a.metricsReach ?? 0))
@@ -115,6 +140,12 @@ export async function GET(
   return NextResponse.json({
     windowDays: WINDOW_DAYS,
     summary,
+    monthly: {
+      thisMonthLabel: monthLabel,
+      lastMonthLabel,
+      thisMonth,
+      lastMonth,
+    },
     topPosts,
     recent,
   })
