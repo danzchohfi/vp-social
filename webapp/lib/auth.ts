@@ -23,10 +23,20 @@ if (!secret) {
   console.warn(`⚠ BETTER_AUTH_SECRET tem ${secret.length} chars — recomendado 32+ (256-bit hex). Rotacionar via 'openssl rand -hex 32'.`)
 }
 
+// Pra migração de domínio (ex: posts.vitaminapublicitaria.com.br ->
+// producao.app), defina ADDITIONAL_TRUSTED_ORIGINS no Vercel com a
+// lista separada por vírgula. Ambos hosts passam a aceitar callbacks
+// OAuth e session cookies durante o período de transição.
+const baseOrigin = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
+const additionalOrigins = (process.env.ADDITIONAL_TRUSTED_ORIGINS ?? "")
+  .split(",")
+  .map((s) => s.trim())
+  .filter(Boolean)
+
 export const auth = betterAuth({
   baseURL: process.env.NEXT_PUBLIC_APP_URL,
   secret,
-  trustedOrigins: [process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"],
+  trustedOrigins: [...new Set([baseOrigin, ...additionalOrigins])],
   database: drizzleAdapter(db, {
     provider: "pg",
     schema: {
