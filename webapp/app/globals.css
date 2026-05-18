@@ -3,6 +3,16 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* Anti-scroll-horizontal global: rotas públicas têm decoração com
+   gradientes/grids posicionados via absolute + maskImage que em mobile
+   ocasionalmente excedem o viewport (especialmente em iOS Safari por
+   conta da barra de URL retrátil). overflow-x: clip não cria scroll
+   container — mais seguro que hidden quando há position: sticky em
+   filhos (que sticky-break sob overflow:hidden ancestral). */
+html, body {
+  overflow-x: clip;
+}
+
 /* Density tokens — togglados via data-density no <html>. Comfortable é
    default. Compact reduz padding/gap pra power-users. */
 :root {

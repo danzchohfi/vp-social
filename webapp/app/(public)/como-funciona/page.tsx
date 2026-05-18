@@ -20,7 +20,7 @@ export default function ComoFuncionaPage() {
 
       <main className="relative flex-1">
         {/* Hero */}
-        <section className="px-8 pt-[100px] pb-[60px] text-center">
+        <section className="relative px-5 pt-[80px] pb-[50px] text-center sm:px-8 sm:pt-[100px] sm:pb-[60px]">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-[500px] tech-radial" />
           <div className="relative mx-auto max-w-[1180px]">
             <span className="font-mono mb-5 inline-block text-[12px] uppercase tracking-[0.12em] text-primary">
@@ -38,8 +38,8 @@ export default function ComoFuncionaPage() {
         </section>
 
         {/* 4 stages */}
-        <section className="px-8 py-[60px]">
-          <div className="mx-auto max-w-[1180px] space-y-[80px]">
+        <section className="relative px-5 py-[40px] sm:px-8 sm:py-[60px]">
+          <div className="mx-auto max-w-[1180px] space-y-[60px] sm:space-y-[80px]">
             {STAGES.map((s, i) => (
               <Stage key={s.title} stage={s} index={i + 1} reverse={i % 2 === 1} />
             ))}
@@ -47,7 +47,7 @@ export default function ComoFuncionaPage() {
         </section>
 
         {/* End */}
-        <section className="border-t border-border/70 px-8 py-[120px] text-center">
+        <section className="relative border-t border-border/70 px-5 py-[80px] text-center sm:px-8 sm:py-[120px]">
           <div className="mx-auto max-w-[1180px]">
             <h2 className="font-display mx-auto mb-6 max-w-[700px] text-[clamp(36px,4.5vw,56px)] font-normal leading-[1.08] tracking-tight">
               Quer ver rodando <em className="italic text-primary">na sua agência?</em>
@@ -134,30 +134,30 @@ const STAGES: StageDef[] = [
 function Stage({ stage, index, reverse }: { stage: StageDef; index: number; reverse: boolean }) {
   const Vis = stage.visual
   return (
-    <div className={`grid gap-12 md:grid-cols-2 md:items-center ${reverse ? "md:[&>*:first-child]:order-2" : ""}`}>
-      <div>
+    <div className={`grid gap-8 md:grid-cols-2 md:gap-12 md:items-center ${reverse ? "md:[&>*:first-child]:order-2" : ""}`}>
+      <div className="min-w-0">
         <div className="font-mono mb-4 text-[12px] uppercase tracking-[0.12em] text-primary">
           etapa {String(index).padStart(2, "0")}
         </div>
-        <h2 className="font-display mb-3 text-[clamp(32px,4vw,48px)] font-normal leading-[1.1] tracking-tight">
+        <h2 className="font-display mb-3 text-[clamp(28px,4vw,48px)] font-normal leading-[1.1] tracking-tight break-words">
           {stage.title}
         </h2>
-        <p className="font-display mb-5 text-[20px] italic text-muted-foreground">
+        <p className="font-display mb-5 text-[18px] italic leading-snug text-muted-foreground sm:text-[20px]">
           {stage.lead}
         </p>
-        <p className="mb-6 text-[16px] leading-[1.65] text-muted-foreground">
+        <p className="mb-6 text-[15px] leading-[1.6] text-muted-foreground sm:text-[16px] sm:leading-[1.65]">
           {stage.body}
         </p>
         <ul className="space-y-2.5 text-[15px]">
           {stage.bullets.map((b) => (
             <li key={b} className="flex items-start gap-3">
               <span className="mt-[8px] block h-[5px] w-[5px] shrink-0 rounded-full bg-primary" />
-              <span>{b}</span>
+              <span className="break-words">{b}</span>
             </li>
           ))}
         </ul>
       </div>
-      <div className="rounded-[18px] border border-border bg-card p-6 shadow-[0_24px_48px_-20px_rgba(0,0,0,0.3)]">
+      <div className="min-w-0 overflow-hidden rounded-[18px] border border-border bg-card p-4 shadow-[0_24px_48px_-20px_rgba(0,0,0,0.3)] sm:p-6">
         <Vis />
       </div>
     </div>
