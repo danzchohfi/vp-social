@@ -26,9 +26,9 @@ const geistMono = Geist_Mono({
 })
 
 export const metadata: Metadata = {
-  title: "Produção — O painel de experiência do cliente pra agências",
+  title: "Produção — Publicação no piloto automático pra agências",
   description:
-    "Mais conteúdo publicado. Menos esforço pra todo mundo. Plugado no que sua agência já usa.",
+    "Seu Notion vira o agendador. Aprova no WhatsApp do cliente e publica sozinho em todas as redes — sem agendador paralelo, sem dupla operação.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,

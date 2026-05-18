@@ -21,7 +21,7 @@ export default function LandingPage() {
           <div className="relative mx-auto max-w-[1180px]">
             <span className="font-mono mb-7 inline-flex items-center gap-2 rounded-full border border-border bg-card/40 px-[14px] py-[6px] text-[12px] tracking-tight text-muted-foreground backdrop-blur">
               <span className="text-primary">●</span>
-              <span>v1.0 · painel de experiência do cliente</span>
+              <span>v1.0 · publicação no piloto automático</span>
             </span>
             <h1
               style={{ fontFamily: "var(--font-fraunces), Georgia, 'Times New Roman', serif" }}
@@ -32,9 +32,9 @@ export default function LandingPage() {
                 Sem ninguém se matando.
               </em>
             </h1>
-            <p className="mx-auto mb-11 max-w-[620px] text-[21px] leading-[1.5] text-muted-foreground">
-              O painel premium pro cliente da agência aprovar, acompanhar e ver tudo que tá rolando —
-              plugado no que sua agência já usa.
+            <p className="mx-auto mb-11 max-w-[660px] text-[21px] leading-[1.5] text-muted-foreground">
+              Seu Notion vira o agendador. A gente aprova no WhatsApp do cliente e publica
+              sozinho em todas as redes — sem outra ferramenta paralela pra alimentar.
             </p>
             <div className="mb-9 flex flex-wrap justify-center gap-[14px]">
               <Link
@@ -274,11 +274,11 @@ export default function LandingPage() {
               nota do fundador
             </span>
             <blockquote className="font-display mx-auto mb-9 max-w-[920px] text-[clamp(28px,3.2vw,42px)] font-light leading-[1.25] tracking-tight">
-              &ldquo;Construí Produção dentro da Vitamina antes de virar produto. A gente
-              perdia 4 horas por semana caçando aprovação no WhatsApp e remontando
-              planilha toda segunda.{" "}
+              &ldquo;Construí Produção dentro da Vitamina porque cansei de pagar
+              agendador pra refazer um trabalho que já estava todo no nosso Notion.
+              Conectei direto — aprovou no WhatsApp do cliente, publica nas redes sozinho.{" "}
               <em className="italic">
-                Hoje a agência só liga pro cliente quando tem coisa boa pra mostrar.
+                Hoje a publicação rola no piloto automático — só toco quando tem decisão de marca pra tomar.
               </em>&rdquo;
             </blockquote>
             <cite className="text-[15px] not-italic text-muted-foreground">
@@ -333,9 +333,9 @@ export default function LandingPage() {
         {/* Final CTA */}
         <section className="relative border-t border-border/70 px-8 py-[130px] text-center">
           <div className="mx-auto max-w-[1180px]">
-            <h2 className="font-display mx-auto mb-8 max-w-[780px] text-[clamp(44px,5.5vw,72px)] font-light leading-[1.05] tracking-tight">
-              Pronto pra parar de{" "}
-              <em className="font-light italic text-primary">caçar aprovação no WhatsApp?</em>
+            <h2 className="font-display mx-auto mb-8 max-w-[820px] text-[clamp(44px,5.5vw,72px)] font-light leading-[1.05] tracking-tight">
+              Pronto pra largar o agendador{" "}
+              <em className="font-light italic text-primary">e botar a publicação no piloto automático?</em>
             </h2>
             <Link
               href="/demo"
@@ -355,8 +355,8 @@ export default function LandingPage() {
 const features = [
   {
     num: "01",
-    title: "Plug no planning",
-    body: "Conecta o Notion (ou Sheets, Trello, Airtable) que sua agência já usa. Zero migração, zero ferramenta nova pra aprender.",
+    title: "Sua stack vira o agendador",
+    body: "Conecta o Notion (ou Sheets, Trello, Airtable) que sua agência já usa pra planejar. Vira o agendador direto. Sem migrar pra outra tela, sem dupla operação.",
   },
   {
     num: "02",
@@ -365,8 +365,8 @@ const features = [
   },
   {
     num: "03",
-    title: "Publicação automática",
-    body: "Aprovou? Sai. Instagram, Facebook, YouTube, TikTok, LinkedIn. O conteúdo combinado, publicado. Toda vez.",
+    title: "Publicação no piloto automático",
+    body: "Aprovou? Sai. Instagram, Facebook, YouTube, TikTok, LinkedIn — tudo via API oficial. Você não toca em nada. O conteúdo combinado, publicado. Toda vez.",
   },
 ]
 
