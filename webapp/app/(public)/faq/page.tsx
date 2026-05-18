@@ -191,8 +191,8 @@ export default function FaqPage() {
               perguntas frequentes
             </span>
             <h1 className="font-display mx-auto mb-5 max-w-[800px] text-[clamp(40px,5.5vw,72px)] font-normal leading-[1.05] tracking-tight">
-              Tudo que agências{" "}
-              <em className="italic text-primary">perguntam antes de testar</em>.
+              O que outras agências{" "}
+              <em className="italic text-primary">já perguntaram no WhatsApp</em>.
             </h1>
             <p className="mx-auto max-w-[540px] text-[18px] text-muted-foreground">
               Não achou sua pergunta?{" "}

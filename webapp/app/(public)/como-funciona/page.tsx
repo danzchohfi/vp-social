@@ -24,7 +24,7 @@ export default function ComoFuncionaPage() {
           <div className="pointer-events-none absolute inset-x-0 top-0 h-[500px] tech-radial" />
           <div className="relative mx-auto max-w-[1180px]">
             <span className="font-mono mb-5 inline-block text-[12px] uppercase tracking-[0.12em] text-primary">
-              como funciona · end-to-end
+              como funciona · do planning ao feed
             </span>
             <h1 className="font-display mx-auto mb-6 max-w-[860px] text-[clamp(44px,6vw,84px)] font-normal leading-[1.04] tracking-tight">
               Do Notion ao feed.{" "}

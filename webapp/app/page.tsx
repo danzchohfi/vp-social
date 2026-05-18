@@ -65,18 +65,36 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Trust */}
+        {/* Reality strip — dados reais, sem "trusted by" inventado. Direção
+            de marca proíbe testimonial/logo lineup falso até 3 pilotos
+            completarem 90d. Aqui ficam fatos auditáveis + sinal de escassez. */}
         <section className="relative border-y border-border/70 bg-card/30 px-8 py-[60px]">
-          <div className="mx-auto max-w-[1180px] text-center">
-            <p className="font-mono mb-7 text-[12px] uppercase tracking-[0.12em] text-muted-foreground">
-              agências que já operam no producao.app
-            </p>
-            <div className="font-display flex flex-wrap items-center justify-center gap-x-14 gap-y-3 text-[22px] font-medium italic opacity-55">
-              <span>Vitamina</span>
-              <span>Studio Bom</span>
-              <span>Mesa &amp; Co.</span>
-              <span>Boa Praça</span>
-              <span>Conteúdo Sul</span>
+          <div className="mx-auto max-w-[1180px]">
+            <div className="grid gap-10 text-center md:grid-cols-3">
+              <div>
+                <div className="font-display text-[clamp(40px,4.5vw,56px)] font-normal leading-none text-primary">
+                  2024
+                </div>
+                <p className="font-mono mt-3 text-[12px] uppercase tracking-[0.12em] text-muted-foreground">
+                  rodando dentro da Vitamina Publicitária
+                </p>
+              </div>
+              <div>
+                <div className="font-display text-[clamp(40px,4.5vw,56px)] font-normal leading-none text-primary">
+                  3
+                </div>
+                <p className="font-mono mt-3 text-[12px] uppercase tracking-[0.12em] text-muted-foreground">
+                  vagas-piloto abertas · agências boutique BR
+                </p>
+              </div>
+              <div>
+                <div className="font-display text-[clamp(40px,4.5vw,56px)] font-normal leading-none text-primary">
+                  5
+                </div>
+                <p className="font-mono mt-3 text-[12px] uppercase tracking-[0.12em] text-muted-foreground">
+                  redes plugadas · WhatsApp Meta oficial
+                </p>
+              </div>
             </div>
           </div>
         </section>
@@ -247,17 +265,25 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* Testimonial */}
+        {/* Nota do fundador — em vez de testimonial inventado (brand doc:
+            "esperar 3 pilotos completarem 90d"), voz real do founder explicando
+            por que o produto existe. Mantém arquétipo Soberano+Sábio sem mentir. */}
         <section className="relative px-8 py-[130px] text-center">
           <div className="mx-auto max-w-[1180px]">
+            <span className="font-mono mb-7 inline-block text-[12px] uppercase tracking-[0.12em] text-primary">
+              nota do fundador
+            </span>
             <blockquote className="font-display mx-auto mb-9 max-w-[920px] text-[clamp(28px,3.2vw,42px)] font-light leading-[1.25] tracking-tight">
-              &ldquo;Antes a gente perdia 4 horas por semana caçando aprovação no WhatsApp. Hoje a
-              agência só liga pro cliente quando{" "}
-              <em className="italic">tem coisa boa</em> pra mostrar.&rdquo;
+              &ldquo;Construí Produção dentro da Vitamina antes de virar produto. A gente
+              perdia 4 horas por semana caçando aprovação no WhatsApp e remontando
+              planilha toda segunda.{" "}
+              <em className="italic">
+                Hoje a agência só liga pro cliente quando tem coisa boa pra mostrar.
+              </em>&rdquo;
             </blockquote>
             <cite className="text-[15px] not-italic text-muted-foreground">
-              <strong className="font-medium text-foreground">Marina Sá</strong>, sócia operacional ·
-              agência de 12 clientes
+              <strong className="font-medium text-foreground">Daniel Chohfi</strong>, fundador ·
+              Vitamina Publicitária
             </cite>
           </div>
         </section>
