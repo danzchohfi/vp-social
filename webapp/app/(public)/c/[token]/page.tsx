@@ -1,5 +1,5 @@
 "use client"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { Fragment, useCallback, useEffect, useMemo, useState } from "react"
 import { useParams } from "next/navigation"
 import useEmblaCarousel from "embla-carousel-react"
 import { Card, CardContent } from "@/components/ui/card"
@@ -9,6 +9,8 @@ import { CheckCircle2, AlertTriangle, Loader2, Clock, Building2, MessageCircle, 
 import { cn } from "@/lib/utils"
 import { toast } from "sonner"
 import { PostMockup } from "@/components/post/post-mockup"
+import { PHASE_LABEL_PT, PHASES_ORDERED, phaseIndex } from "@/lib/production-phases"
+import type { ProductionStatus } from "@/lib/productions"
 
 // Public client-facing calendar. Client opens this from a permanent
 // WhatsApp link the agency shared once. Token is on the URL. Three
@@ -812,18 +814,27 @@ function ProductionsHero({
             onClick={onSeeAll}
             className="flex w-full items-center gap-3 px-5 py-3 text-left transition-colors hover:bg-muted/40"
           >
-            <span className={cn(
-              "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider",
-              STATUS_TONE[p.status] ?? "bg-muted text-muted-foreground",
-            )}>
-              {p.statusLabel}
-            </span>
-            <span className="min-w-0 flex-1 truncate text-sm">{p.title}</span>
-            {p.publishDate && (
-              <span className="shrink-0 text-[12px] text-muted-foreground">
-                ao ar {shortDate(p.publishDate)}
-              </span>
-            )}
+            <div className="min-w-0 flex-1">
+              <div className="flex items-center gap-2">
+                <span className={cn(
+                  "shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wider",
+                  STATUS_TONE[p.status] ?? "bg-muted text-muted-foreground",
+                )}>
+                  {p.statusLabel}
+                </span>
+                <span className="min-w-0 flex-1 truncate text-sm">{p.title}</span>
+                {p.publishDate && (
+                  <span className="shrink-0 text-[12px] text-muted-foreground">
+                    ao ar {shortDate(p.publishDate)}
+                  </span>
+                )}
+              </div>
+              {phaseIndex(p.status as ProductionStatus) >= 0 && (
+                <div className="mt-2 max-w-[260px]">
+                  <PhaseRail status={p.status} size="compact" />
+                </div>
+              )}
+            </div>
             <ChevronRight className="h-4 w-4 shrink-0 text-muted-foreground" />
           </button>
         ))}
@@ -2087,6 +2098,61 @@ function SlideToApprove({
   )
 }
 
+// Trilho visual de 4 fases (Planejamento → Gravação → Edição →
+// Publicação). Reduz o lifecycle de 10 estados pra 4 baldes que o
+// cliente final pensa naturalmente. Sempre visível (independente das
+// datas terem sido preenchidas no Notion) — diferente do timeline-de-
+// datas que vem depois e mostra QUANDO cada evento aconteceu.
+function PhaseRail({ status, size = "default" }: { status: string; size?: "compact" | "default" }) {
+  const idx = phaseIndex(status as ProductionStatus)
+  if (idx < 0) return null
+
+  const compact = size === "compact"
+
+  return (
+    <div className="flex items-center">
+      {PHASES_ORDERED.map((phase, i) => {
+        const done = i < idx
+        const current = i === idx
+        return (
+          <Fragment key={phase}>
+            <div className="flex shrink-0 items-center gap-1.5">
+              <div
+                className={cn(
+                  "rounded-full shrink-0",
+                  compact ? "h-1.5 w-1.5" : "h-2.5 w-2.5",
+                  done && "bg-emerald-500",
+                  current && "bg-primary ring-2 ring-primary/25",
+                  !done && !current && "bg-muted-foreground/30",
+                )}
+              />
+              {!compact && (
+                <span
+                  className={cn(
+                    "whitespace-nowrap text-[11px] font-medium",
+                    current ? "text-foreground" : "text-muted-foreground",
+                  )}
+                >
+                  {PHASE_LABEL_PT[phase]}
+                </span>
+              )}
+            </div>
+            {i < PHASES_ORDERED.length - 1 && (
+              <div
+                className={cn(
+                  "h-px flex-1",
+                  compact ? "mx-1.5 min-w-[8px]" : "mx-2.5 min-w-[14px]",
+                  done ? "bg-emerald-500/60" : "bg-muted-foreground/20",
+                )}
+              />
+            )}
+          </Fragment>
+        )
+      })}
+    </div>
+  )
+}
+
 // Pill colorida por status. Cores casam com o flowchart Notion da
 // agência (azul=em-curso, amarelo=aguardando-VP, marrom=aguardando-
 // cliente, verde=concluído, vermelho=erro).
@@ -2522,6 +2588,15 @@ function ProductionCard({
             )}
           </div>
         </div>
+
+        {/* Trilho de 4 fases — sempre visível (não depende de datas) pra
+            cliente entender ONDE está no ciclo, independente do status
+            fine-grained do Notion ter sido atualizado. */}
+        {phaseIndex(p.status as ProductionStatus) >= 0 && (
+          <div className="border-t pt-3">
+            <PhaseRail status={p.status} />
+          </div>
+        )}
 
         {hasAnyDate && (
           <div className="flex flex-wrap gap-x-3 gap-y-1 border-t pt-2 text-[12px] text-muted-foreground">
